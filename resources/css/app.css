@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+
+@theme {
+    --font-sans: 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
+
+    --color-brand-50:  #fff7ed;
+    --color-brand-100: #ffedd5;
+    --color-brand-500: #f97316;
+    --color-brand-600: #ea580c;
+    --color-brand-700: #c2410c;
+}
+
+/* Map pins (plain CSS so Leaflet's injected HTML is styled) */
+.road-pin {
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    background: var(--pin, #dc2626);
+    border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+}
+
+.rp-popup-title {
+    display: block;
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+}
+.rp-popup-title:hover { text-decoration: underline; }
+.rp-popup-meta { margin-top: 2px; font-size: 12px; color: #475569; }
+[x-cloak] { display: none !important; }

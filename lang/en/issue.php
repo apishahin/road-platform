@@ -1,0 +1,103 @@
+<?php
+
+return [
+    'progress' => [
+        'reported'            => 'Reported',
+        'acknowledged'        => 'Acknowledged by authority',
+        'planned'             => 'Repair planned',
+        'work_started'        => 'Work started',
+        'completion_reported' => 'Completion claimed (not yet verified)',
+        'repaired'            => 'Verified repaired',
+    ],
+
+    'verification' => [
+        'unverified'          => 'Not yet verified',
+        'community_confirmed' => 'Confirmed by community',
+        'reviewed'            => 'Reviewed',
+        'verified'            => 'Verified',
+    ],
+
+    'disposition' => [
+        'active'    => 'Active',
+        'duplicate' => 'Duplicate',
+        'rejected'  => 'Rejected',
+        'referred'  => 'Referred to another authority',
+        'reopened'  => 'Reopened',
+    ],
+
+    'source' => [
+        'platform'        => 'Platform record',
+        'official_letter' => 'Official letter',
+        'news'            => 'News report',
+        'public_notice'   => 'Public notice',
+        'site_visit'      => 'Site visit',
+        'phone_call'      => 'Phone call',
+    ],
+
+    'actor' => [
+        'citizen'   => 'Citizen',
+        'volunteer' => 'Volunteer',
+        'moderator' => 'Moderator',
+        'authority' => 'Authority',
+        'system'    => 'System',
+    ],
+
+    'authority_state' => [
+        'proposed' => 'Proposed (verification pending)',
+        'verified' => 'Verified',
+        'disputed' => 'Disputed',
+    ],
+
+    'explain' => [
+        'reported'            => 'This problem has been reported. No acknowledgement or evidence of work has been recorded yet.',
+        'acknowledged'        => 'A responsible authority or recognised source has acknowledged the problem. No repair plan is recorded yet.',
+        'planned'             => 'A repair plan has been recorded. It is not yet confirmed whether work has started.',
+        'work_started'        => 'Evidence shows repair work has started. Whether it has finished has not yet been verified.',
+        'completion_reported' => 'Someone claims the repair is finished. This claim has not yet been independently verified.',
+        'repaired'            => 'The repair has been verified. See the timeline for the date and source of verification.',
+        'reopened'            => 'An earlier repair claim is no longer accurate, so the problem has been reopened.',
+    ],
+
+    'page' => [
+        'home'                 => 'Home',
+        'all_issues'           => 'All issues',
+        'category'             => 'Type',
+        'road'                 => 'Road',
+        'landmark'             => 'Landmark',
+        'area'                 => 'Area',
+        'verification'         => 'Verification',
+        'reports'              => 'Reports',
+        'first_reported'       => 'First reported',
+        'last_activity'        => 'Last activity',
+        'timeline'             => 'Timeline',
+        'timeline_note'        => 'Every change is shown with its date and source.',
+        'no_timeline'          => 'No changes have been recorded yet.',
+        'event_note'           => 'Note',
+        'reason'               => 'Reason',
+        'source_link'          => 'View source',
+        'reports_title'        => 'Reports',
+        'reports_note'         => 'Reports are claims submitted by users. They are not proof until verified.',
+        'no_reports'           => 'Approved reports will appear here after moderation.',
+        'photos'               => 'Photos',
+        'no_photos'            => 'No approved photos yet.',
+        'authority'            => 'Responsible authority',
+        'authority_unverified' => 'The responsible authority has not yet been verified.',
+        'authority_note'       => 'We link an authority only on recorded sources and jurisdiction information, never on guesswork.',
+        'basis'                => 'Basis for link',
+        'map'                  => 'Map',
+        'open_map'             => 'Open larger map',
+        'directions'           => 'Directions (Google Maps)',
+        'share'                => 'Share',
+        'copied'               => 'Link copied',
+        'confirm'              => 'Confirm this problem',
+        'confirm_note'         => 'Log in to report whether the problem still exists, got worse, or is fixed.',
+        'login_to_confirm'     => 'Log in',
+        'wrong_info'           => 'Think this information is wrong or outdated?',
+        'coming_soon'          => '(coming soon)',
+        'home_link'            => 'Home',
+        'duplicate_notice'     => 'This issue has been linked to another issue at the same location.',
+        'view_main'            => 'View the main issue',
+        'rejected_notice'      => 'This report was not accepted under the platform policy.',
+        'referred_notice'      => 'This matter has been referred to another authority.',
+    ],
+];
