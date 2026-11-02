@@ -1,0 +1,24 @@
+<?php
+
+return [
+    'title'        => 'Login',
+    'intro'        => 'Enter your mobile number. We will send you a 6-digit code.',
+    'phone'        => 'Mobile number',
+    'send_code'    => 'Send code',
+    'privacy'      => 'Your phone number is never shown publicly. It is used only for login and to prevent abuse.',
+    'verify_title' => 'Enter the code',
+    'verify_intro' => 'Type the 6-digit code sent to :phone. It is valid for 5 minutes.',
+    'dev_hint'     => 'Development mode: the code is in storage/logs/laravel.log.',
+    'code'         => 'Code',
+    'verify'       => 'Verify',
+    'resend'       => 'Send a new code',
+    'change_phone' => 'Change number',
+    'sent'         => 'Code sent.',
+    'welcome'      => 'You are logged in.',
+    'logout'       => 'Logout',
+    'bad_phone'    => 'Enter a valid Bangladesh mobile number (for example 01712345678).',
+    'bad_code'     => 'The code is wrong or has expired.',
+    'locked'       => 'Too many wrong attempts. Request a new code and try again.',
+    'wait'         => 'Please wait a moment, then request a new code.',
+    'blocked'      => 'This number cannot be used to log in.',
+];

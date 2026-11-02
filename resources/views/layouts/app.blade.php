@@ -31,7 +31,7 @@
 
             <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
                 <a href="{{ route('home') }}" class="hover:text-slate-900">{{ __('Home') }}</a>
-                <a href="{{ url('/issues') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
+                <a href="{{ route('issues.index') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
                 <a href="{{ url('/authorities') }}" class="hover:text-slate-900">{{ __('Authorities') }}</a>
                 <a href="{{ url('/how-it-works') }}" class="hover:text-slate-900">{{ __('How it works') }}</a>
             </nav>
@@ -44,8 +44,15 @@
                 @endif
 
                 @guest
-                    <a href="{{ url('/login') }}" class="hidden rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 sm:inline-block">{{ __('Login') }}</a>
+                    <a href="{{ route('login') }}" class="hidden rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 sm:inline-block">{{ __('Login') }}</a>
                 @endguest
+
+                @auth
+                    <form method="POST" action="{{ route('logout') }}" class="hidden sm:block">
+                        @csrf
+                        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">{{ __('login.logout') }}</button>
+                    </form>
+                @endauth
 
                 <a href="{{ url('/report') }}" class="hidden rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-block">{{ __('Report a problem') }}</a>
 
@@ -59,10 +66,18 @@
         <div x-show="open" x-cloak x-transition class="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
             <div class="flex flex-col gap-3 text-sm font-medium">
                 <a href="{{ route('home') }}">{{ __('Home') }}</a>
-                <a href="{{ url('/issues') }}">{{ __('Issues') }}</a>
+                <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
                 <a href="{{ url('/authorities') }}">{{ __('Authorities') }}</a>
                 <a href="{{ url('/how-it-works') }}">{{ __('How it works') }}</a>
-                @guest <a href="{{ url('/login') }}">{{ __('Login') }}</a> @endguest
+                @guest
+                    <a href="{{ route('login') }}">{{ __('Login') }}</a>
+                @endguest
+                @auth
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="text-left">{{ __('login.logout') }}</button>
+                    </form>
+                @endauth
                 <a href="{{ url('/report') }}" class="rounded-lg bg-brand-600 px-3 py-2 text-center font-semibold text-white">{{ __('Report a problem') }}</a>
             </div>
         </div>
