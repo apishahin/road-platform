@@ -2,31 +2,19 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Default Filesystem Disk
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the default filesystem disk that should be used
-    | by the framework. The "local" disk, as well as a variety of cloud
-    | based disks are available to your application for file storage.
-    |
-    */
-
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
-    |--------------------------------------------------------------------------
-    | Filesystem Disks
-    |--------------------------------------------------------------------------
-    |
-    | Below you may configure as many filesystem disks as necessary, and you
-    | may even configure multiple disks for the same driver. Examples for
-    | most supported storage drivers are configured here for reference.
-    |
-    | Supported drivers: "local", "ftp", "sftp", "s3"
-    |
+    | Which disks hold evidence photos.
+    |   private = original photos (never public)
+    |   public  = processed, EXIF-stripped copies
+    | Local development: private / public
+    | Cloudflare R2:     r2_private / r2_public
     */
+    'evidence' => [
+        'private' => env('EVIDENCE_PRIVATE_DISK', 'private'),
+        'public'  => env('EVIDENCE_PUBLIC_DISK', 'public'),
+    ],
 
     'disks' => [
 
@@ -43,7 +31,16 @@ return [
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
-            'throw' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
+        // Original evidence photos. Not reachable by any URL.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => true,
             'report' => false,
         ],
 
@@ -60,18 +57,34 @@ return [
             'report' => false,
         ],
 
-    ],
+        // Cloudflare R2: private bucket (originals)
+        'r2_private' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_PRIVATE_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => false,
+            'throw' => true,
+            'report' => false,
+        ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Symbolic Links
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure the symbolic links that will be created when the
-    | `storage:link` Artisan command is executed. The array keys should be
-    | the locations of the links and the values should be their targets.
-    |
-    */
+        // Cloudflare R2: public bucket (processed photos)
+        'r2_public' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_PUBLIC_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'url' => env('R2_PUBLIC_URL'),
+            'use_path_style_endpoint' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
+    ],
 
     'links' => [
         public_path('storage') => storage_path('app/public'),

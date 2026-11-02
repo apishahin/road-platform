@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class Evidence extends Model
 {
@@ -32,8 +33,9 @@ class Evidence extends Model
         return $this->belongsTo(User::class, 'uploader_id');
     }
 
+    /** Public URL of the processed photo. Only show it when moderation is "approved". */
     public function url(): string
     {
-        return asset('storage/' . $this->public_path);
+        return Storage::disk(config('filesystems.evidence.public'))->url($this->public_path);
     }
 }
