@@ -22,7 +22,7 @@ class HomeController extends Controller
         $stats = [
             'open'     => Issue::active()->where('progress_status', '!=', 'repaired')->count(),
             'repaired' => Issue::active()->where('progress_status', 'repaired')->count(),
-            'reports'  => Report::count(),
+            'reports'  => Report::where('moderation', 'approved')->count(),
         ];
 
         return view('home', [
