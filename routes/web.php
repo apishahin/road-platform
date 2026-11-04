@@ -53,3 +53,15 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::post('/appearance', [\App\Http\Controllers\Admin\AppearanceController::class, 'update'])->name('admin.appearance.update');
     Route::post('/appearance/reset', [\App\Http\Controllers\Admin\AppearanceController::class, 'reset'])->name('admin.appearance.reset');
 });
+// ---- Admin-managed pages ----
+\Illuminate\Support\Facades\Route::get('/p/{slug}', [\App\Http\Controllers\PageController::class, 'show'])->where('slug', '[a-z0-9-]+')->name('page.show');
+
+\Illuminate\Support\Facades\Route::prefix('admin/pages')->name('admin.pages.')->group(function () {
+    $c = \App\Http\Controllers\Admin\PagesController::class;
+    \Illuminate\Support\Facades\Route::get('/', [$c, 'index'])->name('index');
+    \Illuminate\Support\Facades\Route::get('/create', [$c, 'create'])->name('create');
+    \Illuminate\Support\Facades\Route::post('/', [$c, 'store'])->name('store');
+    \Illuminate\Support\Facades\Route::get('/{page}/edit', [$c, 'edit'])->name('edit');
+    \Illuminate\Support\Facades\Route::put('/{page}', [$c, 'update'])->name('update');
+    \Illuminate\Support\Facades\Route::delete('/{page}', [$c, 'destroy'])->name('destroy');
+});

@@ -29,8 +29,9 @@
             <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
                 <a href="{{ route('home') }}" class="hover:text-slate-900">{{ __('Home') }}</a>
                 <a href="{{ route('issues.index') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
-                <a href="{{ url('/authorities') }}" class="hover:text-slate-900">{{ __('Authorities') }}</a>
-                <a href="{{ url('/how-it-works') }}" class="hover:text-slate-900">{{ __('How it works') }}</a>
+                @foreach (\App\Models\Page::menuItems() as $menuPage)
+                    <a href="{{ route('page.show', $menuPage->slug) }}" class="hover:text-slate-900">{{ $menuPage->title() }}</a>
+                @endforeach
             </nav>
 
             <div class="flex items-center gap-3">
@@ -64,8 +65,9 @@
             <div class="flex flex-col gap-3 text-sm font-medium">
                 <a href="{{ route('home') }}">{{ __('Home') }}</a>
                 <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
-                <a href="{{ url('/authorities') }}">{{ __('Authorities') }}</a>
-                <a href="{{ url('/how-it-works') }}">{{ __('How it works') }}</a>
+                @foreach (\App\Models\Page::menuItems() as $menuPage)
+                    <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
+                @endforeach
                 @guest
                     <a href="{{ route('login') }}">{{ __('Login') }}</a>
                 @endguest
