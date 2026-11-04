@@ -25,7 +25,7 @@ class IssueController extends Controller
             ->orderBy('id')
             ->get()
             ->map(fn (StatusEvent $e) => [
-                'at'     => IssuePresenter::num($e->created_at?->format('d/m/Y, h:i A') ?? '—'),
+                'at'     => $this->formatTime($e->created_at),
                 'label'  => StatusLabel::forEvent($e),
                 'reason' => StatusLabel::reason($e->reason),
                 'source' => StatusLabel::source($e->source_type),
@@ -65,8 +65,36 @@ class IssueController extends Controller
             'mapEmbed'     => $mapEmbed,
             'reportsCount' => IssuePresenter::num($issue->reports_count),
             'firstAt'      => IssuePresenter::num($issue->first_reported_at?->format('d/m/Y') ?? '—'),
-            'lastAt'       => $issue->last_activity_at?->diffForHumans() ?? '—',
+            'lastAt'       => IssuePresenter::num($issue->last_activity_at?->diffForHumans() ?? '—'),
         ]);
+    }
+
+    /**
+     * Date and time for the timeline.
+     * Bangla: time of day in words (ভোর, সকাল, দুপুর, বিকাল, সন্ধ্যা, রাত) instead of AM/PM.
+     * Other languages: the usual AM/PM.
+     */
+    private function formatTime(?\DateTimeInterface $time): string
+    {
+        if ($time === null) {
+            return '—';
+        }
+
+        if (app()->getLocale() !== 'bn') {
+            return IssuePresenter::num($time->format('d/m/Y, h:i A'));
+        }
+
+        $hour = (int) $time->format('G');
+        $period = match (true) {
+            $hour >= 4 && $hour < 6   => 'ভোর',
+            $hour >= 6 && $hour < 12  => 'সকাল',
+            $hour >= 12 && $hour < 15 => 'দুপুর',
+            $hour >= 15 && $hour < 18 => 'বিকাল',
+            $hour >= 18 && $hour < 20 => 'সন্ধ্যা',
+            default                   => 'রাত',
+        };
+
+        return IssuePresenter::num($time->format('d/m/Y') . ', ' . $period . ' ' . $time->format('h:i'));
     }
 
     /** Only allow http(s) links from source fields, to block javascript: links. */
