@@ -55,4 +55,6 @@ class StatusEvent extends Model
     {
         return $this->hasMany(Evidence::class);
     }
+
+    public function setActorTypeAttribute($value): void { $this->attributes['actor_type'] = $value === 'admin' ? 'moderator' : $value; }
 }
