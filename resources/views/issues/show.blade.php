@@ -131,7 +131,7 @@
                 @forelse ($reports as $report)
                     <div class="mt-4 rounded-lg border border-slate-100 p-4">
                         <p class="whitespace-pre-line text-sm text-slate-800">{{ $report->description }}</p>
-                        <p class="mt-2 text-xs text-slate-500">{{ $report->created_at?->diffForHumans() }}</p>
+                        <p class="mt-2 text-xs text-slate-500">{{ \App\Support\IssuePresenter::num($report->created_at?->diffForHumans() ?? '') }}</p>
                     </div>
                 @empty
                     <p class="mt-4 text-sm text-slate-500">{{ __('issue.page.no_reports') }}</p>
