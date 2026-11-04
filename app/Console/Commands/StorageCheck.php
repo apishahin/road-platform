@@ -17,8 +17,8 @@ class StorageCheck extends Command
         $ok = true;
 
         $disks = [
-            'private (originals)' => config('filesystems.evidence.private'),
-            'public (processed)'  => config('filesystems.evidence.public'),
+            'private (originals)' => \App\Support\StorageSettings::privateDisk(),
+            'public (processed)'  => \App\Support\StorageSettings::publicDisk(),
         ];
 
         foreach ($disks as $label => $disk) {

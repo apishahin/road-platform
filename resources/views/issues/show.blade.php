@@ -147,7 +147,7 @@
                 @else
                     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                         @foreach ($photos as $photo)
-                            <img src="{{ asset('storage/' . $photo->public_path) }}"
+                            <img src="{{ $photo->url() }}"
                                  alt="{{ $issue->title }}"
                                  loading="lazy"
                                  class="h-32 w-full rounded-lg object-cover">

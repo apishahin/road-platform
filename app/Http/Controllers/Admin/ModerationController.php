@@ -52,7 +52,7 @@ class ModerationController extends Controller
     {
         $this->authorizeModerator($request);
 
-        $disk = config('filesystems.evidence.' . ($evidence->moderation === 'approved' ? 'public' : 'private'));
+        $disk = $evidence->moderation === 'approved' ? ($evidence->public_disk ?: \App\Support\StorageSettings::publicDisk()) : ($evidence->private_disk ?: \App\Support\StorageSettings::privateDisk());
         abort_unless(Storage::disk($disk)->exists($evidence->public_path), 404);
 
         return Storage::disk($disk)->response($evidence->public_path, null, [
