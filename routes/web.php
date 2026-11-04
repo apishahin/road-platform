@@ -46,3 +46,10 @@ Route::get('/lang/{locale}', function (string $locale) {
     return back();
 })->name('lang');
 Route::middleware('auth')->prefix('admin')->group(function () { Route::get('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'index'])->name('admin.storage.index'); Route::post('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'update'])->name('admin.storage.update'); Route::post('/storage/check', [\App\Http\Controllers\Admin\StorageController::class, 'check'])->name('admin.storage.check'); });
+
+// Appearance settings (admin only; checked inside the controller)
+Route::middleware('auth')->prefix('admin')->group(function () {
+    Route::get('/appearance', [\App\Http\Controllers\Admin\AppearanceController::class, 'index'])->name('admin.appearance.index');
+    Route::post('/appearance', [\App\Http\Controllers\Admin\AppearanceController::class, 'update'])->name('admin.appearance.update');
+    Route::post('/appearance/reset', [\App\Http\Controllers\Admin\AppearanceController::class, 'reset'])->name('admin.appearance.reset');
+});
