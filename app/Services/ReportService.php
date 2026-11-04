@@ -97,7 +97,7 @@ class ReportService
             'from_value'  => null,
             'to_value'    => 'reported',
             'actor_id'    => $user->id,
-            'actor_type'  => $user->role,
+            'actor_type' => 'citizen',
             'source_type' => 'platform',
             'reason'      => 'Issue created from a community report.',
         ])->save();
