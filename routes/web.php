@@ -1,20 +1,32 @@
 <?php
 
+use App\Http\Controllers\Admin\ModerationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\IssueController;
 use App\Http\Controllers\IssueListController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-// Public issue list with filters.
-Route::get('/issues', [IssueListController::class, 'index'])
-    ->name('issues.index');
+Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index');
+Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
 
-// Public issue page. Uses the public ULID, not the internal number.
-Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])
-    ->name('issues.show');
+// Report flow (login required)
+Route::middleware('auth')->group(function () {
+    Route::get('/report', [ReportController::class, 'create'])->name('report.create');
+    Route::post('/report', [ReportController::class, 'store'])->middleware('throttle:20,1')->name('report.store');
+    Route::get('/report/success', [ReportController::class, 'success'])->name('report.success');
+
+    // Moderation (moderator/admin only; checked inside the controller)
+    Route::prefix('admin')->group(function () {
+        Route::get('/moderation', [ModerationController::class, 'index'])->name('admin.moderation.index');
+        Route::post('/moderation/{report}/approve', [ModerationController::class, 'approve'])->name('admin.moderation.approve');
+        Route::post('/moderation/{report}/hide', [ModerationController::class, 'hide'])->name('admin.moderation.hide');
+        Route::get('/evidence/{evidence}', [ModerationController::class, 'photo'])->name('admin.evidence.photo');
+    });
+});
 
 // Login with phone + OTP
 Route::middleware('guest')->group(function () {
@@ -27,7 +39,6 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-// Language switch: /lang/bn or /lang/en
 Route::get('/lang/{locale}', function (string $locale) {
     abort_unless(in_array($locale, ['bn', 'en'], true), 404);
     session(['locale' => $locale]);

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Report extends Model
 {
@@ -14,6 +15,15 @@ class Report extends Model
     protected $fillable = [
         'issue_id', 'user_id', 'description', 'lat', 'lng', 'moderation',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Report $report) {
+            if (empty($report->public_id)) {
+                $report->public_id = (string) Str::ulid();
+            }
+        });
+    }
 
     protected function casts(): array
     {

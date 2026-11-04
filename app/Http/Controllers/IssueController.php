@@ -10,6 +10,10 @@ class IssueController extends Controller
 {
     public function show(Issue $issue)
     {
+        // Unpublished issues are visible only to moderators.
+        if ($issue->published_at === null) {
+            abort_unless(auth()->user()?->isModerator(), 404);
+        }
         $issue->load(['category', 'adminArea', 'duplicateOf']);
 
         // Timeline: oldest first. Actor names are never shown, only the role.

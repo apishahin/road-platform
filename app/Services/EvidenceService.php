@@ -17,9 +17,9 @@ class EvidenceService
     private const EXT = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
     /**
-     * 1. Original -> private disk (verification only, never public)
-     * 2. Processed copy (max 1600px, JPEG, no EXIF) -> public disk
-     * 3. Evidence row with moderation = pending
+     * Original and processed copy (max 1600px, JPEG, no EXIF) both go to the
+     * PRIVATE disk. ModerationService copies the processed one to the public
+     * disk only after a moderator approves it.
      */
     public function store(
         UploadedFile $file,
@@ -45,38 +45,35 @@ class EvidenceService
         }
 
         try {
-            $image = (new ImageManager(new GdDriver()))->read($file->getRealPath());
+            $manager = new ImageManager(new GdDriver()); $image = method_exists($manager, 'decode') ? $manager->decode($file->getRealPath()) : $manager->read($file->getRealPath());
             if ($image->width() > 1600 || $image->height() > 1600) {
                 $image->scaleDown(width: 1600, height: 1600);
             }
             $encoded = (string) $image->toJpeg(quality: 80); // re-encoding drops EXIF
         } catch (\Throwable $e) {
-            throw new RuntimeException('Image could not be processed.');
+            report($e); throw new RuntimeException('Image could not be processed.');
         }
 
-        $privateDisk = config('filesystems.evidence.private');
-        $publicDisk  = config('filesystems.evidence.public');
+        $disk        = config('filesystems.evidence.private');
         $base        = (string) Str::uuid();
-
         $privatePath = 'evidence/originals/' . $base . '.' . self::EXT[$mime];
-        $publicPath  = 'evidence/public/' . $base . '.jpg';
+        $pendingPath = 'evidence/pending/' . $base . '.jpg';
 
-        Storage::disk($privateDisk)->put($privatePath, file_get_contents($file->getRealPath()));
-        Storage::disk($publicDisk)->put($publicPath, $encoded);
+        Storage::disk($disk)->put($privatePath, file_get_contents($file->getRealPath()));
+        Storage::disk($disk)->put($pendingPath, $encoded);
 
         try {
             return Evidence::create([
                 'report_id'       => $reportId,
                 'status_event_id' => $statusEventId,
                 'uploader_id'     => $uploaderId,
-                'public_path'     => $publicPath,
+                'public_path'     => $pendingPath, // lives on the private disk until approved
                 'private_path'    => $privatePath,
                 'taken_at'        => $this->takenAt($file->getRealPath()) ?? now(),
                 'moderation'      => 'pending',
             ]);
         } catch (\Throwable $e) {
-            Storage::disk($privateDisk)->delete($privatePath);
-            Storage::disk($publicDisk)->delete($publicPath);
+            Storage::disk($disk)->delete([$privatePath, $pendingPath]);
             throw $e;
         }
     }

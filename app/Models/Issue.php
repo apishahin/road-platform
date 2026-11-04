@@ -93,7 +93,7 @@ class Issue extends Model
 
     public function scopeActive($query)
     {
-        return $query->whereIn('disposition', ['active', 'reopened']);
+        return $query->whereIn('disposition', ['active', 'reopened'])->whereNotNull('published_at');
     }
 
     public function scopeNearby($query, float $lat, float $lng, int $meters = 100)

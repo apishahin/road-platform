@@ -40,7 +40,8 @@ class IssueListController extends Controller
         // Duplicates and rejected issues are not shown in the public list.
         $query = Issue::query()
             ->with('category')
-            ->whereNotIn('disposition', ['duplicate', 'rejected']);
+            ->whereNotIn('disposition', ['duplicate', 'rejected'])
+            ->whereNotNull('published_at');
 
         if ($status !== '') {
             $query->where('progress_status', $status);
