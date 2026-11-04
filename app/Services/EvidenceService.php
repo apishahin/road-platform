@@ -47,9 +47,9 @@ class EvidenceService
         try {
             $manager = new ImageManager(new GdDriver()); $image = method_exists($manager, 'decode') ? $manager->decode($file->getRealPath()) : $manager->read($file->getRealPath());
             if ($image->width() > 1600 || $image->height() > 1600) {
-                $image->scaleDown(width: 1600, height: 1600);
+                $image->orient(); $image->scaleDown(width: 1600, height: 1600);
             }
-            $encoded = (string) $image->toJpeg(quality: 80); // re-encoding drops EXIF
+            $encoded = (string) $image->encode(new \Intervention\Image\Encoders\JpegEncoder(quality: 80)); // re-encoding drops EXIF
         } catch (\Throwable $e) {
             report($e); throw new RuntimeException('Image could not be processed.');
         }
