@@ -36,6 +36,6 @@ class Evidence extends Model
     /** Public URL of the processed photo. Only show it when moderation is "approved". */
     public function url(): string
     {
-        return Storage::disk(config('filesystems.evidence.public'))->url($this->public_path);
+        return Storage::disk($this->public_disk ?: \App\Support\StorageSettings::publicDisk())->url($this->public_path);
     }
 }

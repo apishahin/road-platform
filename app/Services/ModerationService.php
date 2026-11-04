@@ -39,7 +39,7 @@ class ModerationService
                 ])->save();
             });
         } catch (\Throwable $e) {
-            Storage::disk(config('filesystems.evidence.public'))->delete($copied);
+            Storage::disk(\App\Support\StorageSettings::publicDisk())->delete($copied);
             throw $e;
         }
     }
@@ -73,8 +73,8 @@ class ModerationService
             return null;
         }
 
-        $private = Storage::disk(config('filesystems.evidence.private'));
-        $public  = Storage::disk(config('filesystems.evidence.public'));
+        $private = Storage::disk($ev->private_disk ?: \App\Support\StorageSettings::privateDisk());
+        $public  = Storage::disk(\App\Support\StorageSettings::publicDisk());
         $newPath = 'evidence/public/' . basename($ev->public_path);
 
         $public->put($newPath, $private->get($ev->public_path));
@@ -88,8 +88,8 @@ class ModerationService
     private function unpublishEvidence(Evidence $ev): void
     {
         if ($ev->moderation === 'approved') {
-            $private = Storage::disk(config('filesystems.evidence.private'));
-            $public  = Storage::disk(config('filesystems.evidence.public'));
+            $private = Storage::disk(\App\Support\StorageSettings::privateDisk());
+            $public  = Storage::disk($ev->public_disk ?: \App\Support\StorageSettings::publicDisk());
             $back    = 'evidence/pending/' . basename($ev->public_path);
 
             if ($public->exists($ev->public_path)) {

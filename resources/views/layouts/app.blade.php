@@ -54,7 +54,7 @@
                     </form>
                 @endauth
 
-                @if(auth()->user()?->isModerator())<a href="{{ route('admin.moderation.index') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">Moderation</a>@endif <a href="{{ url('/report') }}" class="hidden rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-block">{{ __('Report a problem') }}</a>
+                @if(auth()->user()?->isModerator())<a href="{{ route('admin.moderation.index') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">Moderation</a>@endif @if(auth()->user()?->role === 'admin')<a href="{{ route('admin.storage.index') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">Storage</a>@endif <a href="{{ url('/report') }}" class="hidden rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-block">{{ __('Report a problem') }}</a>
 
                 <button type="button" class="rounded-lg p-2 hover:bg-slate-100 md:hidden" @click="open = !open" aria-label="Menu">
                     <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>

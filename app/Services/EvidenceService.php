@@ -54,7 +54,7 @@ class EvidenceService
             report($e); throw new RuntimeException('Image could not be processed.');
         }
 
-        $disk        = config('filesystems.evidence.private');
+        $disk        = \App\Support\StorageSettings::privateDisk();
         $base        = (string) Str::uuid();
         $privatePath = 'evidence/originals/' . $base . '.' . self::EXT[$mime];
         $pendingPath = 'evidence/pending/' . $base . '.jpg';
