@@ -17,6 +17,8 @@ class IssueController extends Controller
         $issue->load(['category', 'adminArea', 'duplicateOf']);
 
         // Timeline: oldest first. Actor names are never shown, only the role.
+        // Stored reasons are never edited; StatusLabel::reason() only translates
+        // known system-written text at display time.
         $timeline = StatusEvent::query()
             ->where('issue_id', $issue->id)
             ->orderBy('created_at')
@@ -25,7 +27,7 @@ class IssueController extends Controller
             ->map(fn (StatusEvent $e) => [
                 'at'     => IssuePresenter::num($e->created_at?->format('d/m/Y, h:i A') ?? '—'),
                 'label'  => StatusLabel::forEvent($e),
-                'reason' => $e->reason,
+                'reason' => StatusLabel::reason($e->reason),
                 'source' => StatusLabel::source($e->source_type),
                 'actor'  => StatusLabel::actor($e->actor_type),
                 'url'    => $this->safeUrl($e->source_url),

@@ -30,6 +30,40 @@ class StatusLabel
         };
     }
 
+    /**
+     * Display text for a stored event reason.
+     *
+     * Stored reasons are never changed (status events are append-only).
+     * Known system-written English reasons are shown in the current language.
+     * Anything written by a person is shown exactly as stored.
+     */
+    public static function reason(?string $stored): string
+    {
+        $text = trim((string) $stored);
+
+        if ($text === '') {
+            return '';
+        }
+
+        // 1. Exact match against known system reasons (lang/xx/timeline.php)
+        $known = __('timeline.reasons');
+        if (is_array($known) && is_string($known[$text] ?? null)) {
+            return $known[$text];
+        }
+
+        // 2. DuplicateService: "Marked as duplicate of issue #ID. <moderator's own note>"
+        //    The prefix is translated; the moderator's note is kept as written.
+        if (preg_match('/^Marked as duplicate of issue #(.+?)\.(?:\s+(.*))?$/su', $text, $m)) {
+            $line = __('timeline.duplicate_of', ['id' => $m[1]]);
+            $note = trim($m[2] ?? '');
+
+            return $note === '' ? $line : $line . ' ' . $note;
+        }
+
+        // 3. Unknown or human-written reason: show as stored
+        return $text;
+    }
+
     public static function source(string $sourceType): string
     {
         return __('issue.source.' . $sourceType);
