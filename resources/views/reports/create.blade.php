@@ -174,6 +174,7 @@
         <div x-show="step === 4" x-cloak class="space-y-4">
             <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step4_heading') }}</h2>
             <p class="text-sm text-slate-600">{{ __('report.photos_hint') }}</p>
+            <p class="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ __('privacy.photo_warn') }}</p>
             <input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="block w-full text-sm text-slate-600">
             <div class="rounded-lg bg-amber-50 p-4 text-xs text-amber-800">⚠️ {{ __('report.claim_notice') }}</div>
             <div class="flex justify-between">
