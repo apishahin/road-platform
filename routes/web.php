@@ -68,3 +68,7 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 
 
 Route::get('/admin/areas/{area}/children', \App\Http\Controllers\Admin\AreaChildrenController::class)->name('admin.areas.children');
+
+
+Route::get('/areas/locate', \App\Http\Controllers\AreaLocateController::class)->middleware('throttle:60,1')->name('areas.locate');
+Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenController::class)->name('areas.children');
