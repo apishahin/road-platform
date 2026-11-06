@@ -47,4 +47,5 @@ return [
     'err_banned' => 'This user is banned.',
     'err_role' => 'This user has a different role, so an area cannot be given.',
     'err_reason' => 'Please write a reason (max 500 characters).',
+    'menu_apply' => 'Become a volunteer',
 ];
