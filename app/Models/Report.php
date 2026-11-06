@@ -13,6 +13,7 @@ class Report extends Model
     use HasFactory;
 
     protected $fillable = [
+        'suggested_area_id',
         'issue_id', 'user_id', 'description', 'lat', 'lng', 'moderation',
     ];
 

@@ -45,6 +45,14 @@
         'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn),
     ])->all();
     $issueArea = $r->issue?->adminArea;
+    $seed = [];
+    if ($r->suggested_area_id) {
+        $n = \App\Models\AdminArea::find($r->suggested_area_id);
+        while ($n) {
+            $seed[$n->level] = $n->id;
+            $n = $n->parent_id ? \App\Models\AdminArea::find($n->parent_id) : null;
+        }
+    }
 @endphp
 
                 @if ($r->issue && ($r->issue->road_name || $r->issue->landmark))
@@ -61,7 +69,7 @@
 
                 <div class="mt-4 flex flex-wrap items-end gap-2">
                     <form method="POST" action="{{ route('admin.moderation.approve', $r) }}"
-                          x-data="areaPicker(window.__areas, @js(app()->getLocale()))"
+                          x-data="areaPicker(window.__areas, @js(app()->getLocale()), @js($seed))"
                           class="flex flex-wrap items-end gap-2">
                         @csrf
                         @if ($issueArea)
@@ -73,6 +81,9 @@
                             <div class="w-full text-xs text-slate-600">
                                 <p class="font-semibold">{{ __('areas.pick_area') }}</p>
                                 <p>{{ __('areas.pick_hint') }}</p>
+@if (! empty($seed))
+<p class="mt-1 font-medium text-amber-700">{{ __('suggest.mod_note') }}</p>
+@endif
                             </div>
                             <input type="hidden" name="area_id" :value="areaValue" :disabled="!areaValue">
                             <select x-model="division" @change="district = ''; upazila = ''"
@@ -128,21 +139,30 @@
     document.addEventListener('alpine:init', () => {
         window.__areas = @js($areaList ?? []);
         window.__areaChildrenUrl = @js(url('/admin/areas'));
-Alpine.data('areaPicker', (areas, locale) => ({
+Alpine.data('areaPicker', (areas, locale, seed = {}) => ({
             areas: areas,
             division: '',
+            pendingUnion: (seed && seed.union) ? seed.union : '',
             district: '',
             upazila: '',
             union: '',
             unions: [],
             init() {
+            if (seed && seed.division) {
+                this.$nextTick(async () => {
+                    this.division = String(seed.division);
+                    await this.$nextTick();
+                    if (seed.district) { this.district = String(seed.district); await this.$nextTick(); }
+                    if (seed.upazila) { this.upazila = String(seed.upazila); }
+                });
+            }
                 this.$watch('upazila', (v) => {
                     this.union = '';
                     this.unions = [];
                     if (!v) { return; }
                     fetch(window.__areaChildrenUrl + '/' + v + '/children', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
                         .then((r) => r.ok ? r.json() : [])
-                        .then((d) => { if (String(this.upazila) === String(v)) { this.unions = d; } })
+                        .then((d) => { if (String(this.upazila) === String(v)) { this.unions = d; if (this.pendingUnion) { const u = String(this.pendingUnion); this.pendingUnion = ''; this.$nextTick(() => { this.union = u; }); } } })
                         .catch(() => {});
                 });
             },

@@ -129,7 +129,36 @@
                 </div>
             </div>
 
-            <div>
+            @php
+    $areaDivs = \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
+        ->map(fn ($a) => ['id' => $a->id, 'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
+        ->values();
+@endphp
+<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <p class="text-sm font-medium text-slate-700">{{ __('suggest.title') }}</p>
+    <p class="text-xs text-slate-500">{{ __('suggest.hint') }}</p>
+    <p x-show="areaAuto" class="mt-1 text-xs font-medium text-amber-700">{{ __('suggest.auto') }}</p>
+    <input type="hidden" name="suggested_area_id" :value="areaValue" :disabled="!areaValue">
+    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+        <select x-model="division" @change="pickDivision()" aria-label="{{ __('areas.division') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_divisions') }}</option>
+            <template x-for="a in divisions" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="districts.length > 0" x-model="district" @change="pickDistrict()" aria-label="{{ __('areas.district') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_districts') }}</option>
+            <template x-for="a in districts" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="upazilas.length > 0" x-model="upazila" @change="pickUpazila()" aria-label="{{ __('areas.upazila') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_upazilas') }}</option>
+            <template x-for="a in upazilas" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="unions.length > 0" x-model="union" @change="pickUnion()" aria-label="{{ __('areas.union') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_unions') }}</option>
+            <template x-for="a in unions" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+    </div>
+</div>
+<div>
                 <label class="text-sm font-medium text-slate-700">{{ __('report.description') }} *</label>
                 <textarea name="description" data-step3 required rows="4" maxlength="1000"
                           placeholder="{{ __('report.desc_placeholder') }}" class="{{ $inp }}">{{ old('description') }}</textarea>
@@ -159,9 +188,13 @@
 function reportWizard() {
     return {
         step: 1, lat: '', lng: '', selectedIssue: '',
+        division: '', district: '', upazila: '', union: '',
+        divisions: @json($areaDivs), districts: [], upazilas: [], unions: [],
+        areaUrl: @json(url('/areas')), areaTouched: false, areaAuto: false, areaTimer: null, areaSeq: 0,
         nearby: [], loading: false, dupError: false, map: null, marker: null,
 
         init() {
+        this.watchPoint();
             this.$nextTick(() => {
                 this.map = L.map('report-map').setView(@json($center), @json($zoom));
                 L.tileLayer(@json($tileUrl), { maxZoom: 19, attribution: @json($attribution) }).addTo(this.map);
@@ -195,7 +228,67 @@ function reportWizard() {
             });
         },
 
-        toStep2() {
+        get areaValue() { return this.union || this.upazila || this.district || this.division || ''; },
+
+    async kids(id) {
+        if (!id) { return []; }
+        try {
+            const r = await fetch(this.areaUrl + '/' + id + '/children', { headers: { 'Accept': 'application/json' } });
+            return r.ok ? await r.json() : [];
+        } catch (e) { return []; }
+    },
+    async pickDivision() {
+        this.areaTouched = true; this.areaAuto = false;
+        this.district = ''; this.upazila = ''; this.union = '';
+        this.districts = []; this.upazilas = []; this.unions = [];
+        this.districts = await this.kids(this.division);
+    },
+    async pickDistrict() {
+        this.areaTouched = true; this.areaAuto = false;
+        this.upazila = ''; this.union = '';
+        this.upazilas = []; this.unions = [];
+        this.upazilas = await this.kids(this.district);
+    },
+    async pickUpazila() {
+        this.areaTouched = true; this.areaAuto = false;
+        this.union = '';
+        this.unions = [];
+        this.unions = await this.kids(this.upazila);
+    },
+    pickUnion() { this.areaTouched = true; this.areaAuto = false; },
+
+    watchPoint() {
+        const go = () => {
+            clearTimeout(this.areaTimer);
+            this.areaTimer = setTimeout(() => this.locateArea(), 500);
+        };
+        this.$watch('lat', go);
+        this.$watch('lng', go);
+    },
+    async locateArea() {
+        if (this.areaTouched || !this.lat || !this.lng) { return; }
+        const seq = ++this.areaSeq;
+        let d = null;
+        try {
+            const r = await fetch(this.areaUrl + '/locate?lat=' + this.lat + '&lng=' + this.lng, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) { return; }
+            d = await r.json();
+        } catch (e) { return; }
+        if (!d || !d.division || seq !== this.areaSeq || this.areaTouched) { return; }
+        const ds = await this.kids(d.division.id);
+        const up = d.district ? await this.kids(d.district.id) : [];
+        const un = d.upazila ? await this.kids(d.upazila.id) : [];
+        if (seq !== this.areaSeq || this.areaTouched) { return; }
+        this.districts = ds; this.upazilas = up; this.unions = un;
+        this.division = String(d.division.id);
+        await this.$nextTick();
+        this.district = d.district ? String(d.district.id) : '';
+        this.upazila = d.upazila ? String(d.upazila.id) : '';
+        this.union = d.union ? String(d.union.id) : '';
+        this.areaAuto = true;
+    },
+
+    toStep2() {
             if (!this.lat) { alert(@json(__('report.pick_point'))); return; }
             this.step = 2;
             this.selectedIssue = '';

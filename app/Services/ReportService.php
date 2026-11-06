@@ -31,10 +31,11 @@ class ReportService
         ?string $landmark = null,
         ?string $issuePublicId = null,
         array $files = [],
+        ?int $suggestedAreaId = null,
     ): Report {
         return DB::transaction(function () use (
             $user, $lat, $lng, $categoryId, $title, $description,
-            $roadName, $landmark, $issuePublicId, $files
+            $roadName, $landmark, $issuePublicId, $files, $suggestedAreaId
         ) {
             if ($issuePublicId) {
                 $issue = Issue::active()->where('public_id', $issuePublicId)->first();
@@ -54,6 +55,7 @@ class ReportService
                 'lat'         => $lat,
                 'lng'         => $lng,
                 'moderation'  => 'pending',
+                'suggested_area_id' => $suggestedAreaId,
             ]);
 
             foreach ($files as $file) {

@@ -50,6 +50,7 @@ class ReportController extends Controller
             'description' => ['required', 'string', 'max:1000'],
             'road_name'   => ['nullable', 'string', 'max:150'],
             'landmark'    => ['nullable', 'string', 'max:150'],
+            'suggested_area_id' => ['nullable', 'integer', 'exists:admin_areas,id'],
             'photos'      => ['nullable', 'array', 'max:3'],
             'photos.*'    => ['file', 'mimes:jpeg,png,webp', 'max:20480'],
         ]);
@@ -65,6 +66,7 @@ class ReportController extends Controller
                 roadName: isset($data['road_name']) ? trim($data['road_name']) : null,
                 landmark: isset($data['landmark']) ? trim($data['landmark']) : null,
                 issuePublicId: $data['issue_id'] ?? null,
+            suggestedAreaId: isset($data['suggested_area_id']) ? (int) $data['suggested_area_id'] : null,
                 files: $request->file('photos', []),
             );
         } catch (RuntimeException $e) {
