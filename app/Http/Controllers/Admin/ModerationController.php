@@ -21,13 +21,14 @@ class ModerationController extends Controller
 
         $reports = Report::with(['issue.category', 'evidence'])
             ->where('moderation', 'pending')
+            ->tap(fn ($q) => \App\Support\ModerationScope::restrict($q, $request->user()))
             ->orderBy('id')
             ->limit(20)
             ->get();
 
         return view('admin.moderation', [
             'reports'      => $reports,
-            'pendingTotal' => Report::where('moderation', 'pending')->count(),
+            'pendingTotal' => Report::where('moderation', 'pending')->tap(fn ($q) => \App\Support\ModerationScope::restrict($q, $request->user()))->count(),
         ]);
     }
 
@@ -38,6 +39,8 @@ class ModerationController extends Controller
             'area_id' => ['nullable', 'integer', 'exists:admin_areas,id'],
         ]);
         $areaId = isset($data['area_id']) ? (int) $data['area_id'] : null;
+        \App\Support\ModerationScope::authorizeReport($request->user(), $report);
+        \App\Support\ModerationScope::authorizeArea($request->user(), $areaId);
         $issue = $report->issue;
         $hadArea = $issue?->admin_area_id !== null;
 
@@ -59,6 +62,7 @@ class ModerationController extends Controller
     public function hide(Request $request, Report $report)
     {
         $this->authorizeModerator($request);
+        \App\Support\ModerationScope::authorizeReport($request->user(), $report);
         $this->moderation->hide($report, $request->user());
 
         return back()->with('status', __('report.mod_hidden_msg'));
@@ -68,6 +72,8 @@ class ModerationController extends Controller
     public function photo(Request $request, Evidence $evidence)
     {
         $this->authorizeModerator($request);
+
+        \App\Support\ModerationScope::authorizeReport($request->user(), $evidence->report);
 
         $disk = $evidence->moderation === 'approved' ? ($evidence->public_disk ?: \App\Support\StorageSettings::publicDisk()) : ($evidence->private_disk ?: \App\Support\StorageSettings::privateDisk());
         abort_unless(Storage::disk($disk)->exists($evidence->public_path), 404);
@@ -80,6 +86,6 @@ class ModerationController extends Controller
 
     private function authorizeModerator(Request $request): void
     {
-        abort_unless($request->user()?->isModerator(), 403);
+        abort_unless($request->user()?->canModerate(), 403);
     }
 }

@@ -10,7 +10,7 @@ class AreaChildrenController extends Controller
 {
     public function __invoke(AdminArea $area): JsonResponse
     {
-        abort_unless(auth()->user()?->isModerator(), 403);
+        abort_unless(auth()->user()?->canModerate(), 403);
 
         $isBn = app()->getLocale() === 'bn';
 

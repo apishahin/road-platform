@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -33,6 +34,28 @@ class User extends Authenticatable
     public function isModerator(): bool
     {
         return in_array($this->role, ['moderator', 'admin'], true);
+    }
+
+    /** Moderator/admin, or a volunteer who has at least one active area. */
+    public function canModerate(): bool
+    {
+        if ($this->isModerator()) {
+            return true;
+        }
+
+        return $this->role === 'volunteer'
+            && ! $this->is_banned
+            && $this->activeModeratorAreas()->exists();
+    }
+
+    public function moderatorAreas(): HasMany
+    {
+        return $this->hasMany(ModeratorArea::class);
+    }
+
+    public function activeModeratorAreas(): HasMany
+    {
+        return $this->moderatorAreas()->whereNull('revoked_at');
     }
 
     public function reports()
