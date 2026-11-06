@@ -25,12 +25,12 @@
                 <p class="mt-2 text-xs text-slate-500">
                     {{ $r->created_at?->diffForHumans() }} ·
                     <a class="text-brand-700 underline" target="_blank" rel="noopener"
-                       href="https://www.openstreetmap.org/?mlat={{ $r->lat }}&mlon={{ $r->lng }}#map=18/{{ $r->lat }}/{{ $r->lng }}">{{ __('report.mod_open_map') }}</a>
+                       data-map data-lat="{{ $r->lat }}" data-lng="{{ $r->lng }}" href="https://www.openstreetmap.org/?mlat={{ $r->lat }}&mlon={{ $r->lng }}#map=18/{{ $r->lat }}/{{ $r->lng }}">{{ __('report.mod_open_map') }}</a>
                 </p>
 
                 <div class="mt-3 flex flex-wrap gap-2">
                     @forelse ($r->evidence as $ev)
-                        <a href="{{ route('admin.evidence.photo', $ev) }}" target="_blank" rel="noopener">
+                        <a data-lightbox="r{{ $r->id }}" href="{{ route('admin.evidence.photo', $ev) }}" target="_blank" rel="noopener">
                             <img src="{{ route('admin.evidence.photo', $ev) }}" alt="" class="h-24 w-24 rounded-lg border border-slate-200 object-cover">
                         </a>
                     @empty
@@ -101,11 +101,11 @@
                             </select>
                         @endif
                         <button class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">{{ __('report.mod_approve') }}</button>
+        <button form="hide-{{ $r->id }}" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{{ __('report.mod_hide') }}</button>
                     </form>
-                    <form method="POST" action="{{ route('admin.moderation.hide', $r) }}">
-                        @csrf
-                        <button class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{{ __('report.mod_hide') }}</button>
-                    </form>
+                    <form id="hide-{{ $r->id }}" method="POST" action="{{ route('admin.moderation.hide', $r) }}" class="hidden">
+    @csrf
+</form>
                 </div>
             </div>
         @empty
@@ -138,6 +138,116 @@
             },
         }));
     });
+</script>
+@endpush
+@push('scripts')
+<script>
+(function () {
+  var lb = null, items = [], idx = 0;
+  var mb = null, map = null, marker = null;
+  function btn(attr, css, html) {
+    return '<button type="button" ' + attr + ' style="' + css + '">' + html + '</button>';
+  }
+  function lbBuild() {
+    lb = document.createElement('div');
+    lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;';
+    var arrow = 'position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:56px;line-height:1;padding:8px 16px;';
+    lb.innerHTML = '<img alt="" style="max-width:92vw;max-height:88vh;border-radius:8px;">'
+      + btn('data-x', 'position:absolute;top:10px;right:18px;color:#fff;font-size:40px;line-height:1;', '&times;')
+      + btn('data-p', arrow + 'left:6px;', '&lsaquo;')
+      + btn('data-n', arrow + 'right:6px;', '&rsaquo;');
+    document.body.appendChild(lb);
+    lb.addEventListener('click', function (e) {
+      if (e.target === lb || e.target.closest('[data-x]')) { lbClose(); }
+      else if (e.target.closest('[data-p]')) { lbShow(idx - 1); }
+      else if (e.target.closest('[data-n]')) { lbShow(idx + 1); }
+    });
+  }
+  function lbShow(i) {
+    idx = (i + items.length) % items.length;
+    lb.querySelector('img').src = items[idx].href;
+    var d = items.length > 1 ? 'block' : 'none';
+    lb.querySelector('[data-p]').style.display = d;
+    lb.querySelector('[data-n]').style.display = d;
+  }
+  function lbOpen(list, i) {
+    if (!lb) { lbBuild(); }
+    items = list; lb.style.display = 'flex'; document.body.style.overflow = 'hidden'; lbShow(i);
+  }
+  function lbClose() {
+    lb.style.display = 'none'; lb.querySelector('img').src = ''; document.body.style.overflow = '';
+  }
+  function ensureLeaflet(cb) {
+    if (!document.getElementById('lf-css')) {
+      var l = document.createElement('link');
+      l.id = 'lf-css'; l.rel = 'stylesheet';
+      l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(l);
+    }
+    if (window.L && window.L.map) { cb(); return; }
+    var s = document.getElementById('lf-js');
+    if (!s) {
+      s = document.createElement('script');
+      s.id = 'lf-js'; s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      document.head.appendChild(s);
+    }
+    s.addEventListener('load', cb);
+  }
+  function mapClose() { mb.style.display = 'none'; }
+  function mapOpen(lat, lng, href, label) {
+    if (!mb) {
+      mb = document.createElement('div');
+      mb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;';
+      mb.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(92vw,720px);padding:12px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+        + '<a data-o target="_blank" rel="noopener" style="color:#0369a1;text-decoration:underline;"></a>'
+        + btn('data-x', 'font-size:30px;line-height:1;padding:0 8px;', '&times;')
+        + '</div><div data-m style="height:60vh;min-height:320px;border-radius:8px;"></div></div>';
+      document.body.appendChild(mb);
+      mb.addEventListener('click', function (e) {
+        if (e.target === mb || e.target.closest('[data-x]')) { mapClose(); }
+      });
+    }
+    var o = mb.querySelector('[data-o]');
+    o.href = href; o.textContent = label;
+    mb.style.display = 'flex';
+    ensureLeaflet(function () {
+      var el = mb.querySelector('[data-m]');
+      if (!map) {
+        map = L.map(el);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+      }
+      map.setView([lat, lng], 17);
+      setTimeout(function () { map.invalidateSize(); }, 60);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var p = e.target.closest('a[data-lightbox]');
+    if (p) {
+      e.preventDefault();
+      var list = Array.prototype.slice.call(document.querySelectorAll('a[data-lightbox="' + p.getAttribute('data-lightbox') + '"]'));
+      lbOpen(list, list.indexOf(p));
+      return;
+    }
+    var m = e.target.closest('a[data-map]');
+    if (m) {
+      var lat = parseFloat(m.getAttribute('data-lat')), lng = parseFloat(m.getAttribute('data-lng'));
+      if (isNaN(lat) || isNaN(lng)) { return; }
+      e.preventDefault();
+      mapOpen(lat, lng, m.href, m.textContent.trim());
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (lb && lb.style.display === 'flex') {
+      if (e.key === 'Escape') { lbClose(); }
+      else if (e.key === 'ArrowLeft') { lbShow(idx - 1); }
+      else if (e.key === 'ArrowRight') { lbShow(idx + 1); }
+    } else if (mb && mb.style.display === 'flex' && e.key === 'Escape') { mapClose(); }
+  });
+})();
 </script>
 @endpush
 @endsection
