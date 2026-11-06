@@ -80,3 +80,15 @@ Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenControlle
     \Illuminate\Support\Facades\Route::post('/', [$c, 'store'])->name('store');
     \Illuminate\Support\Facades\Route::post('/{grant}/revoke', [$c, 'revoke'])->name('revoke');
 });
+
+// ---- Volunteer applications ----
+\Illuminate\Support\Facades\Route::middleware('auth')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'create'])->name('volunteer.apply');
+    \Illuminate\Support\Facades\Route::post('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'store'])->middleware('throttle:5,1')->name('volunteer.apply.store');
+});
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/volunteer-applications')->name('admin.applications.')->group(function () {
+    $c = \App\Http\Controllers\Admin\VolunteerApplicationsController::class;
+    \Illuminate\Support\Facades\Route::get('/', [$c, 'index'])->name('index');
+    \Illuminate\Support\Facades\Route::post('/{application}/approve', [$c, 'approve'])->name('approve');
+    \Illuminate\Support\Facades\Route::post('/{application}/reject', [$c, 'reject'])->name('reject');
+});
