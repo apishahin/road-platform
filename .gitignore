@@ -27,3 +27,7 @@ Homestead.yaml
 Thumbs.db
 
 /public/uploads
+
+database/data/geojson/
+database/data/bgd_*
+database/data/*.geojson
