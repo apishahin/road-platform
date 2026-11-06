@@ -34,7 +34,24 @@ class ModerationController extends Controller
     public function approve(Request $request, Report $report)
     {
         $this->authorizeModerator($request);
-        $this->moderation->approve($report, $request->user());
+        $data = $request->validate([
+            'area_id' => ['nullable', 'integer', 'exists:admin_areas,id'],
+        ]);
+        $areaId = isset($data['area_id']) ? (int) $data['area_id'] : null;
+        $issue = $report->issue;
+        $hadArea = $issue?->admin_area_id !== null;
+
+        $this->moderation->approve($report, $request->user(), $areaId);
+
+        if ($issue && $areaId && ! $hadArea) {
+            $issue->refresh();
+            if ((int) $issue->admin_area_id === $areaId) {
+                app(\App\Services\AuditService::class)->log($request->user(), 'issue.area_set', 'issue', (string) $issue->id, [
+                    'area_id' => $areaId,
+                    'report_id' => $report->id,
+                ]);
+            }
+        }
 
         return back()->with('status', __('report.mod_approved_msg'));
     }

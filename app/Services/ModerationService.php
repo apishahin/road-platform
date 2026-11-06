@@ -11,12 +11,12 @@ use Illuminate\Support\Facades\Storage;
 class ModerationService
 {
     /** Approve a report: publish its issue (if hidden), count it, publish its photos. */
-    public function approve(Report $report, User $moderator): void
+    public function approve(Report $report, User $moderator, ?int $areaId = null): void
     {
         $copied = [];
 
         try {
-            DB::transaction(function () use ($report, &$copied) {
+            DB::transaction(function () use ($report, &$copied, $areaId) {
                 $r = Report::with(['evidence', 'issue'])->whereKey($report->id)->lockForUpdate()->firstOrFail();
                 if ($r->moderation === 'approved') {
                     return;
@@ -33,6 +33,11 @@ class ModerationService
 
                 $issue = $r->issue;
                 $issue->increment('reports_count');
+
+                // Set the area only if the issue has none yet; never overwrite an existing one.
+                if ($areaId) {
+                    \App\Models\Issue::whereKey($issue->id)->whereNull('admin_area_id')->update(['admin_area_id' => $areaId]);
+                }
                 $issue->forceFill([
                     'published_at'     => $issue->published_at ?? now(),
                     'last_activity_at' => now(),
