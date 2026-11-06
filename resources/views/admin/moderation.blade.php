@@ -39,7 +39,7 @@
                 </div>
 
                 @php
-    $areaList ??= \App\Models\AdminArea::orderBy('id')->get()->map(fn ($a) => [
+    $areaList ??= \App\Models\AdminArea::whereIn('level', ['division', 'district', 'upazila'])->orderBy('id')->get()->map(fn ($a) => [
         'id' => $a->id,
         'parent_id' => $a->parent_id,
         'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn),
@@ -61,7 +61,7 @@
 
                 <div class="mt-4 flex flex-wrap items-end gap-2">
                     <form method="POST" action="{{ route('admin.moderation.approve', $r) }}"
-                          x-data="areaPicker(@js($areaList), @js(app()->getLocale()))"
+                          x-data="areaPicker(window.__areas, @js(app()->getLocale()))"
                           class="flex flex-wrap items-end gap-2">
                         @csrf
                         @if ($issueArea)
@@ -118,7 +118,8 @@
 @push('scripts')
 <script>
     document.addEventListener('alpine:init', () => {
-        Alpine.data('areaPicker', (areas, locale) => ({
+        window.__areas = @js($areaList ?? []);
+Alpine.data('areaPicker', (areas, locale) => ({
             areas: areas,
             division: '',
             district: '',

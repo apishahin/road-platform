@@ -82,7 +82,7 @@ class IssueListController extends Controller
             ->all();
 
         $isBn = app()->getLocale() === 'bn';
-        $areas = AdminArea::orderBy('id')->get()->map(function ($a) use ($isBn) {
+        $areas = AdminArea::whereIn('level', ['division', 'district', 'upazila'])->orderBy('id')->get()->map(function ($a) use ($isBn) {
             $bn = $a->name_bn ?? null;
             $en = $a->name_en ?? null;
             $label = $isBn ? ($bn ?? $en) : ($en ?? $bn);
