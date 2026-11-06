@@ -82,21 +82,18 @@ class IssueListController extends Controller
             ->all();
 
         $isBn = app()->getLocale() === 'bn';
-        $byParent = AdminArea::orderBy('id')->get()->groupBy(fn ($a) => $a->parent_id ?? 0);
-        $areas = [];
-        $walk = function ($parentId, $depth) use (&$walk, &$areas, $byParent, $isBn) {
-            foreach ($byParent->get($parentId, collect()) as $a) {
-                $bn = $a->name_bn ?? null;
-                $en = $a->name_en ?? null;
-                $label = $isBn ? ($bn ?? $en) : ($en ?? $bn);
-                $areas[] = [
-                    'id'    => $a->id,
-                    'label' => str_repeat("\u{2014} ", $depth) . ($label ?? ('#' . $a->id)),
-                ];
-                $walk($a->id, $depth + 1);
-            }
-        };
-        $walk(0, 0);
+        $areas = AdminArea::orderBy('id')->get()->map(function ($a) use ($isBn) {
+            $bn = $a->name_bn ?? null;
+            $en = $a->name_en ?? null;
+            $label = $isBn ? ($bn ?? $en) : ($en ?? $bn);
+
+            return [
+                'id'        => $a->id,
+                'parent_id' => $a->parent_id,
+                'level'     => $a->level,
+                'label'     => $label ?? ('#' . $a->id),
+            ];
+        })->all();
 
         return view('issues.index', [
             'issues'     => $issues,

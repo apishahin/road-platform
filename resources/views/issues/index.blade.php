@@ -5,7 +5,7 @@
 @section('content')
 @php
     $toBn = fn ($n) => app()->getLocale() === 'bn'
-        ? strtr((string) $n, '0123456789', '০১২৩৪৫৬৭৮৯')
+        ? strtr((string) $n, ['0' => "\u{09E6}", '1' => "\u{09E7}", '2' => "\u{09E8}", '3' => "\u{09E9}", '4' => "\u{09EA}", '5' => "\u{09EB}", '6' => "\u{09EC}", '7' => "\u{09ED}", '8' => "\u{09EE}", '9' => "\u{09EF}"])
         : (string) $n;
     $hasFilter = $filters['status'] !== '' || $filters['category'] > 0
         || $filters['area'] > 0 || $filters['q'] !== '' || $filters['sort'] !== 'recent';
@@ -18,17 +18,19 @@
 
     {{-- Filters --}}
     <form method="GET" action="{{ route('issues.index') }}"
+          x-data="issueFilter(@js($areas), {{ (int) $filters['area'] }}, @js(app()->getLocale()))"
           class="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
 
         <div class="sm:col-span-2 lg:col-span-3">
             <label for="q" class="text-sm font-medium text-slate-700">{{ __('issues.search') }}</label>
             <input id="q" type="text" name="q" value="{{ $filters['q'] }}" maxlength="100"
-                   placeholder="{{ __('issues.search_placeholder') }}" class="{{ $field }}">
+                   placeholder="{{ __('issues.search_placeholder') }}" class="{{ $field }}"
+                   @change="$el.form.submit()">
         </div>
 
         <div>
             <label for="status" class="text-sm font-medium text-slate-700">{{ __('issues.status') }}</label>
-            <select id="status" name="status" class="{{ $field }}">
+            <select id="status" name="status" class="{{ $field }}" @change="$el.form.submit()">
                 <option value="">{{ __('issues.all_statuses') }}</option>
                 @foreach ($statuses as $s)
                     <option value="{{ $s }}" @selected($filters['status'] === $s)>
@@ -40,7 +42,7 @@
 
         <div>
             <label for="category" class="text-sm font-medium text-slate-700">{{ __('issues.category') }}</label>
-            <select id="category" name="category" class="{{ $field }}">
+            <select id="category" name="category" class="{{ $field }}" @change="$el.form.submit()">
                 <option value="">{{ __('issues.all_categories') }}</option>
                 @foreach ($categories as $c)
                     <option value="{{ $c['id'] }}" @selected($filters['category'] === $c['id'])>
@@ -51,39 +53,97 @@
         </div>
 
         <div>
-            <label for="area" class="text-sm font-medium text-slate-700">{{ __('issues.area') }}</label>
-            <select id="area" name="area" class="{{ $field }}">
-                <option value="">{{ __('issues.all_areas') }}</option>
-                @foreach ($areas as $a)
-                    <option value="{{ $a['id'] }}" @selected($filters['area'] === $a['id'])>
-                        {{ $a['label'] }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div>
             <label for="sort" class="text-sm font-medium text-slate-700">{{ __('issues.sort') }}</label>
-            <select id="sort" name="sort" class="{{ $field }}">
+            <select id="sort" name="sort" class="{{ $field }}" @change="$el.form.submit()">
                 <option value="recent"  @selected($filters['sort'] === 'recent')>{{ __('issues.sort_recent') }}</option>
                 <option value="reports" @selected($filters['sort'] === 'reports')>{{ __('issues.sort_reports') }}</option>
                 <option value="oldest"  @selected($filters['sort'] === 'oldest')>{{ __('issues.sort_oldest') }}</option>
             </select>
         </div>
 
-        <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
-            <button type="submit"
-                    class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-semibold text-white hover:opacity-90">
-                {{ __('issues.apply') }}
-            </button>
-            @if ($hasFilter)
+        <div class="sm:col-span-2 lg:col-span-3">
+            <span class="text-sm font-medium text-slate-700">{{ __('issues.area') }}</span>
+            <input type="hidden" name="area" :value="areaValue" :disabled="!areaValue">
+            <div class="mt-1 grid gap-3 sm:grid-cols-3">
+                <select x-model="division" @change="district = ''; upazila = ''; send()"
+                        aria-label="{{ __('areas.division') }}" class="{{ $field }} !mt-0">
+                    <option value="">{{ __('areas.all_divisions') }}</option>
+                    <template x-for="a in roots()" :key="a.id">
+                        <option :value="String(a.id)" x-text="a.label"></option>
+                    </template>
+                </select>
+
+                <select x-model="district" @change="upazila = ''; send()" :disabled="!division"
+                        aria-label="{{ __('areas.district') }}" class="{{ $field }} !mt-0 disabled:bg-slate-100">
+                    <option value="">{{ __('areas.all_districts') }}</option>
+                    <template x-for="a in children(division)" :key="a.id">
+                        <option :value="String(a.id)" x-text="a.label"></option>
+                    </template>
+                </select>
+
+                <select x-show="children(district).length > 0" x-model="upazila" @change="send()"
+                        aria-label="{{ __('areas.upazila') }}" class="{{ $field }} !mt-0">
+                    <option value="">{{ __('areas.all_upazilas') }}</option>
+                    <template x-for="a in children(district)" :key="a.id">
+                        <option :value="String(a.id)" x-text="a.label"></option>
+                    </template>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="sr-only">{{ __('issues.apply') }}</button>
+
+        @if ($hasFilter)
+            <div class="sm:col-span-2 lg:col-span-3">
                 <a href="{{ route('issues.index') }}"
-                   class="rounded-lg border border-slate-300 px-5 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                   class="inline-block rounded-lg border border-slate-300 px-5 py-2 text-sm text-slate-700 hover:bg-slate-50">
                     {{ __('issues.reset') }}
                 </a>
-            @endif
-        </div>
+            </div>
+        @endif
     </form>
+
+    @push('scripts')
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('issueFilter', (areas, selected, locale) => ({
+                areas: areas,
+                division: '',
+                district: '',
+                upazila: '',
+                init() {
+                    const byId = {};
+                    areas.forEach(a => { byId[a.id] = a; });
+                    const chain = [];
+                    let cur = byId[selected];
+                    while (cur) {
+                        chain.unshift(cur);
+                        cur = cur.parent_id ? byId[cur.parent_id] : null;
+                    }
+                    this.division = chain[0] ? String(chain[0].id) : '';
+                    this.district = chain[1] ? String(chain[1].id) : '';
+                    this.upazila = chain[2] ? String(chain[2].id) : '';
+                },
+                sorted(list) {
+                    return list.slice().sort((a, b) => a.label.localeCompare(b.label, locale));
+                },
+                roots() {
+                    return this.sorted(this.areas.filter(a => !a.parent_id));
+                },
+                children(parentId) {
+                    if (!parentId) return [];
+                    return this.sorted(this.areas.filter(a => String(a.parent_id) === String(parentId)));
+                },
+                get areaValue() {
+                    return this.upazila || this.district || this.division || '';
+                },
+                send() {
+                    this.$nextTick(() => this.$root.submit());
+                },
+            }));
+        });
+    </script>
+    @endpush
 
     {{-- Results --}}
     <p class="mt-6 text-sm text-slate-600">
