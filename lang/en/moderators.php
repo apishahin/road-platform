@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'title' => 'Area volunteer moderators',
+    'hint' => 'Pick a user by phone number and give them an area. They will only see reports inside that area (and everything under it). The user must have logged in at least once.',
+    'phone_note' => 'Only admins can see phone numbers.',
+    'add' => 'New volunteer',
+    'phone' => 'Phone number',
+    'area' => 'Area',
+    'area_hint' => 'Any level works. Choosing only a division gives the whole division.',
+    'give' => 'Give area',
+    'active' => 'Active volunteers',
+    'none' => 'Nobody yet.',
+    'name' => 'Name',
+    'since' => 'Since',
+    'revoke' => 'Revoke',
+    'confirm_revoke' => 'Revoke this area?',
+    'past' => 'Revoked (latest 20)',
+    'revoked_at' => 'Revoked at',
+    'granted_msg' => 'Area granted.',
+    'revoked_msg' => 'Revoked.',
+    'err_phone' => 'Invalid phone number (at least 10 digits).',
+    'err_nouser' => 'No user found for this number. Ask them to log in once first.',
+    'err_many' => 'More than one user matches. Enter the full number.',
+    'err_banned' => 'This user is banned.',
+    'err_role' => 'This user has a different role (moderator/admin/authority). Cannot give an area.',
+    'err_dup' => 'This area is already given to them.',
+];

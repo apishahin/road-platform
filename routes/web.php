@@ -72,3 +72,11 @@ Route::get('/admin/areas/{area}/children', \App\Http\Controllers\Admin\AreaChild
 
 Route::get('/areas/locate', \App\Http\Controllers\AreaLocateController::class)->middleware('throttle:60,1')->name('areas.locate');
 Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenController::class)->name('areas.children');
+
+// ---- Area volunteer moderators (admin only; checked inside the controller) ----
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/moderators')->name('admin.moderators.')->group(function () {
+    $c = \App\Http\Controllers\Admin\ModeratorsController::class;
+    \Illuminate\Support\Facades\Route::get('/', [$c, 'index'])->name('index');
+    \Illuminate\Support\Facades\Route::post('/', [$c, 'store'])->name('store');
+    \Illuminate\Support\Facades\Route::post('/{grant}/revoke', [$c, 'revoke'])->name('revoke');
+});
