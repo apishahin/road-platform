@@ -99,6 +99,14 @@
                                     <option :value="String(a.id)" x-text="a.label"></option>
                                 </template>
                             </select>
+<select x-show="unions.length > 0" x-model="union"
+        aria-label="{{ __('areas.union') }}"
+        class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm">
+    <option value="">{{ __('areas.all_unions') }}</option>
+    <template x-for="a in unions" :key="a.id">
+        <option :value="String(a.id)" x-text="a.label"></option>
+    </template>
+</select>
                         @endif
                         <button class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">{{ __('report.mod_approve') }}</button>
         <button form="hide-{{ $r->id }}" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{{ __('report.mod_hide') }}</button>
@@ -119,11 +127,25 @@
 <script>
     document.addEventListener('alpine:init', () => {
         window.__areas = @js($areaList ?? []);
+        window.__areaChildrenUrl = @js(url('/admin/areas'));
 Alpine.data('areaPicker', (areas, locale) => ({
             areas: areas,
             division: '',
             district: '',
             upazila: '',
+            union: '',
+            unions: [],
+            init() {
+                this.$watch('upazila', (v) => {
+                    this.union = '';
+                    this.unions = [];
+                    if (!v) { return; }
+                    fetch(window.__areaChildrenUrl + '/' + v + '/children', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                        .then((r) => r.ok ? r.json() : [])
+                        .then((d) => { if (String(this.upazila) === String(v)) { this.unions = d; } })
+                        .catch(() => {});
+                });
+            },
             sorted(list) {
                 return list.slice().sort((a, b) => a.label.localeCompare(b.label, locale));
             },
@@ -135,7 +157,7 @@ Alpine.data('areaPicker', (areas, locale) => ({
                 return this.sorted(this.areas.filter(a => String(a.parent_id) === String(parentId)));
             },
             get areaValue() {
-                return this.upazila || this.district || this.division || '';
+                return this.union || this.upazila || this.district || this.division || '';
             },
         }));
     });

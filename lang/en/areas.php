@@ -14,4 +14,6 @@ return [
     'pick_area'      => 'Set area (optional)',
     'pick_hint'      => 'If you verify and choose one, it is published as the issue\'s area. If not, it shows "Area not set".',
     'already_set'    => 'Area already set:',
+    'union' => 'Union',
+    'all_unions' => 'All unions',
 ];

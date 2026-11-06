@@ -65,3 +65,6 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::put('/{page}', [$c, 'update'])->name('update');
     \Illuminate\Support\Facades\Route::delete('/{page}', [$c, 'destroy'])->name('destroy');
 });
+
+
+Route::get('/admin/areas/{area}/children', \App\Http\Controllers\Admin\AreaChildrenController::class)->name('admin.areas.children');
