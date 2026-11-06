@@ -50,7 +50,14 @@ class IssueListController extends Controller
             $query->where('category_id', $categoryId);
         }
         if ($areaId > 0) {
-            $query->where('admin_area_id', $areaId);
+            // choosing a division also includes the districts under it
+            $areaIds = [$areaId];
+            $level = [$areaId];
+            for ($depth = 0; $depth < 8 && $level; $depth++) {
+                $level = AdminArea::whereIn('parent_id', $level)->pluck('id')->all();
+                $areaIds = array_merge($areaIds, $level);
+            }
+            $query->whereIn('admin_area_id', $areaIds);
         }
         if ($search !== '') {
             $like = '%' . addcslashes($search, '\\%_') . '%';
@@ -75,15 +82,21 @@ class IssueListController extends Controller
             ->all();
 
         $isBn = app()->getLocale() === 'bn';
-        $areas = AdminArea::orderBy('id')->get()
-            ->map(function ($a) use ($isBn) {
-                $bn = $a->name_bn ?? $a->name ?? null;
-                $en = $a->name_en ?? $a->name ?? null;
+        $byParent = AdminArea::orderBy('id')->get()->groupBy(fn ($a) => $a->parent_id ?? 0);
+        $areas = [];
+        $walk = function ($parentId, $depth) use (&$walk, &$areas, $byParent, $isBn) {
+            foreach ($byParent->get($parentId, collect()) as $a) {
+                $bn = $a->name_bn ?? null;
+                $en = $a->name_en ?? null;
                 $label = $isBn ? ($bn ?? $en) : ($en ?? $bn);
-
-                return ['id' => $a->id, 'label' => $label ?? ('#' . $a->id)];
-            })
-            ->all();
+                $areas[] = [
+                    'id'    => $a->id,
+                    'label' => str_repeat("\u{2014} ", $depth) . ($label ?? ('#' . $a->id)),
+                ];
+                $walk($a->id, $depth + 1);
+            }
+        };
+        $walk(0, 0);
 
         return view('issues.index', [
             'issues'     => $issues,
