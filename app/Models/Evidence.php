@@ -15,7 +15,7 @@ class Evidence extends Model
 
     protected function casts(): array
     {
-        return ['taken_at' => 'datetime'];
+        return ['taken_at' => 'datetime', 'hidden_at' => 'datetime'];
     }
 
     public function report(): BelongsTo

@@ -30,9 +30,47 @@
 
                 <div class="mt-3 flex flex-wrap gap-2">
                     @forelse ($r->evidence as $ev)
-                        <a data-lightbox="r{{ $r->id }}" href="{{ route('admin.evidence.photo', $ev) }}" target="_blank" rel="noopener">
-                            <img src="{{ route('admin.evidence.photo', $ev) }}" alt="" class="h-24 w-24 rounded-lg border border-slate-200 object-cover">
-                        </a>
+                        @once
+                            <script>
+                                document.addEventListener('click', function (e) {
+                                    var b = e.target.closest('[data-hide-ev]');
+                                    if (!b) { return; }
+                                    e.preventDefault();
+                                    if (!confirm(b.getAttribute('data-confirm'))) { return; }
+                                    var box = b.closest('[data-ev-box]');
+                                    var sel = box ? box.querySelector('select') : null;
+                                    var f = document.createElement('form');
+                                    f.method = 'POST';
+                                    f.action = b.getAttribute('data-hide-ev');
+                                    [['_token', b.getAttribute('data-token')], ['reason', sel ? sel.value : 'other']].forEach(function (p) {
+                                        var i = document.createElement('input');
+                                        i.type = 'hidden'; i.name = p[0]; i.value = p[1];
+                                        f.appendChild(i);
+                                    });
+                                    document.body.appendChild(f);
+                                    f.submit();
+                                });
+                            </script>
+                        @endonce
+                        <div class="w-28" data-ev-box>
+                            <a data-lightbox="r{{ $r->id }}" href="{{ route('admin.evidence.photo', $ev) }}" target="_blank" rel="noopener">
+                                <img src="{{ route('admin.evidence.photo', $ev) }}" alt="" class="h-24 w-24 rounded-lg border border-slate-200 object-cover" style="{{ $ev->hidden_at ? 'opacity:.3;filter:grayscale(1)' : '' }}">
+                            </a>
+                            @if ($ev->hidden_at)
+                                <p class="mt-1 text-xs font-semibold text-red-700">{{ __('evmod.hidden_label') }}</p>
+                            @else
+                                <select class="mt-1 w-full rounded border border-slate-300 px-1 py-0.5 text-xs">
+                                    @foreach (['face', 'plate', 'personal', 'other'] as $k)
+                                        <option value="{{ $k }}">{{ __('evmod.reason_' . $k) }}</option>
+                                    @endforeach
+                                </select>
+                                <button type="button"
+                                        data-hide-ev="{{ route('admin.evidence.hide', $ev) }}"
+                                        data-token="{{ csrf_token() }}"
+                                        data-confirm="{{ __('evmod.confirm') }}"
+                                        style="background:#dc2626;color:#fff;border:0;cursor:pointer" class="mt-1 w-full rounded px-2 py-1 text-xs font-semibold">{{ __('evmod.hide_btn') }}</button>
+                            @endif
+                        </div>
                     @empty
                         <span class="text-xs text-slate-400">{{ __('report.mod_no_photos') }}</span>
                     @endforelse

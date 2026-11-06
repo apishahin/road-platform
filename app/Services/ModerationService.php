@@ -72,8 +72,32 @@ class ModerationService
         });
     }
 
+    /** Hide one photo on its own (face, number plate, private info). Returns false if it was already hidden. */
+    public function hideEvidence(Evidence $evidence, User $moderator, string $reason): bool
+    {
+        return DB::transaction(function () use ($evidence, $moderator, $reason) {
+            $ev = Evidence::whereKey($evidence->id)->lockForUpdate()->firstOrFail();
+            if ($ev->hidden_at) {
+                return false;
+            }
+
+            $ev->forceFill([
+                'hidden_at'     => now(),
+                'hidden_by'     => $moderator->id,
+                'hidden_reason' => $reason,
+            ]);
+            $this->unpublishEvidence($ev);
+
+            return true;
+        });
+    }
+
     private function publishEvidence(Evidence $ev): ?string
     {
+        // A photo hidden on its own (face, number plate...) is never published.
+        if ($ev->hidden_at) {
+            return null;
+        }
         if ($ev->moderation === 'approved') {
             return null;
         }

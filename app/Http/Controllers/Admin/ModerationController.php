@@ -68,6 +68,28 @@ class ModerationController extends Controller
         return back()->with('status', __('report.mod_hidden_msg'));
     }
 
+    public function hideEvidence(Request $request, Evidence $evidence)
+    {
+        $this->authorizeModerator($request);
+        abort_unless($evidence->report, 404);
+        \App\Support\ModerationScope::authorizeReport($request->user(), $evidence->report);
+
+        $data = $request->validate([
+            'reason' => ['required', 'in:face,plate,personal,other'],
+        ]);
+
+        $done = $this->moderation->hideEvidence($evidence, $request->user(), $data['reason']);
+
+        if ($done) {
+            app(\App\Services\AuditService::class)->log($request->user(), 'evidence.hide', 'evidence', (string) $evidence->id, [
+                'report_id' => $evidence->report_id,
+                'reason'    => $data['reason'],
+            ]);
+        }
+
+        return back()->with('status', __('evmod.hidden_msg'));
+    }
+
     /** Moderators can view pending photos from private storage. */
     public function photo(Request $request, Evidence $evidence)
     {
