@@ -73,7 +73,7 @@
                                     });
                                     function openBlur(b) {
                                         closeBlur();
-                                        var rects = [], boxes = [], start = null, cur = null;
+                                        var rects = [], boxes = [], start = null, cur = null, mode = 'blur';
 
                                         ov = document.createElement('div');
                                         ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;overflow:auto;';
@@ -102,7 +102,10 @@
                                         }
                                         function mkBox() {
                                             var d = document.createElement('div');
-                                            d.style.cssText = 'position:absolute;background:#000;border:2px solid #f59e0b;box-sizing:border-box;';
+                                            d.setAttribute('data-m', mode);
+                                            d.style.cssText = mode === 'black'
+                                                ? 'position:absolute;background:#000;border:2px solid #f59e0b;box-sizing:border-box;'
+                                                : 'position:absolute;background:rgba(255,255,255,.10);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:2px dashed #fff;border-radius:6px;box-sizing:border-box;';
                                             layer.appendChild(d);
                                             return d;
                                         }
@@ -132,6 +135,7 @@
                                             if (r.w < 0.01 || r.h < 0.01) {
                                                 layer.removeChild(cur);
                                             } else {
+                                                r.m = cur.getAttribute('data-m');
                                                 rects.push(r);
                                                 boxes.push(cur);
                                             }
@@ -149,6 +153,21 @@
                                         var save = mkBtn(b.getAttribute('data-save'), '#16a34a');
                                         var undo = mkBtn(b.getAttribute('data-undo'), '#b45309');
                                         var cancel = mkBtn(b.getAttribute('data-cancel'), '#475569');
+                                        var modeBtns = {};
+                                        function paintModes() {
+                                            Object.keys(modeBtns).forEach(function (k) {
+                                                modeBtns[k].style.borderColor = (k === mode) ? '#fbbf24' : 'transparent';
+                                                modeBtns[k].style.opacity = (k === mode) ? '1' : '.6';
+                                            });
+                                        }
+                                        [['blur', b.getAttribute('data-mode-blur'), '#2563eb'], ['black', b.getAttribute('data-mode-black'), '#111827']].forEach(function (m) {
+                                            var x = mkBtn(m[1], m[2]);
+                                            x.style.border = '2px solid transparent';
+                                            x.addEventListener('click', function () { mode = m[0]; paintModes(); });
+                                            modeBtns[m[0]] = x;
+                                            row.appendChild(x);
+                                        });
+                                        paintModes();
                                         row.appendChild(save);
                                         row.appendChild(undo);
                                         row.appendChild(cancel);
@@ -213,6 +232,8 @@
                                             data-save="{{ __('evblur.save') }}"
                                             data-undo="{{ __('evblur.undo') }}"
                                             data-cancel="{{ __('evblur.cancel') }}"
+                                            data-mode-blur="{{ __('evblur.mode_blur') }}"
+                                            data-mode-black="{{ __('evblur.mode_black') }}"
                                             style="background:#334155;color:#fff;border:0;cursor:pointer"
                                             class="mt-1 w-full rounded px-2 py-1 text-xs font-semibold">{{ __('evblur.btn') }}</button>
                                 @endif

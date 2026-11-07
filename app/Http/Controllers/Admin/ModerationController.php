@@ -114,7 +114,7 @@ class ModerationController extends Controller
             $w = max(0.0, min(1.0 - $x, (float) $r['w']));
             $h = max(0.0, min(1.0 - $y, (float) $r['h']));
             if ($w > 0 && $h > 0) {
-                $clean[] = ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h];
+                $clean[] = ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h, 'm' => (($r['m'] ?? 'blur') === 'black') ? 'black' : 'blur'];
             }
         }
         abort_if($clean === [], 422);
@@ -127,7 +127,8 @@ class ModerationController extends Controller
 
         app(\App\Services\AuditService::class)->log($request->user(), 'evidence.blur', 'evidence', (string) $evidence->id, [
             'report_id' => $evidence->report_id,
-            'boxes'     => count($clean),
+            'boxes' => count($clean),
+            'black' => count(array_filter($clean, fn ($c) => $c['m'] === 'black')),
         ]);
 
         return back()->with('status', __('evblur.done_msg'));

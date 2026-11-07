@@ -2,7 +2,9 @@
 
 return [
     'btn'         => 'Cover face / plate',
-    'hint'        => 'Drag over the photo to draw boxes on the parts you want to cover. When you save, those parts become permanently black and the original photo is deleted.',
+    'hint'        => 'Drag over the photo to draw boxes on the parts you want to cover. "Blur" looks nicer; choose "Black" for maximum safety. When you save, those parts change permanently and the original photo is deleted.',
+    'mode_blur'   => 'Blur',
+    'mode_black'  => 'Black',
     'save'        => 'Save',
     'undo'        => 'Undo last',
     'cancel'      => 'Close',
