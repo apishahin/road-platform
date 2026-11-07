@@ -90,6 +90,49 @@ class ModerationController extends Controller
         return back()->with('status', __('evmod.hidden_msg'));
     }
 
+    public function blurEvidence(Request $request, Evidence $evidence)
+    {
+        $this->authorizeModerator($request);
+        abort_unless($evidence->report, 404);
+        \App\Support\ModerationScope::authorizeReport($request->user(), $evidence->report);
+
+        $data = $request->validate([
+            'rects' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $rects = json_decode($data['rects'], true);
+        abort_unless(is_array($rects) && count($rects) >= 1 && count($rects) <= 30, 422);
+
+        $clean = [];
+        foreach ($rects as $r) {
+            abort_unless(is_array($r), 422);
+            foreach (['x', 'y', 'w', 'h'] as $k) {
+                abort_unless(isset($r[$k]) && is_numeric($r[$k]), 422);
+            }
+            $x = max(0.0, min(1.0, (float) $r['x']));
+            $y = max(0.0, min(1.0, (float) $r['y']));
+            $w = max(0.0, min(1.0 - $x, (float) $r['w']));
+            $h = max(0.0, min(1.0 - $y, (float) $r['h']));
+            if ($w > 0 && $h > 0) {
+                $clean[] = ['x' => $x, 'y' => $y, 'w' => $w, 'h' => $h];
+            }
+        }
+        abort_if($clean === [], 422);
+
+        $done = app(\App\Services\EvidenceBlurService::class)->blur($evidence, $request->user(), $clean);
+
+        if (! $done) {
+            return back()->with('status', __('evblur.not_allowed'));
+        }
+
+        app(\App\Services\AuditService::class)->log($request->user(), 'evidence.blur', 'evidence', (string) $evidence->id, [
+            'report_id' => $evidence->report_id,
+            'boxes'     => count($clean),
+        ]);
+
+        return back()->with('status', __('evblur.done_msg'));
+    }
+
     /** Moderators can view pending photos from private storage. */
     public function photo(Request $request, Evidence $evidence)
     {

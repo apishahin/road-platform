@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/moderation/{report}/hide', [ModerationController::class, 'hide'])->name('admin.moderation.hide');
         Route::get('/evidence/{evidence}', [ModerationController::class, 'photo'])->name('admin.evidence.photo');
         Route::post('/evidence/{evidence}/hide', [ModerationController::class, 'hideEvidence'])->name('admin.evidence.hide');
+        Route::post('/evidence/{evidence}/blur', [ModerationController::class, 'blurEvidence'])->name('admin.evidence.blur');
     });
 });
 

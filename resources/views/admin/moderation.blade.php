@@ -51,6 +51,141 @@
                                     f.submit();
                                 });
                             </script>
+                        <script>
+                                (function () {
+                                    var ov = null, onKey = null;
+                                    function closeBlur() {
+                                        if (ov) { ov.parentNode.removeChild(ov); ov = null; }
+                                        if (onKey) { document.removeEventListener('keydown', onKey); onKey = null; }
+                                    }
+                                    function mkBtn(label, bg) {
+                                        var x = document.createElement('button');
+                                        x.type = 'button';
+                                        x.textContent = label;
+                                        x.style.cssText = 'background:' + bg + ';color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:600;cursor:pointer;';
+                                        return x;
+                                    }
+                                    document.addEventListener('click', function (e) {
+                                        var b = e.target.closest('[data-blur-ev]');
+                                        if (!b) { return; }
+                                        e.preventDefault();
+                                        openBlur(b);
+                                    });
+                                    function openBlur(b) {
+                                        closeBlur();
+                                        var rects = [], boxes = [], start = null, cur = null;
+
+                                        ov = document.createElement('div');
+                                        ov.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;overflow:auto;';
+
+                                        var hint = document.createElement('p');
+                                        hint.textContent = b.getAttribute('data-hint');
+                                        hint.style.cssText = 'color:#fff;font-size:14px;margin:0 0 10px 0;text-align:center;max-width:640px;';
+
+                                        var wrap = document.createElement('div');
+                                        wrap.style.cssText = 'position:relative;line-height:0;';
+                                        var img = document.createElement('img');
+                                        img.src = b.getAttribute('data-src');
+                                        img.draggable = false;
+                                        img.style.cssText = 'max-width:92vw;max-height:68vh;display:block;user-select:none;-webkit-user-drag:none;';
+                                        var layer = document.createElement('div');
+                                        layer.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;cursor:crosshair;touch-action:none;';
+                                        wrap.appendChild(img);
+                                        wrap.appendChild(layer);
+
+                                        function pos(ev) {
+                                            var r = layer.getBoundingClientRect();
+                                            return {
+                                                x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)),
+                                                y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))
+                                            };
+                                        }
+                                        function mkBox() {
+                                            var d = document.createElement('div');
+                                            d.style.cssText = 'position:absolute;background:#000;border:2px solid #f59e0b;box-sizing:border-box;';
+                                            layer.appendChild(d);
+                                            return d;
+                                        }
+                                        function place(d, a, c) {
+                                            var x = Math.min(a.x, c.x), y = Math.min(a.y, c.y);
+                                            var w = Math.abs(a.x - c.x), h = Math.abs(a.y - c.y);
+                                            d.style.left = (x * 100) + '%';
+                                            d.style.top = (y * 100) + '%';
+                                            d.style.width = (w * 100) + '%';
+                                            d.style.height = (h * 100) + '%';
+                                            return { x: x, y: y, w: w, h: h };
+                                        }
+                                        layer.addEventListener('pointerdown', function (ev) {
+                                            ev.preventDefault();
+                                            layer.setPointerCapture(ev.pointerId);
+                                            start = pos(ev);
+                                            cur = mkBox();
+                                            place(cur, start, start);
+                                        });
+                                        layer.addEventListener('pointermove', function (ev) {
+                                            if (!start) { return; }
+                                            place(cur, start, pos(ev));
+                                        });
+                                        layer.addEventListener('pointerup', function (ev) {
+                                            if (!start) { return; }
+                                            var r = place(cur, start, pos(ev));
+                                            if (r.w < 0.01 || r.h < 0.01) {
+                                                layer.removeChild(cur);
+                                            } else {
+                                                rects.push(r);
+                                                boxes.push(cur);
+                                            }
+                                            start = null;
+                                            cur = null;
+                                        });
+                                        layer.addEventListener('pointercancel', function () {
+                                            if (cur) { layer.removeChild(cur); }
+                                            start = null;
+                                            cur = null;
+                                        });
+
+                                        var row = document.createElement('div');
+                                        row.style.cssText = 'display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;justify-content:center;';
+                                        var save = mkBtn(b.getAttribute('data-save'), '#16a34a');
+                                        var undo = mkBtn(b.getAttribute('data-undo'), '#b45309');
+                                        var cancel = mkBtn(b.getAttribute('data-cancel'), '#475569');
+                                        row.appendChild(save);
+                                        row.appendChild(undo);
+                                        row.appendChild(cancel);
+
+                                        undo.addEventListener('click', function () {
+                                            if (!rects.length) { return; }
+                                            rects.pop();
+                                            layer.removeChild(boxes.pop());
+                                        });
+                                        cancel.addEventListener('click', closeBlur);
+                                        save.addEventListener('click', function () {
+                                            if (!rects.length) { return; }
+                                            save.disabled = true;
+                                            var f = document.createElement('form');
+                                            f.method = 'POST';
+                                            f.action = b.getAttribute('data-blur-ev');
+                                            [['_token', b.getAttribute('data-token')], ['rects', JSON.stringify(rects)]].forEach(function (p) {
+                                                var i = document.createElement('input');
+                                                i.type = 'hidden';
+                                                i.name = p[0];
+                                                i.value = p[1];
+                                                f.appendChild(i);
+                                            });
+                                            document.body.appendChild(f);
+                                            f.submit();
+                                        });
+
+                                        onKey = function (e) { if (e.key === 'Escape') { closeBlur(); } };
+                                        document.addEventListener('keydown', onKey);
+
+                                        ov.appendChild(hint);
+                                        ov.appendChild(wrap);
+                                        ov.appendChild(row);
+                                        document.body.appendChild(ov);
+                                    }
+                                })();
+                            </script>
                         @endonce
                         <div class="w-28" data-ev-box>
                             <a data-lightbox="r{{ $r->id }}" href="{{ route('admin.evidence.photo', $ev) }}" target="_blank" rel="noopener">
@@ -69,6 +204,21 @@
                                         data-token="{{ csrf_token() }}"
                                         data-confirm="{{ __('evmod.confirm') }}"
                                         style="background:#dc2626;color:#fff;border:0;cursor:pointer" class="mt-1 w-full rounded px-2 py-1 text-xs font-semibold">{{ __('evmod.hide_btn') }}</button>
+                                @if ($ev->moderation === 'pending')
+                                    <button type="button"
+                                            data-blur-ev="{{ route('admin.evidence.blur', $ev) }}"
+                                            data-src="{{ route('admin.evidence.photo', $ev) }}"
+                                            data-token="{{ csrf_token() }}"
+                                            data-hint="{{ __('evblur.hint') }}"
+                                            data-save="{{ __('evblur.save') }}"
+                                            data-undo="{{ __('evblur.undo') }}"
+                                            data-cancel="{{ __('evblur.cancel') }}"
+                                            style="background:#334155;color:#fff;border:0;cursor:pointer"
+                                            class="mt-1 w-full rounded px-2 py-1 text-xs font-semibold">{{ __('evblur.btn') }}</button>
+                                @endif
+                                @if ($ev->private_path === null)
+                                    <p class="mt-1 text-xs font-semibold text-emerald-700">{{ __('evblur.done_label') }}</p>
+                                @endif
                             @endif
                         </div>
                     @empty
