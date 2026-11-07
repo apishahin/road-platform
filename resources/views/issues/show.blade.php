@@ -147,10 +147,10 @@
                 @else
                     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                         @foreach ($photos as $photo)
-                            <img src="{{ $photo->url() }}"
+                            <a data-lightbox="issue" href="{{ $photo->url() }}" target="_blank" rel="noopener"><img src="{{ $photo->url() }}"
                                  alt="{{ $issue->title }}"
                                  loading="lazy"
-                                 class="h-32 w-full rounded-lg object-cover">
+                                 class="h-32 w-full rounded-lg object-cover"></a>
                         @endforeach
                     </div>
                 @endif
@@ -163,10 +163,17 @@
             {{-- Map --}}
             <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <h2 class="px-4 pt-4 font-semibold text-slate-900">{{ __('issue.page.map') }}</h2>
+                <div class="relative mt-3">
                 <iframe src="{{ $mapEmbed }}" title="{{ $issue->title }}" loading="lazy"
-                        class="mt-3 h-56 w-full border-0"></iframe>
+                        class="h-56 w-full border-0"></iframe>
+                <a data-map data-lat="{{ $issue->lat }}" data-lng="{{ $issue->lng }}"
+                   href="https://www.openstreetmap.org/?mlat={{ $issue->lat }}&mlon={{ $issue->lng }}#map=17/{{ $issue->lat }}/{{ $issue->lng }}"
+                   style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:8px;text-decoration:none;">
+                    <span style="background:rgba(255,255,255,.92);color:#0369a1;border-radius:6px;padding:4px 8px;font-size:12px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.3);">{{ __('issue.page.open_map') }}</span>
+                </a>
+            </div>
                 <div class="flex flex-wrap gap-4 p-4 text-sm">
-                    <a href="https://www.openstreetmap.org/?mlat={{ $issue->lat }}&mlon={{ $issue->lng }}#map=17/{{ $issue->lat }}/{{ $issue->lng }}"
+                    <a data-map data-lat="{{ $issue->lat }}" data-lng="{{ $issue->lng }}" href="https://www.openstreetmap.org/?mlat={{ $issue->lat }}&mlon={{ $issue->lng }}#map=17/{{ $issue->lat }}/{{ $issue->lng }}"
                        target="_blank" rel="noopener" class="text-brand-700 underline">{{ __('issue.page.open_map') }}</a>
                     <a href="https://www.google.com/maps?q={{ $issue->lat }},{{ $issue->lng }}"
                        target="_blank" rel="noopener" class="text-brand-700 underline">{{ __('issue.page.directions') }}</a>
@@ -227,4 +234,114 @@
         </aside>
     </div>
 </div>
+@push('scripts')
+<script>
+(function () {
+  var lb = null, items = [], idx = 0;
+  var mb = null, map = null, marker = null;
+  function btn(attr, css, html) {
+    return '<button type="button" ' + attr + ' style="' + css + '">' + html + '</button>';
+  }
+  function lbBuild() {
+    lb = document.createElement('div');
+    lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;';
+    var arrow = 'position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:56px;line-height:1;padding:8px 16px;background:none;border:0;cursor:pointer;';
+    lb.innerHTML = '<img alt="" style="max-width:92vw;max-height:88vh;border-radius:8px;">'
+      + btn('data-x', 'position:absolute;top:10px;right:18px;color:#fff;font-size:40px;line-height:1;background:none;border:0;cursor:pointer;', '&times;')
+      + btn('data-p', arrow + 'left:6px;', '&lsaquo;')
+      + btn('data-n', arrow + 'right:6px;', '&rsaquo;');
+    document.body.appendChild(lb);
+    lb.addEventListener('click', function (e) {
+      if (e.target === lb || e.target.closest('[data-x]')) { lbClose(); }
+      else if (e.target.closest('[data-p]')) { lbShow(idx - 1); }
+      else if (e.target.closest('[data-n]')) { lbShow(idx + 1); }
+    });
+  }
+  function lbShow(i) {
+    idx = (i + items.length) % items.length;
+    lb.querySelector('img').src = items[idx].href;
+    var d = items.length > 1 ? 'block' : 'none';
+    lb.querySelector('[data-p]').style.display = d;
+    lb.querySelector('[data-n]').style.display = d;
+  }
+  function lbOpen(list, i) {
+    if (!lb) { lbBuild(); }
+    items = list; lb.style.display = 'flex'; document.body.style.overflow = 'hidden'; lbShow(i);
+  }
+  function lbClose() {
+    lb.style.display = 'none'; lb.querySelector('img').src = ''; document.body.style.overflow = '';
+  }
+  function ensureLeaflet(cb) {
+    if (!document.getElementById('lf-css')) {
+      var l = document.createElement('link');
+      l.id = 'lf-css'; l.rel = 'stylesheet';
+      l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(l);
+    }
+    if (window.L && window.L.map) { cb(); return; }
+    var s = document.getElementById('lf-js');
+    if (!s) {
+      s = document.createElement('script');
+      s.id = 'lf-js'; s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      document.head.appendChild(s);
+    }
+    s.addEventListener('load', cb);
+  }
+  function mapClose() { mb.style.display = 'none'; }
+  function mapOpen(lat, lng, href, label) {
+    if (!mb) {
+      mb = document.createElement('div');
+      mb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;';
+      mb.innerHTML = '<div style="background:#fff;border-radius:12px;width:min(92vw,720px);padding:12px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+        + '<a data-o target="_blank" rel="noopener" style="color:#0369a1;text-decoration:underline;"></a>'
+        + btn('data-x', 'font-size:30px;line-height:1;padding:0 8px;background:none;border:0;cursor:pointer;', '&times;')
+        + '</div><div data-m style="height:60vh;min-height:320px;border-radius:8px;"></div></div>';
+      document.body.appendChild(mb);
+      mb.addEventListener('click', function (e) {
+        if (e.target === mb || e.target.closest('[data-x]')) { mapClose(); }
+      });
+    }
+    var o = mb.querySelector('[data-o]');
+    o.href = href; o.textContent = label;
+    mb.style.display = 'flex';
+    ensureLeaflet(function () {
+      var el = mb.querySelector('[data-m]');
+      if (!map) {
+        map = L.map(el);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+        marker = L.marker([lat, lng]).addTo(map);
+      } else {
+        marker.setLatLng([lat, lng]);
+      }
+      map.setView([lat, lng], 17);
+      setTimeout(function () { map.invalidateSize(); }, 60);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var p = e.target.closest('a[data-lightbox]');
+    if (p) {
+      e.preventDefault();
+      var list = Array.prototype.slice.call(document.querySelectorAll('a[data-lightbox="' + p.getAttribute('data-lightbox') + '"]'));
+      lbOpen(list, list.indexOf(p));
+      return;
+    }
+    var m = e.target.closest('a[data-map]');
+    if (m) {
+      var lat = parseFloat(m.getAttribute('data-lat')), lng = parseFloat(m.getAttribute('data-lng'));
+      if (isNaN(lat) || isNaN(lng)) { return; }
+      e.preventDefault();
+      mapOpen(lat, lng, m.href, m.textContent.trim());
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (lb && lb.style.display === 'flex') {
+      if (e.key === 'Escape') { lbClose(); }
+      else if (e.key === 'ArrowLeft') { lbShow(idx - 1); }
+      else if (e.key === 'ArrowRight') { lbShow(idx + 1); }
+    } else if (mb && mb.style.display === 'flex' && e.key === 'Escape') { mapClose(); }
+  });
+})();
+</script>
+@endpush
 @endsection
