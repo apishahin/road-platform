@@ -246,8 +246,9 @@
     lb = document.createElement('div');
     lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;';
     var arrow = 'position:absolute;top:50%;transform:translateY(-50%);color:#fff;font-size:56px;line-height:1;padding:8px 16px;background:none;border:0;cursor:pointer;';
-    lb.innerHTML = '<img alt="" style="max-width:92vw;max-height:88vh;border-radius:8px;">'
-      + btn('data-x', 'position:absolute;top:10px;right:18px;color:#fff;font-size:40px;line-height:1;background:none;border:0;cursor:pointer;', '&times;')
+    lb.innerHTML = '<div style="position:relative;display:inline-block;"><img alt="" style="display:block;max-width:92vw;max-height:88vh;border-radius:8px;">'
+      + btn('data-x', 'position:absolute;top:-14px;right:-14px;width:32px;height:32px;border-radius:50%;background:#fff;color:#111;border:0;cursor:pointer;font-size:22px;line-height:32px;padding:0;box-shadow:0 1px 6px rgba(0,0,0,.5);', '&times;')
+      + '</div>'
       + btn('data-p', arrow + 'left:6px;', '&lsaquo;')
       + btn('data-n', arrow + 'right:6px;', '&rsaquo;');
     document.body.appendChild(lb);
