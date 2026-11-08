@@ -26,7 +26,7 @@ class ModerationService
                 $r->save();
 
                 foreach ($r->evidence as $ev) {
-                    if ($new = $this->publishEvidence($ev)) {
+                    if ($r->issue?->unpublished_at === null && ($new = $this->publishEvidence($ev))) {
                         $copied[] = $new;
                     }
                 }
@@ -39,7 +39,7 @@ class ModerationService
                     \App\Models\Issue::whereKey($issue->id)->whereNull('admin_area_id')->update(['admin_area_id' => $areaId]);
                 }
                 $issue->forceFill([
-                    'published_at'     => $issue->published_at ?? now(),
+                    'published_at'     => $issue->unpublished_at !== null ? null : ($issue->published_at ?? now()),
                     'last_activity_at' => now(),
                 ])->save();
             });

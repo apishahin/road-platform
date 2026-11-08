@@ -69,7 +69,7 @@ class IssuePublishService
                 ->where('issue_id', $i->id)->where('moderation', 'approved')->get();
             foreach ($reports as $r) {
                 foreach ($r->evidence as $ev) {
-                    if ($ev->hidden_at === null && $ev->moderation === 'hidden') {
+                    if ($ev->hidden_at === null && in_array($ev->moderation, ['pending', 'hidden'], true)) {
                         $this->moderation->publishEvidence($ev);
                     }
                 }
