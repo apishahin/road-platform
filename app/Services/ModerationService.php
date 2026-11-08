@@ -92,7 +92,7 @@ class ModerationService
         });
     }
 
-    private function publishEvidence(Evidence $ev): ?string
+    public function publishEvidence(Evidence $ev): ?string
     {
         // A photo hidden on its own (face, number plate...) is never published.
         if ($ev->hidden_at) {
@@ -114,7 +114,7 @@ class ModerationService
         return $newPath;
     }
 
-    private function unpublishEvidence(Evidence $ev): void
+    public function unpublishEvidence(Evidence $ev): void
     {
         if ($ev->moderation === 'approved') {
             $private = Storage::disk(\App\Support\StorageSettings::privateDisk());

@@ -94,3 +94,12 @@ Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenControlle
     \Illuminate\Support\Facades\Route::post('/{application}/approve', [$c, 'approve'])->name('approve');
     \Illuminate\Support\Facades\Route::post('/{application}/reject', [$c, 'reject'])->name('reject');
 });
+
+// Published issues: unpublish, publish again, edit (admin / moderator)
+Route::middleware('auth')->prefix('admin')->group(function () {
+    Route::get('/issues', [\App\Http\Controllers\Admin\IssueAdminController::class, 'index'])->name('admin.issues.index');
+    Route::get('/issues/{issue:id}/edit', [\App\Http\Controllers\Admin\IssueAdminController::class, 'edit'])->name('admin.issues.edit');
+    Route::post('/issues/{issue:id}/update', [\App\Http\Controllers\Admin\IssueAdminController::class, 'update'])->name('admin.issues.update');
+    Route::post('/issues/{issue:id}/unpublish', [\App\Http\Controllers\Admin\IssueAdminController::class, 'unpublish'])->name('admin.issues.unpublish');
+    Route::post('/issues/{issue:id}/republish', [\App\Http\Controllers\Admin\IssueAdminController::class, 'republish'])->name('admin.issues.republish');
+});
