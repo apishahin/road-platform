@@ -22,4 +22,9 @@ return [
     'cant' => 'This user\'s role cannot be changed here.',
     'note' => 'A moderator works in all areas. A volunteer\'s area is set from Volunteer applications.',
     'confirm' => 'Change this user\'s role?',
+    'all_roles' => 'All roles',
+    'area_ph' => 'Type an area name (at least 2 letters) and pick one',
+    'area_clear' => 'Clear area',
+    'work_area' => 'Work area',
+    'area_note' => 'The area filter looks only at the work areas given to volunteers.',
 ];

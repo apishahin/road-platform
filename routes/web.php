@@ -122,3 +122,7 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::get('users', [\App\Http\Controllers\Admin\UserAdminController::class, 'index'])->name('users.index');
     \Illuminate\Support\Facades\Route::post('users/{id}/role', [\App\Http\Controllers\Admin\UserAdminController::class, 'setRole'])->whereNumber('id')->name('users.role');
 });
+
+\Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('users-areas', [\App\Http\Controllers\Admin\UserAdminController::class, 'areas'])->name('users.areas');
+});
