@@ -103,3 +103,17 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::post('/issues/{issue:id}/unpublish', [\App\Http\Controllers\Admin\IssueAdminController::class, 'unpublish'])->name('admin.issues.unpublish');
     Route::post('/issues/{issue:id}/republish', [\App\Http\Controllers\Admin\IssueAdminController::class, 'republish'])->name('admin.issues.republish');
 });
+
+// Authority contacts: add, approve, CSV import (admin / moderator)
+Route::middleware('auth')->prefix('admin')->group(function () {
+    $c = \App\Http\Controllers\Admin\AuthorityContactController::class;
+    Route::get('/authority-contacts', [$c, 'index'])->name('admin.contacts.index');
+    Route::post('/authority-contacts', [$c, 'store'])->name('admin.contacts.store');
+    Route::get('/authority-contacts/area-search', [$c, 'areaSearch'])->name('admin.contacts.areas');
+    Route::get('/authority-contacts/template.csv', [$c, 'template'])->name('admin.contacts.template');
+    Route::get('/authority-contacts/areas.csv', [$c, 'areasCsv'])->name('admin.contacts.areascsv');
+    Route::post('/authority-contacts/import', [$c, 'import'])->name('admin.contacts.import');
+    Route::post('/authority-contacts/{contact:id}/approve', [$c, 'approve'])->name('admin.contacts.approve');
+    Route::post('/authority-contacts/{contact:id}/disable', [$c, 'disable'])->name('admin.contacts.disable');
+    Route::post('/authority-contacts/{contact:id}/enable', [$c, 'enable'])->name('admin.contacts.enable');
+});
