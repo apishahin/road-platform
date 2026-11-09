@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'menu' => 'Users',
+    'title' => 'Users',
+    'search' => 'Search by name, phone or id',
+    'go' => 'Search',
+    'none' => 'No users found',
+    'col_user' => 'User',
+    'col_role' => 'Role',
+    'col_action' => 'Change role',
+    'banned' => 'Banned',
+    'role_citizen' => 'Citizen',
+    'role_volunteer' => 'Volunteer',
+    'role_moderator' => 'Moderator',
+    'role_admin' => 'Admin',
+    'role_authority' => 'Authority',
+    'make_citizen' => 'Make citizen',
+    'make_volunteer' => 'Make volunteer',
+    'make_moderator' => 'Make moderator',
+    'changed' => 'Role changed.',
+    'cant' => 'This user\'s role cannot be changed here.',
+    'note' => 'A moderator works in all areas. A volunteer\'s area is set from Volunteer applications.',
+    'confirm' => 'Change this user\'s role?',
+];

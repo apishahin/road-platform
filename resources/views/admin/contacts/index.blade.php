@@ -84,7 +84,7 @@
                     <span style="font-size:12px;padding:2px 10px;border-radius:999px;{{ $c->status === 'approved' ? 'background:#dcfce7;color:#166534;' : ($c->status === 'pending' ? 'background:#fef3c7;color:#92400e;' : 'background:#e2e8f0;color:#475569;') }}">{{ __('authcontact.status_' . $c->status) }}</span>
                 </div>
                 <div class="mt-1 text-xs text-slate-500">{{ \App\Models\AuthorityContact::pathOf($c->area) }}</div>
-                <div class="text-xs text-slate-500">{{ __('authcontact.added_by') }}: {{ $c->addedBy?->display_name ?? '-' }} (#{{ $c->added_by }})</div>
+                <div class="text-xs text-slate-500">{{ __('authcontact.added_by') }}: {{ $c->addedBy?->display_name ?? '-' }} (#{{ $c->added_by }}) &middot; {{ $c->addedBy ? __('adminusers.role_' . $c->addedBy->role) : '' }}@if($c->addedBy?->phone) &middot; ***{{ substr($c->addedBy->phone, -4) }}@endif</div>
                 <div class="mt-1 text-sm text-slate-700">
                     @if ($c->phone) {{ $c->phone }} @endif
                     @if ($c->email) &middot; {{ $c->email }} @endif
