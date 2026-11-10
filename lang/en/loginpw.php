@@ -1,0 +1,23 @@
+<?php
+return [
+    'settings_note' => 'These settings apply to the login page as soon as you save. Be careful: keep at least one way for yourself to log in.',
+    'otp_off' => 'Login with OTP code is turned off.',
+    'pw_off' => 'Login with password is turned off.',
+    'reg_closed' => 'New accounts cannot be created right now.',
+    'bad_login' => 'Phone number or password is wrong.',
+    'staff_off' => 'Password login is off for this account. Please use the OTP code.',
+    'wait' => 'Too many attempts. Please wait a while and try again.',
+    'phone_taken' => 'An account with this number already exists. Please log in.',
+    'pw_short' => 'Password must be 8 to 100 characters.',
+    'pw_mismatch' => 'The two passwords do not match.',
+    'registered' => 'Your account is created. You are logged in.',
+    'none' => 'No login method is turned on right now. Please contact the site admin.',
+    'or_password' => 'Login with password',
+    'password' => 'Password',
+    'password_confirm' => 'Repeat password',
+    'login_btn' => 'Log in',
+    'register_title' => 'Create a new account',
+    'register_btn' => 'Create account',
+    'register_hint' => 'Use at least 8 characters. With a password only, your phone number is not verified.',
+    'need_admin_pw' => 'To turn OTP off, your own admin account must have a password and "password login for staff" must be on. Setting your own password comes in the next step.',
+];

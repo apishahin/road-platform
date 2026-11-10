@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold text-slate-900">{{ __('loginsettings.title') }}</h1>
     <p class="mt-1 text-sm text-slate-600">{{ __('loginsettings.intro') }}</p>
 
-    <p style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;font-size:14px;">{{ __('loginsettings.note') }}</p>
+    <p style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;font-size:14px;">{{ __('loginpw.settings_note') }}</p>
 
     @if($errors->any())
         <div style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;font-size:14px;">{{ $errors->first() }}</div>

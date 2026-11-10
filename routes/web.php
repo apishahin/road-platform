@@ -145,3 +145,8 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::get('login-settings', [\App\Http\Controllers\Admin\LoginSettingsController::class, 'show'])->name('loginsettings.index');
     \Illuminate\Support\Facades\Route::post('login-settings', [\App\Http\Controllers\Admin\LoginSettingsController::class, 'save'])->name('loginsettings.save');
 });
+
+\Illuminate\Support\Facades\Route::middleware('guest')->group(function () {
+    \Illuminate\Support\Facades\Route::post('/login/password', [\App\Http\Controllers\AuthController::class, 'passwordLogin'])->middleware('throttle:10,1')->name('login.password');
+    \Illuminate\Support\Facades\Route::post('/login/register', [\App\Http\Controllers\AuthController::class, 'register'])->middleware('throttle:5,1')->name('login.register');
+});

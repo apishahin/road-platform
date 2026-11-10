@@ -44,6 +44,10 @@ class LoginSettingsController extends Controller
             return back()->withInput()->withErrors(['methods' => __('loginsettings.need_one')]);
         }
 
+        if (! $new['otp_enabled'] && (empty($admin->password) || ! $new['password_for_staff'])) {
+            return back()->withInput()->withErrors(['methods' => __('loginpw.need_admin_pw')]);
+        }
+
         $new['otp_provider'] = (string) $request->input('otp_provider');
         LoginSettings::save($new);
         app(AuditService::class)->log($admin, 'login_settings.save', 'setting', 'login', $new);
