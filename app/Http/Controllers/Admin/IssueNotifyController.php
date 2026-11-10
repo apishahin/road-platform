@@ -73,7 +73,10 @@ class IssueNotifyController extends Controller
 
     private function defaultMessage(Issue $issue): string
     {
-        $site = (string) config('app.name');
+        $site = trim((string) \App\Support\AppearanceSettings::siteName());
+        if ($site === '') {
+            $site = (string) config('app.name');
+        }
         $areaPath = '';
         if ($issue->admin_area_id) {
             $area = AdminArea::with('parent.parent.parent')->find($issue->admin_area_id);
