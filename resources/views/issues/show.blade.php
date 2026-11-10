@@ -202,6 +202,17 @@
                     </p>
                     <p class="mt-2 text-xs text-slate-500">{{ __('issue.page.authority_note') }}</p>
                 @endforelse
+
+            @if (!empty($notified) && count($notified) > 0)
+                <div class="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                    <p class="font-medium text-slate-900">{{ __('issuenotified.title') }}</p>
+                    <ul class="mt-1 list-disc space-y-0.5 pl-5">
+                        @foreach ($notified as $n)
+                            <li>{{ $n['date'] }}@if ($n['position'] !== ''), {{ $n['position'] }}@endif</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             </section>
 
             {{-- Share --}}

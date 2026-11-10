@@ -46,6 +46,17 @@ class IssueController extends Controller
 
         $authorities = $issue->authorityLinks()->with('authority')->get();
 
+        $notified = \App\Models\IssueNotification::with('contact:id,position')
+            ->where('issue_id', $issue->id)
+            ->where('status', 'sent')
+            ->orderBy('created_at')
+            ->limit(20)
+            ->get()
+            ->map(fn ($n) => [
+                'date'     => IssuePresenter::num($n->created_at ? $n->created_at->format('d/m/Y') : ''),
+                'position' => trim((string) ($n->contact->position ?? '')),
+            ]);
+
         // Small OpenStreetMap embed around the issue point
         $lat = (float) $issue->lat;
         $lng = (float) $issue->lng;
@@ -55,6 +66,7 @@ class IssueController extends Controller
             . '&layer=mapnik&marker=' . $lat . ',' . $lng;
 
         return view('issues.show', [
+            'notified'      => $notified,
             'issue'        => $issue,
             'status'       => IssuePresenter::display($issue),
             'explanation'  => StatusLabel::explain($issue),
