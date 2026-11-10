@@ -132,3 +132,5 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::post('issues/{issue}/notify/email', [\App\Http\Controllers\Admin\IssueNotifyController::class, 'sendEmail'])->whereNumber('issue')->name('issues.notify.send');
     \Illuminate\Support\Facades\Route::post('issues/{issue}/notify/whatsapp/{contact}', [\App\Http\Controllers\Admin\IssueNotifyController::class, 'whatsapp'])->whereNumber('issue')->whereNumber('contact')->name('issues.notify.whatsapp');
 });
+
+\Illuminate\Support\Facades\Route::get('admin/issues-areas', \App\Http\Controllers\Admin\IssueAreaSearchController::class)->name('admin.issues.areas');

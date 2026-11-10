@@ -18,12 +18,40 @@ class IssueAdminController extends Controller
         abort_unless($request->user()?->isModerator(), 403);
     }
 
+    private function areaTreeIds(\App\Models\AdminArea $area): array
+    {
+        $ids = [$area->id];
+        $level = [$area->id];
+        for ($i = 0; $i < 6 && $level; $i++) {
+            $level = \App\Models\AdminArea::whereIn('parent_id', $level)->pluck('id')->all();
+            $ids = array_merge($ids, $level);
+        }
+
+        return $ids;
+    }
+
     public function index(Request $request)
     {
         $this->guard($request);
 
         $tab = $request->query('tab') === 'unpublished' ? 'unpublished' : 'published';
         $q = Issue::query();
+
+        $areaId = (int) $request->query('area', 0);
+        $noArea = $request->boolean('noarea');
+        $areaLabel = null;
+        if ($noArea) {
+            $areaId = 0;
+            $q->whereNull('admin_area_id');
+        } elseif ($areaId > 0) {
+            $areaModel = \App\Models\AdminArea::with('parent.parent.parent')->find($areaId);
+            if ($areaModel) {
+                $q->whereIn('admin_area_id', $this->areaTreeIds($areaModel));
+                $areaLabel = \App\Models\AuthorityContact::pathOf($areaModel);
+            } else {
+                $areaId = 0;
+            }
+        }
         if ($tab === 'published') {
             $q->whereNotNull('published_at')->orderByDesc('published_at');
         } else {
@@ -32,7 +60,7 @@ class IssueAdminController extends Controller
 
         return view('admin.issues.index', [
             'issues' => $q->paginate(20)->withQueryString(),
-            'tab' => $tab,
+            'tab' => $tab, 'areaId' => $areaId, 'areaLabel' => $areaLabel, 'noArea' => $noArea,
         ]);
     }
 
