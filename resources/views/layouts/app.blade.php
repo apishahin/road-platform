@@ -46,7 +46,7 @@
                 @endguest
 
                 @auth
-                    <form method="POST" action="{{ route('logout') }}" class="hidden sm:block">
+                    <a href="{{ route('account.password') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">{{ __('acctpw.title') }}</a> <form method="POST" action="{{ route('logout') }}" class="hidden sm:block">
                         @csrf
                         <button type="submit" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">{{ __('login.logout') }}</button>
                     </form>
@@ -73,7 +73,7 @@
                     <a href="{{ route('login') }}">{{ __('Login') }}</a>
                 @endguest
                 @auth
-                    <form method="POST" action="{{ route('logout') }}">
+                    <a href="{{ route('account.password') }}">{{ __('acctpw.title') }}</a> <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="text-left">{{ __('login.logout') }}</button>
                     </form>

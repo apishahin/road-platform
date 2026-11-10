@@ -150,3 +150,8 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::post('/login/password', [\App\Http\Controllers\AuthController::class, 'passwordLogin'])->middleware('throttle:10,1')->name('login.password');
     \Illuminate\Support\Facades\Route::post('/login/register', [\App\Http\Controllers\AuthController::class, 'register'])->middleware('throttle:5,1')->name('login.register');
 });
+
+Route::middleware('auth')->group(function () {
+    Route::get('/account/password', [\App\Http\Controllers\AccountPasswordController::class, 'show'])->name('account.password');
+    Route::post('/account/password', [\App\Http\Controllers\AccountPasswordController::class, 'save'])->middleware('throttle:10,1')->name('account.password.save');
+});
