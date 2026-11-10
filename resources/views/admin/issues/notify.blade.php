@@ -10,9 +10,6 @@
     </p>
     <p style="margin-top:4px;"><a href="{{ route('admin.issues.index') }}" style="font-size:13px;text-decoration:underline;">{{ __('notify.back') }}</a></p>
 
-    @if(session('status'))
-        <div style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;font-size:14px;">{{ session('status') }}</div>
-    @endif
     @if($errors->any())
         <div style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;font-size:14px;">{{ $errors->first() }}</div>
     @endif

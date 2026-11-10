@@ -25,6 +25,8 @@ return [
     'ch_email' => 'Email',
     'ch_whatsapp' => 'WhatsApp',
     'st_sent' => 'sent',
+    'st_logged' => 'written to log (not sent)',
+    'logged' => ':n written to log, not sent.',
     'st_failed' => 'failed',
     'st_opened' => 'opened',
     'by' => 'by',

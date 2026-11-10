@@ -159,7 +159,7 @@ class IssueNotifyController extends Controller
                 continue;
             }
 
-            $status = 'sent';
+            $status = config('mail.default') === 'log' ? 'logged' : 'sent';
             $error = null;
             try {
                 Mail::raw($data['message'], function ($m) use ($c, $subject) {
@@ -192,7 +192,7 @@ class IssueNotifyController extends Controller
             return back()->withInput()->with('status', __('notify.none_selected'));
         }
 
-        $msg = __('notify.sent', ['n' => $sent]);
+        $msg = config('mail.default') === 'log' ? __('notify.logged', ['n' => $sent]) : __('notify.sent', ['n' => $sent]);
         if ($skipped) {
             $msg .= ' ' . __('notify.skipped', ['n' => $skipped]);
         }
