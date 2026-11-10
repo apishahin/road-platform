@@ -23,7 +23,7 @@
         </div>
         <div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:14px;">
             <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" name="noarea" value="1" id="fNoArea" @checked($noArea)> {{ __('issuefilter.no_area_only') }}</label>
-            <button type="submit" style="padding:6px 16px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('issuefilter.apply') }}</button>
+            <noscript><button type="submit" style="padding:6px 16px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('issuefilter.apply') }}</button></noscript>
             @if($areaId || $noArea)
                 <a href="{{ route('admin.issues.index', ['tab' => $tab]) }}" style="color:#b91c1c;font-size:13px;">{{ __('issuefilter.clear') }}</a>
             @endif
@@ -73,13 +73,13 @@
             chk.checked = false;
             reset(i + 1);
             setHidden();
-            if (sels[i].value && i < 3) { load(i + 1, sels[i].value, '', null); }
+            hid.form.submit();
         }
         for (var k = 0; k < 4; k++) {
             (function (idx) { sels[idx].addEventListener('change', function () { onChange(idx); }); })(k);
         }
         chk.addEventListener('change', function () {
-            if (chk.checked) { sels[0].value = ''; reset(1); hid.value = ''; }
+            if (chk.checked) { sels[0].value = ''; reset(1); hid.value = ''; } hid.form.submit();
         });
         function init(i) {
             if (i >= chain.length || i >= 3) { return; }
