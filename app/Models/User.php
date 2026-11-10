@@ -15,13 +15,14 @@ class User extends Authenticatable
 
     protected $fillable = ['phone', 'display_name', 'role', 'is_banned', 'phone_verified_at'];
 
-    protected $hidden = ['remember_token'];
+    protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
         return [
             'is_banned'         => 'boolean',
             'phone_verified_at' => 'datetime',
+            'password'          => 'hashed',
         ];
     }
 
