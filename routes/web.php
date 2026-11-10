@@ -126,3 +126,9 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 \Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
     \Illuminate\Support\Facades\Route::get('users-areas', [\App\Http\Controllers\Admin\UserAdminController::class, 'areas'])->name('users.areas');
 });
+
+\Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('issues/{issue}/notify', [\App\Http\Controllers\Admin\IssueNotifyController::class, 'show'])->whereNumber('issue')->name('issues.notify');
+    \Illuminate\Support\Facades\Route::post('issues/{issue}/notify/email', [\App\Http\Controllers\Admin\IssueNotifyController::class, 'sendEmail'])->whereNumber('issue')->name('issues.notify.send');
+    \Illuminate\Support\Facades\Route::post('issues/{issue}/notify/whatsapp/{contact}', [\App\Http\Controllers\Admin\IssueNotifyController::class, 'whatsapp'])->whereNumber('issue')->whereNumber('contact')->name('issues.notify.whatsapp');
+});
