@@ -18,6 +18,15 @@ class IssueAdminController extends Controller
         abort_unless($request->user()?->isModerator(), 403);
     }
 
+    private function divisionList(): array
+    {
+        $isBn = app()->getLocale() === 'bn';
+
+        return \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
+            ->map(fn ($a) => ['id' => $a->id, 'label' => $isBn ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
+            ->values()->all();
+    }
+
     private function areaTreeIds(\App\Models\AdminArea $area): array
     {
         $ids = [$area->id];
@@ -40,6 +49,7 @@ class IssueAdminController extends Controller
         $areaId = (int) $request->query('area', 0);
         $noArea = $request->boolean('noarea');
         $areaLabel = null;
+        $chain = [];
         if ($noArea) {
             $areaId = 0;
             $q->whereNull('admin_area_id');
@@ -48,6 +58,7 @@ class IssueAdminController extends Controller
             if ($areaModel) {
                 $q->whereIn('admin_area_id', $this->areaTreeIds($areaModel));
                 $areaLabel = \App\Models\AuthorityContact::pathOf($areaModel);
+                $p = $areaModel; $g = 0; while ($p && $g++ < 8) { array_unshift($chain, $p->id); $p = $p->parent; }
             } else {
                 $areaId = 0;
             }
@@ -60,7 +71,7 @@ class IssueAdminController extends Controller
 
         return view('admin.issues.index', [
             'issues' => $q->paginate(20)->withQueryString(),
-            'tab' => $tab, 'areaId' => $areaId, 'areaLabel' => $areaLabel, 'noArea' => $noArea,
+            'tab' => $tab, 'areaId' => $areaId, 'areaLabel' => $areaLabel, 'noArea' => $noArea, 'divisions' => $this->divisionList(), 'chain' => $chain,
         ]);
     }
 

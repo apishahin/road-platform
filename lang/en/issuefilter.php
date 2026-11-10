@@ -5,4 +5,5 @@ return [
     'no_area_only' => 'Only issues without an area',
     'apply' => 'Filter',
     'clear' => 'Clear filter',
+    'all_unions' => 'All unions',
 ];

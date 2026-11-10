@@ -10,9 +10,16 @@
     <form method="GET" action="{{ route('admin.issues.index') }}" class="mt-4">
         <input type="hidden" name="tab" value="{{ $tab }}">
         <input type="hidden" name="area" id="fAreaId" value="{{ $areaId ?: '' }}">
-        <div style="position:relative;">
-            <input type="text" id="fAreaInput" autocomplete="off" value="{{ $areaLabel }}" placeholder="{{ __('issuefilter.area_ph') }}" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;">
-            <div id="fAreaBox" style="position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border-radius:8px;"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+            <select id="fSel0" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
+                <option value="">{{ __('areas.all_divisions') }}</option>
+                @foreach($divisions as $d)
+                    <option value="{{ $d['id'] }}">{{ $d['label'] }}</option>
+                @endforeach
+            </select>
+            <select id="fSel1" disabled style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;"><option value="">{{ __('areas.all_districts') }}</option></select>
+            <select id="fSel2" disabled style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;"><option value="">{{ __('areas.all_upazilas') }}</option></select>
+            <select id="fSel3" disabled style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;"><option value="">{{ __('issuefilter.all_unions') }}</option></select>
         </div>
         <div style="margin-top:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:14px;">
             <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" name="noarea" value="1" id="fNoArea" @checked($noArea)> {{ __('issuefilter.no_area_only') }}</label>
@@ -24,42 +31,64 @@
     </form>
     <script>
     (function () {
-        var inp = document.getElementById('fAreaInput');
+        var sels = [0, 1, 2, 3].map(function (i) { return document.getElementById('fSel' + i); });
         var hid = document.getElementById('fAreaId');
-        var box = document.getElementById('fAreaBox');
         var chk = document.getElementById('fNoArea');
-        var url = @json(route('admin.issues.areas'));
-        var timer = null;
-        chk.addEventListener('change', function () {
-            if (chk.checked) { hid.value = ''; inp.value = ''; box.innerHTML = ''; }
-        });
-        inp.addEventListener('input', function () {
-            hid.value = '';
-            clearTimeout(timer);
-            var s = inp.value.trim();
-            box.innerHTML = '';
-            if (s.length < 2) { return; }
-            timer = setTimeout(function () {
-                fetch(url + '?q=' + encodeURIComponent(s), { headers: { 'Accept': 'application/json' } })
-                    .then(function (r) { return r.json(); })
-                    .then(function (rows) {
-                        box.innerHTML = '';
-                        rows.forEach(function (row) {
-                            var b = document.createElement('button');
-                            b.type = 'button';
-                            b.textContent = row.label;
-                            b.style.cssText = 'display:block;width:100%;text-align:left;padding:8px 12px;border:1px solid #e2e8f0;background:#fff;font-size:13px;cursor:pointer;';
-                            b.addEventListener('click', function () {
-                                hid.value = row.id;
-                                inp.value = row.label;
-                                chk.checked = false;
-                                box.innerHTML = '';
-                            });
-                            box.appendChild(b);
-                        });
+        var base = @json(url('/areas'));
+        var chain = @json($chain);
+        var ph = [null, @json(__('areas.all_districts')), @json(__('areas.all_upazilas')), @json(__('issuefilter.all_unions'))];
+
+        function reset(from) {
+            for (var i = from; i < 4; i++) {
+                sels[i].innerHTML = '';
+                var o = document.createElement('option');
+                o.value = '';
+                o.textContent = ph[i];
+                sels[i].appendChild(o);
+                sels[i].disabled = true;
+            }
+        }
+        function setHidden() {
+            var v = '';
+            for (var i = 0; i < 4; i++) { if (sels[i].value) { v = sels[i].value; } }
+            hid.value = v;
+        }
+        function load(i, parentId, selected, cb) {
+            fetch(base + '/' + parentId + '/children', { headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (rows) {
+                    reset(i);
+                    rows.forEach(function (row) {
+                        var o = document.createElement('option');
+                        o.value = row.id;
+                        o.textContent = row.label;
+                        sels[i].appendChild(o);
                     });
-            }, 300);
+                    sels[i].disabled = rows.length === 0;
+                    if (selected) { sels[i].value = String(selected); }
+                    if (cb) { cb(); }
+                });
+        }
+        function onChange(i) {
+            chk.checked = false;
+            reset(i + 1);
+            setHidden();
+            if (sels[i].value && i < 3) { load(i + 1, sels[i].value, '', null); }
+        }
+        for (var k = 0; k < 4; k++) {
+            (function (idx) { sels[idx].addEventListener('change', function () { onChange(idx); }); })(k);
+        }
+        chk.addEventListener('change', function () {
+            if (chk.checked) { sels[0].value = ''; reset(1); hid.value = ''; }
         });
+        function init(i) {
+            if (i >= chain.length || i >= 3) { return; }
+            load(i + 1, chain[i], chain[i + 1] || '', function () { init(i + 1); });
+        }
+        if (chain.length) {
+            sels[0].value = String(chain[0]);
+            init(0);
+        }
     })();
     </script>
     <div class="mt-4 flex gap-2 text-sm">
