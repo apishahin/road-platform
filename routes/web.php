@@ -134,3 +134,9 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 });
 
 \Illuminate\Support\Facades\Route::get('admin/issues-areas', \App\Http\Controllers\Admin\IssueAreaSearchController::class)->name('admin.issues.areas');
+
+\Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('mail-settings', [\App\Http\Controllers\Admin\MailSettingsController::class, 'show'])->name('mail.index');
+    \Illuminate\Support\Facades\Route::post('mail-settings', [\App\Http\Controllers\Admin\MailSettingsController::class, 'save'])->name('mail.save');
+    \Illuminate\Support\Facades\Route::post('mail-settings/test', [\App\Http\Controllers\Admin\MailSettingsController::class, 'test'])->name('mail.test');
+});
