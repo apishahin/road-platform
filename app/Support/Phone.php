@@ -7,7 +7,10 @@ class Phone
     /** Convert Bangla digits to English digits. */
     public static function digits(string $value): string
     {
-        return strtr($value, '০১২৩৪৫৬৭৮৯', '0123456789');
+        return strtr($value, [
+            "\u{09E6}" => '0', "\u{09E7}" => '1', "\u{09E8}" => '2', "\u{09E9}" => '3', "\u{09EA}" => '4',
+            "\u{09EB}" => '5', "\u{09EC}" => '6', "\u{09ED}" => '7', "\u{09EE}" => '8', "\u{09EF}" => '9',
+        ]);
     }
 
     /** Returns +8801XXXXXXXXX, or null if it is not a valid Bangladesh mobile number. */
