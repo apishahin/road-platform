@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Support;
+
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Admin-controlled login options, stored as one JSON value in `settings`.
+ * Defaults keep today's behaviour (phone + OTP only).
+ */
+class LoginSettings
+{
+    public const KEY = 'login_settings';
+    public const PROVIDERS = ['log', 'gateway', 'firebase', 'telegram'];
+    public const BOOLS = ['otp_enabled', 'password_enabled', 'google_enabled', 'registration_open', 'password_for_staff'];
+
+    public static function defaults(): array
+    {
+        return [
+            'otp_enabled'        => true,
+            'password_enabled'   => false,
+            'google_enabled'     => false,
+            'registration_open'  => true,
+            'password_for_staff' => false,
+            'otp_provider'       => 'log',
+        ];
+    }
+
+    private static function raw(): ?array
+    {
+        try {
+            $v = DB::table('settings')->where('key', self::KEY)->value('value');
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (! $v) {
+            return null;
+        }
+        $a = json_decode($v, true);
+
+        return is_array($a) ? $a : null;
+    }
+
+    public static function sanitize(array $in): array
+    {
+        $out = [];
+        foreach (self::BOOLS as $k) {
+            if (array_key_exists($k, $in)) {
+                $out[$k] = filter_var($in[$k], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        if (isset($in['otp_provider']) && in_array($in['otp_provider'], self::PROVIDERS, true)) {
+            $out['otp_provider'] = $in['otp_provider'];
+        }
+
+        return $out;
+    }
+
+    public static function all(): array
+    {
+        return array_merge(self::defaults(), self::sanitize(self::raw() ?? []));
+    }
+
+    public static function anyMethodEnabled(?array $s = null): bool
+    {
+        $s = $s ?? self::all();
+
+        return ! empty($s['otp_enabled']) || ! empty($s['password_enabled']) || ! empty($s['google_enabled']);
+    }
+
+    public static function save(array $new): void
+    {
+        $data = array_merge(self::all(), self::sanitize($new));
+        DB::table('settings')->updateOrInsert(
+            ['key' => self::KEY],
+            ['value' => json_encode($data), 'updated_at' => now()]
+        );
+    }
+
+    public static function otpEnabled(): bool { return (bool) self::all()['otp_enabled']; }
+    public static function passwordEnabled(): bool { return (bool) self::all()['password_enabled']; }
+    public static function googleEnabled(): bool { return (bool) self::all()['google_enabled']; }
+    public static function registrationOpen(): bool { return (bool) self::all()['registration_open']; }
+    public static function passwordForStaff(): bool { return (bool) self::all()['password_for_staff']; }
+    public static function provider(): string { return (string) self::all()['otp_provider']; }
+}

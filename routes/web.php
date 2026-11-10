@@ -140,3 +140,8 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     \Illuminate\Support\Facades\Route::post('mail-settings', [\App\Http\Controllers\Admin\MailSettingsController::class, 'save'])->name('mail.save');
     \Illuminate\Support\Facades\Route::post('mail-settings/test', [\App\Http\Controllers\Admin\MailSettingsController::class, 'test'])->name('mail.test');
 });
+
+\Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('login-settings', [\App\Http\Controllers\Admin\LoginSettingsController::class, 'show'])->name('loginsettings.index');
+    \Illuminate\Support\Facades\Route::post('login-settings', [\App\Http\Controllers\Admin\LoginSettingsController::class, 'save'])->name('loginsettings.save');
+});
