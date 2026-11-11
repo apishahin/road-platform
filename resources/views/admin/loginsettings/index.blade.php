@@ -40,9 +40,16 @@
             <label style="display:block;font-size:14px;font-weight:600;">{{ __('loginsettings.provider') }}</label>
             <select name="otp_provider" style="margin-top:6px;width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
                 @foreach (['log', 'gateway', 'firebase', 'telegram'] as $p)
-                    <option value="{{ $p }}" @disabled(in_array($p, ['firebase', 'telegram'], true)) @selected(old('otp_provider', $s['otp_provider']) === $p)>{{ __('loginsettings.prov_' . $p) }}</option>
+                    <option value="{{ $p }}" @disabled($p === 'telegram') @selected(old('otp_provider', $s['otp_provider']) === $p)>{{ __('loginsettings.prov_' . $p) }}</option>
                 @endforeach
             </select>
+        <div style="margin-top:10px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;">
+            <p style="font-size:13px;font-weight:600;margin-bottom:8px;">Firebase (Google sends the SMS code)</p>
+            <input type="text" name="firebase_api_key" placeholder="AIza..." value="{{ old('firebase_api_key', $s['firebase_api_key'] ?? '') }}" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;margin-bottom:8px;">
+            <input type="text" name="firebase_auth_domain" placeholder="xxxx.firebaseapp.com" value="{{ old('firebase_auth_domain', $s['firebase_auth_domain'] ?? '') }}" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;margin-bottom:8px;">
+            <input type="text" name="firebase_project_id" placeholder="your project id" value="{{ old('firebase_project_id', $s['firebase_project_id'] ?? '') }}" style="width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;">
+            <p style="font-size:12px;color:#64748b;margin-top:6px;">Console: Project settings - General - Your apps (Web app config).</p>
+        </div>
         </div>
 
         <p style="margin-top:18px;font-size:14px;"><a href="{{ route('admin.smsgateways.index') }}" style="color:#1d4ed8;text-decoration:underline;">{{ __('smsgw.menu') }}</a></p>

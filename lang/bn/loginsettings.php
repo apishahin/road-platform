@@ -19,7 +19,7 @@ return [
     'provider' => 'OTP কীভাবে পাঠানো হবে',
     'prov_log' => 'শুধু লগে লেখা (টেস্ট, আসলে SMS যায় না)',
     'prov_gateway' => 'SMS গেটওয়ে',
-    'prov_firebase' => 'Firebase (পরে যোগ হবে)',
+    'prov_firebase' => 'ফায়ারবেস (Google SMS কোড)',
     'prov_telegram' => 'Telegram (পরে যোগ হবে)',
     'save' => 'সংরক্ষণ করুন',
 ];

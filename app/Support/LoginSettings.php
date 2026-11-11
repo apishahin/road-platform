@@ -23,6 +23,9 @@ class LoginSettings
             'registration_open'  => true,
             'password_for_staff' => false,
             'otp_provider'       => 'log',
+            'firebase_api_key' => '',
+            'firebase_auth_domain' => '',
+            'firebase_project_id' => '',
         ];
     }
 
@@ -47,6 +50,11 @@ class LoginSettings
         foreach (self::BOOLS as $k) {
             if (array_key_exists($k, $in)) {
                 $out[$k] = filter_var($in[$k], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        foreach (['firebase_api_key', 'firebase_auth_domain', 'firebase_project_id'] as $fk) {
+            if (array_key_exists($fk, $in)) {
+                $out[$fk] = trim((string) $in[$fk]);
             }
         }
         if (isset($in['otp_provider']) && in_array($in['otp_provider'], self::PROVIDERS, true)) {

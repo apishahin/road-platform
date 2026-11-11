@@ -19,7 +19,7 @@ return [
     'provider' => 'How OTP is sent',
     'prov_log' => 'Write to log only (test, no real SMS)',
     'prov_gateway' => 'SMS / WhatsApp gateway',
-    'prov_firebase' => 'Firebase (coming later)',
+    'prov_firebase' => 'Firebase (phone code by Google)',
     'prov_telegram' => 'Telegram (coming later)',
     'save' => 'Save',
 ];
