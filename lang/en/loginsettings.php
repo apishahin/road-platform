@@ -18,7 +18,7 @@ return [
     'staff_hint' => 'If off, staff log in with OTP only. Keeping it off is safer.',
     'provider' => 'How OTP is sent',
     'prov_log' => 'Write to log only (test, no real SMS)',
-    'prov_gateway' => 'SMS gateway (coming later)',
+    'prov_gateway' => 'SMS / WhatsApp gateway',
     'prov_firebase' => 'Firebase (coming later)',
     'prov_telegram' => 'Telegram (coming later)',
     'save' => 'Save',

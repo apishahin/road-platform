@@ -40,7 +40,7 @@
             <label style="display:block;font-size:14px;font-weight:600;">{{ __('loginsettings.provider') }}</label>
             <select name="otp_provider" style="margin-top:6px;width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
                 @foreach (['log', 'gateway', 'firebase', 'telegram'] as $p)
-                    <option value="{{ $p }}" @selected(old('otp_provider', $s['otp_provider']) === $p)>{{ __('loginsettings.prov_' . $p) }}</option>
+                    <option value="{{ $p }}" @disabled(in_array($p, ['firebase', 'telegram'], true)) @selected(old('otp_provider', $s['otp_provider']) === $p)>{{ __('loginsettings.prov_' . $p) }}</option>
                 @endforeach
             </select>
         </div>

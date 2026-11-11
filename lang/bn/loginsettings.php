@@ -18,7 +18,7 @@ return [
     'staff_hint' => 'বন্ধ থাকলে স্টাফ শুধু OTP দিয়ে ঢুকবে। নিরাপত্তার জন্য বন্ধ রাখা ভালো।',
     'provider' => 'OTP কীভাবে পাঠানো হবে',
     'prov_log' => 'শুধু লগে লেখা (টেস্ট, আসলে SMS যায় না)',
-    'prov_gateway' => 'SMS গেটওয়ে (পরে যোগ হবে)',
+    'prov_gateway' => 'SMS গেটওয়ে',
     'prov_firebase' => 'Firebase (পরে যোগ হবে)',
     'prov_telegram' => 'Telegram (পরে যোগ হবে)',
     'save' => 'সংরক্ষণ করুন',
