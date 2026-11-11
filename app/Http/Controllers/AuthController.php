@@ -63,6 +63,10 @@ class AuthController extends Controller
         if ($result === 'blocked') {
             return back()->withInput()->withErrors(['phone' => __('login.blocked')]);
         }
+        if ($result === 'failed') {
+            return back()->withInput()->withErrors(['phone' => __('smsgw.send_failed')]);
+        }
+
         if ($result === 'wait') {
             session(['otp_phone' => $phone]);
 

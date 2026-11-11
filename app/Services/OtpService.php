@@ -58,9 +58,9 @@ class OtpService
         }
         DB::table('otp_codes')->insert($row);
 
-        $this->sms->send($phone, "Road Platform code: {$code}. Valid for " . self::TTL_MINUTES . ' minutes. Do not share it.');
+        $smsOk = $this->sms->send($phone, "Road Platform code: {$code}. Valid for " . self::TTL_MINUTES . ' minutes. Do not share it.');
 
-        return 'sent';
+        return ($smsOk === false && \App\Support\LoginSettings::provider() === 'gateway') ? 'failed' : 'sent';
     }
 
     /** @return 'ok'|'invalid'|'locked' */
