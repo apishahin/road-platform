@@ -155,3 +155,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/account/password', [\App\Http\Controllers\AccountPasswordController::class, 'show'])->name('account.password');
     Route::post('/account/password', [\App\Http\Controllers\AccountPasswordController::class, 'save'])->middleware('throttle:10,1')->name('account.password.save');
 });
+
+Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/sms-gateways', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'index'])->name('smsgateways.index');
+    Route::post('/sms-gateways', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'save'])->name('smsgateways.save');
+    Route::post('/sms-gateways/{id}/toggle', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'toggle'])->whereNumber('id')->name('smsgateways.toggle');
+    Route::post('/sms-gateways/{id}/delete', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'delete'])->whereNumber('id')->name('smsgateways.delete');
+    Route::post('/sms-gateways/{id}/test', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'test'])->whereNumber('id')->middleware('throttle:10,1')->name('smsgateways.test');
+});

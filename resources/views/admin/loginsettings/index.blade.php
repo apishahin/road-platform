@@ -45,6 +45,7 @@
             </select>
         </div>
 
+        <p style="margin-top:18px;font-size:14px;"><a href="{{ route('admin.smsgateways.index') }}" style="color:#1d4ed8;text-decoration:underline;">{{ __('smsgw.menu') }}</a></p>
         <button type="submit" style="margin-top:18px;padding:10px 18px;border:0;border-radius:8px;background:#ea580c;color:#fff;font-weight:600;cursor:pointer;">{{ __('loginsettings.save') }}</button>
     </form>
 </div>
