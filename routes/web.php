@@ -163,3 +163,7 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::post('/sms-gateways/{id}/delete', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'delete'])->whereNumber('id')->name('smsgateways.delete');
     Route::post('/sms-gateways/{id}/test', [\App\Http\Controllers\Admin\SmsGatewaysController::class, 'test'])->whereNumber('id')->middleware('throttle:10,1')->name('smsgateways.test');
 });
+
+Route::middleware('guest')->group(function () {
+    Route::post('/login/firebase/verify', [\App\Http\Controllers\FirebaseLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.firebase.verify');
+});
