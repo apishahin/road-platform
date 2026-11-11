@@ -120,7 +120,7 @@ class GatewaySender
     private function fill(array $a, array $vars): array
     {
         foreach ($a as $k => $v) {
-            if (is_string($v)) {
+            if (is_array($v)) { $a[$k] = $this->fill($v, $vars); } elseif (is_string($v)) {
                 $a[$k] = strtr($v, $vars);
             }
         }
