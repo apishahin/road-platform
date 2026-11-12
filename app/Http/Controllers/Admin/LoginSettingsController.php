@@ -52,6 +52,10 @@ class LoginSettingsController extends Controller
         $new['firebase_api_key'] = trim((string) $request->input('firebase_api_key', ''));
         $new['firebase_auth_domain'] = trim((string) $request->input('firebase_auth_domain', ''));
         $new['firebase_project_id'] = trim((string) $request->input('firebase_project_id', ''));
+        if ($new['otp_provider'] === 'firebase' && ($new['firebase_api_key'] === '' || $new['firebase_auth_domain'] === '' || $new['firebase_project_id'] === '')) {
+            return back()->withInput()->withErrors(['methods' => __('loginsettings.fbl_need_config')]);
+        }
+
         LoginSettings::save($new);
         app(AuditService::class)->log($admin, 'login_settings.save', 'setting', 'login', $new);
 
