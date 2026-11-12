@@ -15,4 +15,9 @@
         {{ __('Last activity') }}: {{ $issue->last_activity_at?->diffForHumans() }}
         · {{ __(':count report(s)', ['count' => \App\Support\IssuePresenter::num($issue->reports_count)]) }}
     </p>
+    @if ($issue->getAttribute('authority_notified'))
+        <p class="mt-2">
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" style="background-color:#e0f2fe;color:#0369a1">{{ __('issues.notified_tag') }}</span>
+        </p>
+    @endif
 </a>

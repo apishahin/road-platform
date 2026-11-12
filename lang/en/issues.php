@@ -45,4 +45,12 @@ return [
     'home_repaired_sub' => 'These repairs were verified. Each page shows the date and the source.',
     'home_view_all' => 'See all issues',
     'home_privacy' => 'Phone numbers and names of reporters are never shown publicly.',
+    'filter_label'    => 'Filter by status',
+    'filter_all'      => 'All',
+    'filter_new'      => 'Not started',
+    'filter_started'  => 'In progress',
+    'filter_repaired' => 'Verified repaired',
+    'filter_none'     => 'No issues with this status yet.',
+    'notified_tag'    => 'Authority notified',
+    'home_notified'   => 'Authorities have been notified about :count issues.',
 ];

@@ -37,8 +37,23 @@ class IssuePresenter
             'status'   => $d['label'],
             'category' => $issue->category?->name(),
             'url'      => url('/issues/' . $issue->public_id),
+            'group'    => self::group($issue),
             'meters'   => isset($issue->meters) ? (int) round($issue->meters) : null,
         ];
+    }
+
+    /** Filter group used by the home page chips: new, started or repaired. */
+    public static function group(Issue $issue): string
+    {
+        if ($issue->disposition === 'reopened') {
+            return 'new';
+        }
+
+        return match ($issue->progress_status) {
+            'work_started', 'completion_reported' => 'started',
+            'repaired' => 'repaired',
+            default => 'new',
+        };
     }
 
     /** Bangla digits when the language is Bangla. */

@@ -11,6 +11,36 @@ class HomeData
 {
     public function build(): array
     {
+        $data = $this->buildRaw();
+
+        $ids = collect($data['recent'])->merge($data['repaired'])->pluck('id')->unique()->values()->all();
+
+        $sent = $ids === []
+            ? []
+            : \App\Models\IssueNotification::query()
+                ->where('status', 'sent')
+                ->whereIn('issue_id', $ids)
+                ->pluck('issue_id')
+                ->flip()
+                ->all();
+
+        foreach ([$data['recent'], $data['repaired']] as $list) {
+            foreach ($list as $issue) {
+                $issue->setAttribute('authority_notified', isset($sent[$issue->id]));
+            }
+        }
+
+        $data['stats']['notified'] = \App\Models\IssueNotification::query()
+            ->where('status', 'sent')
+            ->whereIn('issue_id', \App\Models\Issue::active()->select('id'))
+            ->distinct()
+            ->count('issue_id');
+
+        return $data;
+    }
+
+    private function buildRaw(): array
+    {
         // Latest active issues, newest activity first
         $issues = Issue::query()
             ->active()

@@ -8,8 +8,9 @@ const listEl   = document.getElementById('issue-list');
 const titleEl  = document.getElementById('list-title');
 const statusEl = document.getElementById('locate-status');
 const btn      = document.getElementById('locate-btn');
+const filterEl = document.getElementById('status-filter');
 
-// ── Helpers ────────────────────────────────────────────
+// Helpers
 function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -32,12 +33,12 @@ function popupNode(issue) {
     const box = el('div');
     const a = el('a', 'rp-popup-title', issue.title);
     a.href = issue.url;
-    box.append(a, el('div', 'rp-popup-meta', [issue.category, issue.status].filter(Boolean).join(' · ')));
+    box.append(a, el('div', 'rp-popup-meta', [issue.category, issue.status].filter(Boolean).join(' \u00b7 ')));
     return box;
 }
 
 function badge(issue) {
-    const b = el('span', 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium');
+    const b = el('span', 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium');
     b.style.backgroundColor = issue.color + '1a';
     b.style.color = issue.color;
     const dot = el('span', 'size-1.5 rounded-full');
@@ -53,39 +54,80 @@ function card(issue) {
     const row = el('div', 'flex items-start justify-between gap-3');
     row.append(el('h3', 'font-semibold leading-snug text-slate-900', issue.title), badge(issue));
 
-    const meta = [issue.category, issue.meters !== null ? issue.meters + ' m' : null]
-        .filter(Boolean).join(' · ');
+    const meta = [issue.category, issue.meters != null ? issue.meters + ' m' : null]
+        .filter(Boolean).join(' \u00b7 ');
 
     a.append(row, el('p', 'mt-1 text-sm text-slate-600', meta));
     return a;
 }
 
-// ── Map ────────────────────────────────────────────────
+// Map
 const map = L.map('home-map').setView(cfg.center, cfg.zoom);
-
 L.tileLayer(cfg.tileUrl, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
+const markers = L.layerGroup().addTo(map);
 
-cfg.issues.forEach((issue) => {
-    L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
-        .bindPopup(popupNode(issue))
-        .addTo(map);
-});
+let filter = 'all';
+let nearby = null;   // null = showing the recent list
+let me = null;
+const recentNodes = Array.from(listEl.children);
 
-if (cfg.issues.length > 0) {
-    map.fitBounds(cfg.issues.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
+function inGroup(i) {
+    return filter === 'all' || i.group === filter;
 }
 
-// ── "Use my location" (optional, permission-based) ─────
-let me = null;
+function drawMarkers() {
+    const items = cfg.issues.filter(inGroup);
+    markers.clearLayers();
+    items.forEach((issue) => {
+        L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
+            .bindPopup(popupNode(issue))
+            .addTo(markers);
+    });
+    if (nearby === null && items.length > 0) {
+        map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
+    }
+}
 
 function showList(items) {
     if (items.length === 0) {
-        listEl.replaceChildren(el('p', 'rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600', t.noneNearby));
+        const msg = filter === 'all' ? t.noneNearby : (filterEl ? filterEl.dataset.none : t.noneNearby);
+        listEl.replaceChildren(el('p', 'rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600', msg));
         return;
     }
     listEl.replaceChildren(...items.map(card));
 }
 
+function render() {
+    drawMarkers();
+    if (nearby === null) {
+        if (filter === 'all') {
+            listEl.replaceChildren(...recentNodes);
+            return;
+        }
+        showList(cfg.issues.filter(inGroup).slice(0, 8));
+        return;
+    }
+    showList(nearby.filter(inGroup));
+}
+
+render();
+
+// Status filter chips
+filterEl?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-filter]');
+    if (!chip) return;
+    filter = chip.dataset.filter;
+    filterEl.querySelectorAll('[data-filter]').forEach((c) => {
+        const on = c === chip;
+        c.setAttribute('aria-pressed', on ? 'true' : 'false');
+        c.style.backgroundColor = on ? '#0f172a' : '';
+        c.style.color = on ? '#ffffff' : '';
+        c.style.borderColor = on ? '#0f172a' : '';
+    });
+    render();
+});
+
+// "Use my location" (optional, permission-based)
 btn?.addEventListener('click', () => {
     if (!navigator.geolocation) {
         statusEl.textContent = t.noGeo;
@@ -114,7 +156,8 @@ btn?.addEventListener('click', () => {
 
                 titleEl.textContent = t.nearYou;
                 statusEl.textContent = '';
-                showList(data);
+                nearby = data;
+                render();
             } catch {
                 statusEl.textContent = t.loadFailed;
             }

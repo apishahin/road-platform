@@ -37,6 +37,9 @@
                 <dd class="mt-1 text-xl font-bold sm:text-2xl">{{ \App\Support\IssuePresenter::num($stats['reports']) }}</dd>
             </div>
         </dl>
+        @if (($stats['notified'] ?? 0) > 0)
+            <p class="mt-3 text-sm text-slate-300">{{ __('issues.home_notified', ['count' => \App\Support\IssuePresenter::num($stats['notified'])]) }}</p>
+        @endif
     </div>
 </section>
 
@@ -49,6 +52,16 @@
             <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
             {{ __('Use my location') }}
         </button>
+    </div>
+
+    <div id="status-filter" class="mb-4 flex flex-wrap gap-2" role="group" aria-label="{{ __('issues.filter_label') }}" data-none="{{ __('issues.filter_none') }}">
+        @foreach (['all' => 'issues.filter_all', 'new' => 'issues.filter_new', 'started' => 'issues.filter_started', 'repaired' => 'issues.filter_repaired'] as $key => $label)
+            <button type="button" data-filter="{{ $key }}" aria-pressed="{{ $key === 'all' ? 'true' : 'false' }}"
+                    class="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                    style="{{ $key === 'all' ? 'background-color:#0f172a;color:#ffffff;border-color:#0f172a' : '' }}">
+                {{ __($label) }}
+            </button>
+        @endforeach
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">
