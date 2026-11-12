@@ -2,33 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Issue;
-use App\Models\Report;
-use App\Support\IssuePresenter;
+use App\Services\HomeData;
 
 class HomeController extends Controller
 {
-    public function index()
+    public function index(HomeData $data)
     {
-        // Latest active issues, newest activity first
-        $issues = Issue::query()
-            ->active()
-            ->with('category')
-            ->latest('last_activity_at')
-            ->limit(config('roadplatform.map.max_markers'))
-            ->get();
-
-        // Numbers shown in the hero section
-        $stats = [
-            'open'     => Issue::active()->where('progress_status', '!=', 'repaired')->count(),
-            'repaired' => Issue::active()->where('progress_status', 'repaired')->count(),
-            'reports'  => Report::where('moderation', 'approved')->count(),
-        ];
-
-        return view('home', [
-            'recent'    => $issues->take(6),
-            'mapIssues' => $issues->map(fn ($i) => IssuePresenter::map($i))->values(),
-            'stats'     => $stats,
-        ]);
+        return view('home', $data->build());
     }
 }

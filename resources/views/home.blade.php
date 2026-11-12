@@ -6,35 +6,35 @@
 
 {{-- Hero --}}
 <section class="bg-slate-900 text-white">
-    <div class="mx-auto max-w-6xl px-4 py-12 sm:py-16">
-        <h1 class="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">
+    <div class="mx-auto max-w-6xl px-4 py-8 sm:py-14">
+        <h1 class="max-w-3xl text-2xl font-bold leading-snug sm:text-4xl">
             {{ __('Find road problems. Follow the repair.') }}
         </h1>
-        <p class="mt-4 max-w-2xl text-lg text-slate-300">
+        <p class="mt-3 max-w-2xl text-base text-slate-300 sm:text-lg">
             {{ __('Report damaged roads, check whether someone already has, and follow what happens next in a public, dated record.') }}
         </p>
 
-        <div class="mt-8 flex flex-wrap gap-3">
-            <a href="{{ url('/report') }}" class="rounded-lg bg-brand-600 px-5 py-3 font-semibold text-white hover:bg-brand-700">
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+            <a href="{{ url('/report') }}" class="rounded-lg bg-brand-600 px-5 py-3 text-center font-semibold text-white hover:bg-brand-700">
                 {{ __('Report a problem') }}
             </a>
-            <a href="{{ url('/issues') }}" class="rounded-lg border border-slate-500 px-5 py-3 font-semibold text-white hover:bg-slate-800">
+            <a href="{{ url('/issues') }}" class="rounded-lg border border-slate-500 px-5 py-3 text-center font-semibold text-white hover:bg-slate-800">
                 {{ __('Browse issues') }}
             </a>
         </div>
 
-        <dl class="mt-10 grid max-w-xl grid-cols-3 gap-4">
-            <div>
+        <dl class="mt-8 grid max-w-xl grid-cols-3 gap-2 sm:gap-4">
+            <div class="rounded-lg bg-slate-800 px-3 py-3">
                 <dt class="text-xs text-slate-400">{{ __('Open issues') }}</dt>
-                <dd class="text-2xl font-bold">{{ \App\Support\IssuePresenter::num($stats['open']) }}</dd>
+                <dd class="mt-1 text-xl font-bold sm:text-2xl">{{ \App\Support\IssuePresenter::num($stats['open']) }}</dd>
             </div>
-            <div>
+            <div class="rounded-lg bg-slate-800 px-3 py-3">
                 <dt class="text-xs text-slate-400">{{ __('Verified repaired') }}</dt>
-                <dd class="text-2xl font-bold text-green-400">{{ \App\Support\IssuePresenter::num($stats['repaired']) }}</dd>
+                <dd class="mt-1 text-xl font-bold text-green-400 sm:text-2xl">{{ \App\Support\IssuePresenter::num($stats['repaired']) }}</dd>
             </div>
-            <div>
+            <div class="rounded-lg bg-slate-800 px-3 py-3">
                 <dt class="text-xs text-slate-400">{{ __('Reports received') }}</dt>
-                <dd class="text-2xl font-bold">{{ \App\Support\IssuePresenter::num($stats['reports']) }}</dd>
+                <dd class="mt-1 text-xl font-bold sm:text-2xl">{{ \App\Support\IssuePresenter::num($stats['reports']) }}</dd>
             </div>
         </dl>
     </div>
@@ -53,7 +53,7 @@
 
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="lg:col-span-2">
-            <div id="home-map" class="h-[380px] w-full overflow-hidden rounded-xl border border-slate-200 sm:h-[480px]"></div>
+            <div id="home-map" class="h-[320px] w-full overflow-hidden rounded-xl border border-slate-200 sm:h-[480px]"></div>
 
             {{-- Legend --}}
             <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
@@ -96,6 +96,32 @@
                 <p class="mt-1 text-sm text-slate-600">{{ __($text) }}</p>
             </div>
         @endforeach
+    </div>
+</section>
+
+{{-- Recently verified repairs --}}
+@if (isset($repaired) && count($repaired) > 0)
+    <section class="border-t border-slate-200 bg-white">
+        <div class="mx-auto max-w-6xl px-4 py-8">
+            <div class="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">{{ __('issues.home_repaired_title') }}</h2>
+                    <p class="mt-1 text-sm text-slate-600">{{ __('issues.home_repaired_sub') }}</p>
+                </div>
+                <a href="{{ url('/issues') }}" class="text-sm font-semibold text-brand-700 hover:underline">{{ __('issues.home_view_all') }}</a>
+            </div>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($repaired as $issue)
+                    <x-issue-card :issue="$issue" />
+                @endforeach
+            </div>
+        </div>
+    </section>
+@endif
+
+<section class="border-t border-slate-200 bg-slate-50">
+    <div class="mx-auto max-w-6xl px-4 py-4">
+        <p class="text-xs text-slate-500">{{ __('issues.home_privacy') }}</p>
     </div>
 </section>
 
