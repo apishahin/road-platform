@@ -58,6 +58,13 @@ class AuthController extends Controller
             return redirect()->route('login')->withErrors(['phone' => __('loginpw.reg_closed')]);
         }
 
+        if (LoginSettings::provider() === 'firebase') {
+            // Firebase sends the SMS from the browser; the server only remembers the number.
+            session(['otp_phone' => $phone]);
+
+            return redirect()->route('login.verify');
+        }
+
         $result = $this->otp->send($phone, (string) $request->ip());
 
         if ($result === 'blocked') {
@@ -83,6 +90,20 @@ class AuthController extends Controller
         $phone = session('otp_phone');
         if (! $phone) {
             return redirect()->route('login');
+        }
+
+        if (LoginSettings::provider() === 'firebase') {
+            $cfg = LoginSettings::all();
+
+            return view('auth.verify-firebase', [
+                'masked' => Phone::mask($phone),
+                'phone' => $phone,
+                'fb' => [
+                    'apiKey' => (string) $cfg['firebase_api_key'],
+                    'authDomain' => (string) $cfg['firebase_auth_domain'],
+                    'projectId' => (string) $cfg['firebase_project_id'],
+                ],
+            ]);
         }
 
         return view('auth.verify', ['masked' => Phone::mask($phone)]);
