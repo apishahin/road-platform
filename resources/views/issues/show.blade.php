@@ -115,6 +115,24 @@
 
     <ul style="margin:14px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.7;color:#334155;">
         <li>• {{ __('issues.glance_reports', ['count' => $reportsCount]) }}</li>
+@php
+    $gWho = [];
+    foreach (['citizen', 'volunteer', 'moderator'] as $gr) {
+        $gn = (int) ($glance['who']['reporters'][$gr] ?? 0);
+        if ($gn > 0) { $gWho[] = __('issues.glance_role_' . $gr, ['count' => $gNum($gn)]); }
+    }
+    $gSee = [];
+    foreach (['volunteer', 'moderator'] as $gr) {
+        $gn = (int) ($glance['who']['site']['roles'][$gr] ?? 0);
+        if ($gn > 0) { $gSee[] = __('issues.glance_role_' . $gr, ['count' => $gNum($gn)]); }
+    }
+@endphp
+@if ($gWho !== [])
+        <li>• {{ __('issues.glance_reporters', ['list' => implode(', ', $gWho)]) }}</li>
+@endif
+@if ($gSee !== [])
+        <li>• {{ __('issues.glance_site_seen', ['who' => implode(', ', $gSee), 'date' => $glance['who']['site']['date'] ?? '-']) }}</li>
+@endif
 
         <li>•
             @if ($glance['notified_date'] !== null)

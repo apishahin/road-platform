@@ -83,4 +83,10 @@ return [
     'obs_note_label'       => 'ছোট মন্তব্য (ঐচ্ছিক; প্রকাশ্যে দেখানো হবে না)',
     'obs_submit'           => 'জানান',
     'obs_thanks'           => 'ধন্যবাদ। আপনার উত্তর রাখা হয়েছে।',
+
+    'glance_reporters'     => 'যাঁরা জানিয়েছেন: :list।',
+    'glance_role_citizen'  => ':count জন নাগরিক',
+    'glance_role_volunteer' => ':count জন স্বেচ্ছাসেবক',
+    'glance_role_moderator' => ':count জন মডারেটর',
+    'glance_site_seen'     => ':who সরেজমিনে দেখেছেন (সর্বশেষ :date)।',
 ];

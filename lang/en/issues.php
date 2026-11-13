@@ -83,4 +83,10 @@ return [
     'obs_note_label'       => 'Short note (optional, not shown publicly)',
     'obs_submit'           => 'Send',
     'obs_thanks'           => 'Thank you. Your answer was saved.',
+
+    'glance_reporters'     => 'Reported by: :list.',
+    'glance_role_citizen'  => ':count citizen(s)',
+    'glance_role_volunteer' => ':count volunteer(s)',
+    'glance_role_moderator' => ':count moderator(s)',
+    'glance_site_seen'     => 'Seen on site by :who (latest: :date).',
 ];

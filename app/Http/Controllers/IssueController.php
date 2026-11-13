@@ -170,6 +170,56 @@ class IssueController extends Controller
                 'repaired'          => $issue->progress_status === 'repaired',
                 'repaired_date'     => $progressDate('repaired'),
                 'mine'              => $mine,
+                'who'               => $this->glanceWho($issue),
+            ],
+        ];
+    }
+
+    /**
+     * Who reported and who visited the place: only roles and counts, never people.
+     */
+    private function glanceWho(Issue $issue): array
+    {
+        $rows = \App\Models\Report::query()
+            ->join('users', 'users.id', '=', 'reports.user_id')
+            ->where('reports.issue_id', $issue->id)
+            ->where('reports.moderation', 'approved')
+            ->selectRaw('users.role as r, count(distinct reports.user_id) as c')
+            ->groupBy('users.role')
+            ->pluck('c', 'r');
+
+        $reporters = ['citizen' => 0, 'volunteer' => 0, 'moderator' => 0];
+        foreach ($rows as $role => $n) {
+            $key = $role === 'admin' ? 'moderator' : $role;
+            if (array_key_exists($key, $reporters)) {
+                $reporters[$key] += (int) $n;
+            }
+        }
+
+        $visits = StatusEvent::query()
+            ->where('issue_id', $issue->id)
+            ->where('dimension', 'verification')
+            ->where('source_type', 'site_visit')
+            ->whereIn('to_value', ['reviewed', 'verified'])
+            ->whereIn('actor_type', ['volunteer', 'moderator'])
+            ->selectRaw('actor_type as r, count(distinct actor_id) as c, max(created_at) as d')
+            ->groupBy('actor_type')
+            ->get();
+
+        $roles = [];
+        $latest = null;
+        foreach ($visits as $v) {
+            $roles[$v->r] = (int) $v->c;
+            if ($v->d && ($latest === null || $v->d > $latest)) {
+                $latest = $v->d;
+            }
+        }
+
+        return [
+            'reporters' => $reporters,
+            'site'      => [
+                'roles' => $roles,
+                'date'  => $latest ? IssuePresenter::num(\Illuminate\Support\Carbon::parse($latest)->format('d/m/Y')) : null,
             ],
         ];
     }
