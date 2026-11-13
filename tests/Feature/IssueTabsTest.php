@@ -94,4 +94,14 @@ class IssueTabsTest extends TestCase
             ->assertSee('tab=open', false)
             ->assertSee('tab=repaired', false);
     }
+
+    public function test_tab_bar_and_results_have_swap_hooks(): void
+    {
+        $this->mk('ZZOPEN Hook', 'reported');
+
+        $this->get('/issues?tab=open')->assertOk()
+            ->assertSee('id="tabs-bar"', false)
+            ->assertSee('id="issue-results"', false)
+            ->assertSee('id="tab-field"', false);
+    }
 }

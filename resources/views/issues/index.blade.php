@@ -25,7 +25,7 @@
         'repaired' => [__('issues.tab_repaired'), $tabCounts['repaired']],
     ];
 @endphp
-<nav class="mb-4 flex flex-wrap gap-2" aria-label="tabs">
+<nav id="tabs-bar" class="mb-4 flex flex-wrap gap-2" aria-label="tabs">
     @foreach ($tabItems as $tabKey => $tabItem)
         @php $tabOn = ((string) $tabKey === $tab) && $filters['status'] === ''; @endphp
         <a href="{{ route('issues.index', $tabKey === '' ? $tabBase : array_merge($tabBase, ['tab' => $tabKey])) }}"
@@ -41,7 +41,7 @@
 
         <div class="sm:col-span-2 lg:col-span-3">
             <label for="q" class="text-sm font-medium text-slate-700">{{ __('issues.search') }}</label>
-@if ($tab !== '') <input type="hidden" name="tab" value="{{ $tab }}"> @endif
+<input type="hidden" name="tab" id="tab-field" value="{{ $tab }}"{{ $tab === '' ? ' disabled' : '' }}>
             <input id="q" type="text" name="q" value="{{ $filters['q'] }}" maxlength="100"
                    placeholder="{{ __('issues.search_placeholder') }}" class="{{ $field }}"
                    @change="$el.form.submit()">
@@ -164,7 +164,9 @@
     </script>
     @endpush
 
-    {{-- Results --}}
+    <div id="issue-results">
+
+{{-- Results --}}
     <p class="mt-6 text-sm text-slate-600">
         {{ __('issues.results', ['count' => $toBn($issues->total())]) }}
     </p>
@@ -212,5 +214,64 @@
             </nav>
         @endif
     @endif
+    </div>
 </div>
+@push('scripts')
+<script>
+    (function () {
+        var bar = document.getElementById('tabs-bar');
+        var box = document.getElementById('issue-results');
+        if (!bar || !box || !window.fetch || !window.DOMParser || !window.URL) { return; }
+        var cache = new Map();
+
+        function keyOf(u) {
+            var a = new URL(u, location.href);
+            return a.pathname + a.search;
+        }
+
+        function load(u) {
+            var k = keyOf(u);
+            if (!cache.has(k)) {
+                cache.set(k, fetch(k, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { if (!r.ok) { throw new Error('bad'); } return r.text(); })
+                    .then(function (t) { return new DOMParser().parseFromString(t, 'text/html'); })
+                    .catch(function (e) { cache.delete(k); throw e; }));
+            }
+            return cache.get(k);
+        }
+
+        function show(u, push, scroll) {
+            load(u).then(function (doc) {
+                var nb = doc.getElementById('tabs-bar');
+                var nr = doc.getElementById('issue-results');
+                if (!nb || !nr) { location.href = u; return; }
+                bar.innerHTML = nb.innerHTML;
+                box.innerHTML = nr.innerHTML;
+                var f = document.getElementById('tab-field');
+                var nf = doc.getElementById('tab-field');
+                if (f && nf) { f.value = nf.value; f.disabled = nf.disabled; }
+                if (push) { history.pushState({ ixs: 1 }, '', keyOf(u)); }
+                if (scroll) { box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            }).catch(function () { location.href = u; });
+        }
+
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+            var a = e.target.closest ? e.target.closest('a') : null;
+            if (!a || !a.href) { return; }
+            var inBar = bar.contains(a);
+            var inPager = !!a.closest('nav[aria-label="Pagination"]') && box.contains(a);
+            if (!inBar && !inPager) { return; }
+            e.preventDefault();
+            show(a.href, true, inPager);
+        });
+
+        window.addEventListener('popstate', function () { show(location.href, false, false); });
+
+        setTimeout(function () {
+            bar.querySelectorAll('a').forEach(function (a) { load(a.href).catch(function () {}); });
+        }, 400);
+    })();
+</script>
+@endpush
 @endsection
