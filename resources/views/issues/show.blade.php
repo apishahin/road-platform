@@ -89,7 +89,80 @@
                 </dl>
             </section>
 
-            {{-- Timeline --}}
+            @if (($issueView ?? 'simple') === 'simple' && isset($glance))
+{{-- At a glance (simple view) --}}
+@php
+    $gSteps = [
+        [__('issues.glance_s1'), true, $firstAt],
+        [__('issues.glance_s2'), $glance['notified_date'] !== null, $glance['notified_date']],
+        [__('issues.glance_s3'), ($glance['fixed'] > 0 || $glance['claim_date'] !== null), $glance['claim_date']],
+        [__('issues.glance_s4'), $glance['repaired'], $glance['repaired_date']],
+    ];
+    $gClaims = $glance['fixed'] + $glance['still'] + $glance['worse'];
+    $gNum = fn ($n) => \App\Support\IssuePresenter::num($n);
+@endphp
+<section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+    <h2 class="text-lg font-bold text-slate-900">{{ __('issues.glance_title') }}</h2>
+
+    <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+        @foreach ($gSteps as $st)
+            <div style="border-radius:10px;padding:10px;border:1px solid {{ $st[1] ? '#16a34a' : '#cbd5e1' }};background:{{ $st[1] ? '#f0fdf4' : '#f8fafc' }};">
+                <p style="margin:0;font-size:13px;font-weight:700;color:{{ $st[1] ? '#15803d' : '#64748b' }};">{{ $st[1] ? '✓' : '○' }} {{ $st[0] }}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#475569;">{{ $st[1] ? ($st[2] ?: '') : __('issues.glance_pending') }}</p>
+            </div>
+        @endforeach
+    </div>
+
+    <ul style="margin:14px 0 0;padding:0;list-style:none;font-size:14px;line-height:1.7;color:#334155;">
+        <li>• {{ __('issues.glance_reports', ['count' => $reportsCount]) }}</li>
+
+        <li>•
+            @if ($glance['notified_date'] !== null)
+                {{ __('issues.glance_notified_on', ['date' => $glance['notified_date']]) }}
+                @if ($glance['notified_channel'] !== '')
+                    {{ __('issues.glance_via', ['how' => $glance['notified_channel']]) }}
+                @endif
+
+                @if ($glance['notified_position'] !== '')
+                    {{ __('issues.glance_to', ['who' => $glance['notified_position']]) }}
+                @endif
+            @else
+                {{ __('issues.glance_not_notified') }}
+            @endif
+        </li>
+
+        @if ($gClaims === 0)
+            <li>• {{ __('issues.glance_no_claims') }}</li>
+        @else
+            @if ($glance['fixed'] > 0)
+                <li>• {{ __('issues.glance_fixed_claims', ['count' => $gNum($glance['fixed'])]) }}</li>
+            @endif
+
+            @if ($glance['still'] > 0)
+                <li>• {{ __('issues.glance_still_claims', ['count' => $gNum($glance['still'])]) }}</li>
+            @endif
+
+            @if ($glance['worse'] > 0)
+                <li>• {{ __('issues.glance_worse_claims', ['count' => $gNum($glance['worse'])]) }}</li>
+            @endif
+
+            @if (! $glance['repaired'])
+                <li style="color:#92400e;">{{ __('issues.glance_claim_note') }}</li>
+            @endif
+        @endif
+
+        <li>•
+            @if ($glance['repaired'])
+                {{ __('issues.glance_verified', ['date' => $glance['repaired_date'] ?? '-']) }}
+            @else
+                {{ __('issues.glance_not_verified') }}
+            @endif
+        </li>
+    </ul>
+</section>
+@endif
+
+{{-- Timeline --}}
             <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
                 <h2 class="text-lg font-bold text-slate-900">{{ __('issue.page.timeline') }}</h2>
                 <p class="mt-1 text-sm text-slate-500">{{ __('issue.page.timeline_note') }}</p>
@@ -180,7 +253,8 @@
                 </div>
             </section>
 
-            {{-- Authority --}}
+            @if (($issueView ?? 'simple') === 'detailed')
+{{-- Authority --}}
             <section class="rounded-xl border border-slate-200 bg-white p-5">
                 <h2 class="font-semibold text-slate-900">{{ __('issue.page.authority') }}</h2>
 
@@ -215,7 +289,9 @@
             @endif
             </section>
 
-            {{-- Share --}}
+            @endif
+
+{{-- Share --}}
             <section class="rounded-xl border border-slate-200 bg-white p-5"
                      x-data='{ copied: false, url: @js(url()->current()), title: @js($issue->title) }'>
                 <h2 class="font-semibold text-slate-900">{{ __('issue.page.share') }}</h2>
@@ -227,7 +303,32 @@
                 <p x-show="copied" x-cloak class="mt-2 text-xs text-green-700">{{ __('issue.page.copied') }}</p>
             </section>
 
-            {{-- Confirm (needs login, coming later) --}}
+            @auth
+@if (in_array($issue->disposition, ['active', 'reopened'], true))
+{{-- Observation form (logged in) --}}
+<section id="confirm" class="rounded-xl border border-slate-200 bg-white p-5">
+    <h2 class="font-semibold text-slate-900">{{ __('issues.obs_title') }}</h2>
+    <p class="mt-1 text-sm text-slate-600">{{ __('issues.obs_note') }}</p>
+
+    @if (session('obs_done'))
+        <p class="mt-2 rounded-lg bg-green-50 p-2 text-sm text-green-800">{{ __('issues.obs_thanks') }}</p>
+    @endif
+
+    <form method="POST" action="{{ url('/issues/' . $issue->public_id . '/observe') }}" class="mt-3 space-y-2">
+        @csrf
+        @foreach (['fixed', 'still_exists', 'got_worse'] as $t)
+            <label class="flex items-center gap-2 text-sm text-slate-800">
+                <input type="radio" name="type" value="{{ $t }}" required @checked(($glance['mine'] ?? null) === $t)>
+                <span>{{ __('issues.obs_' . $t) }}</span>
+            </label>
+        @endforeach
+        <textarea name="note" rows="2" maxlength="500" placeholder="{{ __('issues.obs_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+        <button type="submit" class="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">{{ __('issues.obs_submit') }}</button>
+    </form>
+</section>
+@endif
+@else
+{{-- Confirm (needs login, coming later) --}}
             <section class="rounded-xl border border-slate-200 bg-white p-5">
                 <h2 class="font-semibold text-slate-900">{{ __('issue.page.confirm') }}</h2>
                 <p class="mt-1 text-sm text-slate-600">{{ __('issue.page.confirm_note') }}</p>
@@ -237,7 +338,9 @@
                 </a>
             </section>
 
-            {{-- Correction path --}}
+            @endauth
+
+{{-- Correction path --}}
             <p class="px-1 text-sm text-slate-500">
                 {{ __('issue.page.wrong_info') }}
                 <span class="italic">{{ __('issue.page.coming_soon') }}</span>

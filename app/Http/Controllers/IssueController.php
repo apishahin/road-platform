@@ -65,7 +65,9 @@ class IssueController extends Controller
             . implode(',', [$lng - $pad, $lat - $pad, $lng + $pad, $lat + $pad])
             . '&layer=mapnik&marker=' . $lat . ',' . $lng;
 
-        return view('issues.show', [
+        $extra = $this->glance($issue);
+
+        return view('issues.show', $extra + [
             'notified'      => $notified,
             'issue'        => $issue,
             'status'       => IssuePresenter::display($issue),
@@ -113,5 +115,62 @@ class IssueController extends Controller
     private function safeUrl(?string $url): ?string
     {
         return $url && Str::startsWith($url, ['https://', 'http://']) ? $url : null;
+    }
+
+    /**
+     * Plain-language summary for the "simple" issue page.
+     * Only roles, counts and dates are used: never names, phones or notes.
+     */
+    private function glance(Issue $issue): array
+    {
+        $date = fn ($d) => $d ? IssuePresenter::num($d->format('d/m/Y')) : null;
+
+        $sent = \App\Models\IssueNotification::with('contact:id,position')
+            ->where('issue_id', $issue->id)
+            ->where('status', 'sent')
+            ->orderBy('created_at')
+            ->first();
+
+        $channel = '';
+        if ($sent && in_array($sent->channel, ['email', 'whatsapp', 'sms'], true)) {
+            $channel = __('issues.glance_ch_' . $sent->channel);
+        }
+
+        $counts = \App\Models\Observation::query()
+            ->where('issue_id', $issue->id)
+            ->selectRaw('type, count(*) as c')
+            ->groupBy('type')
+            ->pluck('c', 'type');
+
+        $progressDate = function (string $to) use ($issue, $date) {
+            $e = StatusEvent::query()
+                ->where('issue_id', $issue->id)
+                ->where('dimension', 'progress')
+                ->where('to_value', $to)
+                ->orderByDesc('id')
+                ->first();
+
+            return $e ? $date($e->created_at) : null;
+        };
+
+        $mine = auth()->check()
+            ? \App\Models\Observation::where('issue_id', $issue->id)->where('user_id', auth()->id())->value('type')
+            : null;
+
+        return [
+            'issueView' => \App\Support\AppearanceSettings::all()['issue_view'] ?? 'simple',
+            'glance'    => [
+                'notified_date'     => $sent ? $date($sent->created_at) : null,
+                'notified_channel'  => $channel,
+                'notified_position' => trim((string) ($sent?->contact?->position ?? '')),
+                'fixed'             => (int) ($counts['fixed'] ?? 0),
+                'still'             => (int) ($counts['still_exists'] ?? 0),
+                'worse'             => (int) ($counts['got_worse'] ?? 0),
+                'claim_date'        => $progressDate('completion_reported'),
+                'repaired'          => $issue->progress_status === 'repaired',
+                'repaired_date'     => $progressDate('repaired'),
+                'mine'              => $mine,
+            ],
+        ];
     }
 }

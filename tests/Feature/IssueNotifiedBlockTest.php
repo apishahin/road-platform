@@ -16,7 +16,21 @@ class IssueNotifiedBlockTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        \App\Support\AppearanceSettings::reset();
+        parent::tearDown();
+    }
+
     private function makeData(): array
+    {
+        // These tests check the detailed page (the old layout)
+        \App\Support\AppearanceSettings::save(['issue_view' => 'detailed']);
+
+        return $this->makeRows();
+    }
+
+    private function makeRows(): array
     {
         $user = User::unguarded(fn () => User::create([
             'public_id' => (string) Str::ulid(),

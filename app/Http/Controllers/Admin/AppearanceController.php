@@ -56,6 +56,8 @@ class AppearanceController extends Controller
         $new['name_bn']     = trim((string) ($data['name_bn'] ?? ''));
         $new['name_en']     = trim((string) ($data['name_en'] ?? ''));
 
+        $new['issue_view'] = $request->input('issue_view') === 'detailed' ? 'detailed' : 'simple';
+
         $dir = public_path(AppearanceSettings::DIR);
         $filesToDelete = [];
 

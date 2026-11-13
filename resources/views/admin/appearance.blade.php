@@ -73,7 +73,22 @@
             </div>
         </section>
 
-        {{-- Colours --}}
+        {{-- Issue page style --}}
+<section class="rounded-xl border border-slate-200 bg-white p-5">
+    <h2 class="text-lg font-semibold text-slate-900">ইস্যু পেজের ধরন</h2>
+    <p class="mt-1 text-xs text-slate-500">সাধারণ দর্শক ইস্যুর বিস্তারিত পেজ কেমন দেখবে।</p>
+    <div class="mt-3 space-y-2">
+        <label class="flex items-start gap-2 text-sm">
+            <input type="radio" name="issue_view" value="simple" class="mt-1" @checked(($s['issue_view'] ?? 'simple') === 'simple')>
+            <span><b>সহজ</b> (ডিফল্ট) — উপরে "এক নজরে" সারাংশ, সহজ ভাষা; সাধারণ মানুষের জন্য।</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+            <input type="radio" name="issue_view" value="detailed" class="mt-1" @checked(($s['issue_view'] ?? 'simple') === 'detailed')>
+            <span><b>বিস্তারিত</b> — আগের পেজ, কর্তৃপক্ষের বাক্সসহ।</span>
+        </label>
+    </div>
+</section>
+{{-- Colours --}}
         <section class="rounded-xl border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-semibold text-slate-900">রং</h2>
             <div class="mt-3 grid gap-4 sm:grid-cols-3">

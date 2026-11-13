@@ -32,6 +32,7 @@ class AppearanceSettings
             'name_bn'     => '',
             'name_en'     => '',
             'logo'        => null,
+            'issue_view'  => 'simple',
         ];
     }
 
@@ -90,6 +91,9 @@ class AppearanceSettings
         if (is_string($lg) && preg_match('/^logo-[a-z0-9]{16}\.(png|jpg|webp)$/', $lg)) {
             $out['logo'] = $lg;
         }
+
+        $iv = $in['issue_view'] ?? null;
+        $out['issue_view'] = in_array($iv, ['simple', 'detailed'], true) ? $iv : 'simple';
 
         // A custom font needs an uploaded file
         if ($out['font'] === 'custom' && $out['font_file'] === null) {

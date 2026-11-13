@@ -167,3 +167,5 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
 Route::middleware('guest')->group(function () {
     Route::post('/login/firebase/verify', [\App\Http\Controllers\FirebaseLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.firebase.verify');
 });
+
+\Illuminate\Support\Facades\Route::post('/issues/{publicId}/observe', [\App\Http\Controllers\IssueObservationController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.observe');
