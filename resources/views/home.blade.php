@@ -157,6 +157,7 @@
             'noGeo'      => __('Your browser does not support location.'),
             'locFailed'  => __('Could not get your location.'),
             'loadFailed' => __('Could not load nearby issues.'),
+            'notified'   => __('issues.notified_tag'),
         ],
     ]) }};
 </script>

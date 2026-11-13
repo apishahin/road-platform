@@ -38,6 +38,7 @@ class IssuePresenter
             'category' => $issue->category?->name(),
             'url'      => url('/issues/' . $issue->public_id),
             'group'    => self::group($issue),
+            'notified' => (bool) $issue->getAttribute('authority_notified'),
             'meters'   => isset($issue->meters) ? (int) round($issue->meters) : null,
         ];
     }

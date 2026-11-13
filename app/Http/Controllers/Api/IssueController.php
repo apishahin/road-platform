@@ -25,6 +25,8 @@ class IssueController extends Controller
             ->limit(30)
             ->get();
 
+        \App\Support\IssueNotice::mark($issues);
+
         return response()->json([
             'data' => $issues->map(fn ($i) => IssuePresenter::map($i))->values(),
         ]);

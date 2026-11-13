@@ -77,6 +77,8 @@ class IssueListController extends Controller
 
         $issues = $query->paginate(12)->withQueryString();
 
+        \App\Support\IssueNotice::mark($issues->getCollection());
+
         $categories = Category::orderBy('id')->get()
             ->map(fn ($c) => ['id' => $c->id, 'label' => $c->name()])
             ->all();

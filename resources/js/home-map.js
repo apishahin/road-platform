@@ -58,6 +58,14 @@ function card(issue) {
         .filter(Boolean).join(' \u00b7 ');
 
     a.append(row, el('p', 'mt-1 text-sm text-slate-600', meta));
+    if (issue.notified && t.notified) {
+        const note = el('p', 'mt-2');
+        const tag = el('span', 'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', t.notified);
+        tag.style.backgroundColor = '#e0f2fe';
+        tag.style.color = '#0369a1';
+        note.append(tag);
+        a.append(note);
+    }
     return a;
 }
 
