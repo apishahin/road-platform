@@ -171,6 +171,7 @@ class IssueController extends Controller
                 'repaired_date'     => $progressDate('repaired'),
                 'mine'              => $mine,
                 'who'               => $this->glanceWho($issue),
+                'canVerify'         => \App\Http\Controllers\IssueVerifyController::canVerify(auth()->user(), $issue),
             ],
         ];
     }

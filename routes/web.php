@@ -169,3 +169,6 @@ Route::middleware('guest')->group(function () {
 });
 
 \Illuminate\Support\Facades\Route::post('/issues/{publicId}/observe', [\App\Http\Controllers\IssueObservationController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.observe');
+
+\Illuminate\Support\Facades\Route::post('/issues/{publicId}/verify', [\App\Http\Controllers\IssueVerifyController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.verify');
+\Illuminate\Support\Facades\Route::get('/verify-queue', [\App\Http\Controllers\IssueVerifyController::class, 'queue'])->middleware('auth')->name('verify.queue');

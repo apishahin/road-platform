@@ -7,6 +7,7 @@
         $review = [];
         if ($u->canModerate()) {
             $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), 0];
+        $review[] = [route('verify.queue'), __('issues.nav_verify'), 0];
         }
         if ($u->isModerator()) {
             $review[] = [route('admin.issues.index'), __('issueadmin.menu'), 0];

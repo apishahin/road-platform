@@ -323,6 +323,47 @@
 
             @auth
 @if (in_array($issue->disposition, ['active', 'reopened'], true))
+@if ($glance['canVerify'] ?? false)
+{{-- Site visit form (volunteer / moderator for this area) --}}
+<section id="verify" class="rounded-xl border border-amber-300 bg-amber-50 p-5">
+    <h2 class="font-semibold text-slate-900">{{ __('issues.verify_title') }}</h2>
+    <p class="mt-1 text-sm text-slate-700">{{ __('issues.verify_note') }}</p>
+
+    @if (($glance['fixed'] ?? 0) > 0)
+        <p class="mt-2 text-sm font-medium text-amber-900">{{ __('issues.verify_claims', ['count' => \App\Support\IssuePresenter::num($glance['fixed'])]) }}</p>
+    @endif
+
+    @if (session('verify_done'))
+        <p class="mt-2 rounded-lg bg-green-50 p-2 text-sm text-green-800">{{ __('issues.verify_done') }}</p>
+    @endif
+
+    @if ($errors->any())
+        <ul class="mt-2 list-disc pl-5 text-sm text-red-700">
+            @foreach ($errors->all() as $e)
+                <li>{{ $e }}</li>
+            @endforeach
+        </ul>
+    @endif
+
+    <form method="POST" action="{{ url('/issues/' . $issue->public_id . '/verify') }}" class="mt-3 space-y-2">
+        @csrf
+        <label class="flex items-center gap-2 text-sm text-slate-800">
+            <input type="radio" name="type" value="repaired" required>
+            <span>{{ __('issues.verify_repaired') }}</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-slate-800">
+            <input type="radio" name="type" value="still_exists" required>
+            <span>{{ __('issues.verify_still') }}</span>
+        </label>
+        <textarea name="note" rows="2" maxlength="300" required placeholder="{{ __('issues.verify_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+        <label class="flex items-center gap-2 text-sm text-slate-800">
+            <input type="checkbox" name="seen" value="1" required>
+            <span>{{ __('issues.verify_seen') }}</span>
+        </label>
+        <button type="submit" class="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">{{ __('issues.verify_submit') }}</button>
+    </form>
+</section>
+@endif
 {{-- Observation form (logged in) --}}
 <section id="confirm" class="rounded-xl border border-slate-200 bg-white p-5">
     <h2 class="font-semibold text-slate-900">{{ __('issues.obs_title') }}</h2>
