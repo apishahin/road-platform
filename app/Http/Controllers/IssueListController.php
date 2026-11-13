@@ -43,9 +43,6 @@ class IssueListController extends Controller
             ->whereNotIn('disposition', ['duplicate', 'rejected'])
             ->whereNotNull('published_at');
 
-        if ($status !== '') {
-            $query->where('progress_status', $status);
-        }
         if ($categoryId > 0) {
             $query->where('category_id', $categoryId);
         }
@@ -66,6 +63,26 @@ class IssueListController extends Controller
                   ->orWhere('road_name', 'like', $like)
                   ->orWhere('landmark', 'like', $like);
             });
+        }
+
+        // Tabs: all / open / repaired. A chosen status always wins over the tab.
+        $tab = (string) $request->query('tab', '');
+        if (! in_array($tab, ['open', 'repaired'], true) || $status !== '') {
+            $tab = '';
+        }
+        $notRepaired = function ($w) {
+            $w->whereNull('progress_status')->orWhere('progress_status', '!=', 'repaired');
+        };
+        $tabOpen     = (clone $query)->where($notRepaired)->count();
+        $tabRepaired = (clone $query)->where('progress_status', 'repaired')->count();
+        $tabCounts   = ['all' => $tabOpen + $tabRepaired, 'open' => $tabOpen, 'repaired' => $tabRepaired];
+
+        if ($status !== '') {
+            $query->where('progress_status', $status);
+        } elseif ($tab === 'open') {
+            $query->where($notRepaired);
+        } elseif ($tab === 'repaired') {
+            $query->where('progress_status', 'repaired');
         }
 
         match ($sort) {
@@ -102,6 +119,8 @@ class IssueListController extends Controller
             'categories' => $categories,
             'areas'      => $areas,
             'statuses'   => self::STATUSES,
+            'tab'        => $tab,
+            'tabCounts'  => $tabCounts,
             'filters'    => [
                 'status'   => $status,
                 'category' => $categoryId,

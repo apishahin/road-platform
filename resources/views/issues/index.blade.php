@@ -8,7 +8,7 @@
         ? strtr((string) $n, ['0' => "\u{09E6}", '1' => "\u{09E7}", '2' => "\u{09E8}", '3' => "\u{09E9}", '4' => "\u{09EA}", '5' => "\u{09EB}", '6' => "\u{09EC}", '7' => "\u{09ED}", '8' => "\u{09EE}", '9' => "\u{09EF}"])
         : (string) $n;
     $hasFilter = $filters['status'] !== '' || $filters['category'] > 0
-        || $filters['area'] > 0 || $filters['q'] !== '' || $filters['sort'] !== 'recent';
+        || $filters['area'] > 0 || $filters['q'] !== '' || $filters['sort'] !== 'recent' || $tab !== '';
     $field = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm';
 @endphp
 
@@ -16,13 +16,32 @@
     <h1 class="text-2xl font-bold text-slate-900">{{ __('issues.title') }}</h1>
     <p class="mt-1 text-sm text-slate-600">{{ __('issues.subtitle') }}</p>
 
-    {{-- Filters --}}
+    {{-- Tabs --}}
+@php
+    $tabBase  = request()->except(['tab', 'page', 'status']);
+    $tabItems = [
+        ''         => [__('issues.tab_all'), $tabCounts['all']],
+        'open'     => [__('issues.tab_open'), $tabCounts['open']],
+        'repaired' => [__('issues.tab_repaired'), $tabCounts['repaired']],
+    ];
+@endphp
+<nav class="mb-4 flex flex-wrap gap-2" aria-label="tabs">
+    @foreach ($tabItems as $tabKey => $tabItem)
+        @php $tabOn = ((string) $tabKey === $tab) && $filters['status'] === ''; @endphp
+        <a href="{{ route('issues.index', $tabKey === '' ? $tabBase : array_merge($tabBase, ['tab' => $tabKey])) }}"
+           style="display:inline-block;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none;border:1px solid {{ $tabOn ? '#0f172a' : '#cbd5e1' }};background:{{ $tabOn ? '#0f172a' : '#ffffff' }};color:{{ $tabOn ? '#ffffff' : '#334155' }};">
+            {{ $tabItem[0] }} <span style="opacity:.75;">({{ $toBn($tabItem[1]) }})</span>
+        </a>
+    @endforeach
+</nav>
+{{-- Filters --}}
     <form method="GET" action="{{ route('issues.index') }}"
           x-data="issueFilter(@js($areas), {{ (int) $filters['area'] }}, @js(app()->getLocale()))"
           class="mt-6 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
 
         <div class="sm:col-span-2 lg:col-span-3">
             <label for="q" class="text-sm font-medium text-slate-700">{{ __('issues.search') }}</label>
+@if ($tab !== '') <input type="hidden" name="tab" value="{{ $tab }}"> @endif
             <input id="q" type="text" name="q" value="{{ $filters['q'] }}" maxlength="100"
                    placeholder="{{ __('issues.search_placeholder') }}" class="{{ $field }}"
                    @change="$el.form.submit()">

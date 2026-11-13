@@ -151,4 +151,8 @@ return [
     'photo_blur_not_allowed'    => 'This photo can no longer be covered (approved or hidden).',
     'photo_blur_failed'         => 'The photo could not be covered. Please try again.',
     'photo_hide_hint'           => 'A hidden photo is shown to nobody.',
+    'tab_all'             => 'All',
+    'tab_open'            => 'Open problems',
+    'tab_repaired'        => 'Verified repairs',
+    'home_area_solutions' => 'See fixes in your area',
 ];

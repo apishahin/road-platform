@@ -120,6 +120,7 @@
                 <div>
                     <h2 class="text-xl font-bold text-slate-900">{{ __('issues.home_repaired_title') }}</h2>
                     <p class="mt-1 text-sm text-slate-600">{{ __('issues.home_repaired_sub') }}</p>
+                    <a href="{{ route('issues.index', ['tab' => 'repaired']) }}" class="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline">{{ __('issues.home_area_solutions') }} &rarr;</a>
                 </div>
                 <a href="{{ url('/issues') }}" class="text-sm font-semibold text-brand-700 hover:underline">{{ __('issues.home_view_all') }}</a>
             </div>
