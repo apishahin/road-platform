@@ -32,6 +32,7 @@
                 [route('admin.mail.index'), __('mailsettings.menu'), 0],
                 [route('admin.appearance.index'), __('issues.nav_appearance'), 0],
                 [route('admin.storage.index'), __('issues.nav_storage'), 0],
+                [route('admin.funding.index'), __('issues.nav_funding'), 0],
             ]];
         }
     }

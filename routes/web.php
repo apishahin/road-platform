@@ -186,3 +186,12 @@ Route::middleware('guest')->group(function () {
 \Illuminate\Support\Facades\Route::middleware('auth')->group(function () {
     \Illuminate\Support\Facades\Route::post('/photo-review/{evidence}/blur', [\App\Http\Controllers\PhotoReviewController::class, 'blur'])->name('photoreview.blur');
 });
+
+// ---- Funding / donations ----
+\Illuminate\Support\Facades\Route::get('/fund', [\App\Http\Controllers\FundController::class, 'show'])->name('fund.show');
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('index');
+    \Illuminate\Support\Facades\Route::post('/save', [\App\Http\Controllers\Admin\FundingController::class, 'save'])->name('save');
+    \Illuminate\Support\Facades\Route::post('/manual', [\App\Http\Controllers\Admin\FundingController::class, 'manual'])->name('manual');
+    \Illuminate\Support\Facades\Route::post('/donations/{donation}/void', [\App\Http\Controllers\Admin\FundingController::class, 'void'])->name('void');
+});

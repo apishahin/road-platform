@@ -43,6 +43,8 @@
     </div>
 </section>
 
+@include('fund._home-box')
+
 {{-- Map + list --}}
 <section class="mx-auto max-w-6xl px-4 py-8">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
