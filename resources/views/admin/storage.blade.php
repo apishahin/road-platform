@@ -74,5 +74,17 @@
             <div class="mt-1 text-sm text-slate-500">এখনো কোনো ছবি নেই।</div>
         @endforelse
     </div>
+
+    @php $__upOn = \App\Support\UpdatePhotos::enabled(); @endphp
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+        <div class="font-semibold">আপডেটের ছবি (ঠিক হয়েছে / এখনো আছে / সরেজমিনে যাচাই)</div>
+        <p class="mt-1 text-sm text-slate-600">চালু থাকলে নাগরিক ও স্বেচ্ছাসেবক আপডেটের সঙ্গে ছবি দিতে পারবেন। অনুমোদনের আগে কেউ ছবি দেখবে না। বন্ধ করলে নতুন ছবি নেওয়া হবে না; আগে অনুমোদিত ছবি দেখা যাবে।</p>
+        <p class="mt-2 text-sm">এখন: <strong style="color:{{ $__upOn ? '#166534' : '#b91c1c' }}">{{ $__upOn ? 'চালু' : 'বন্ধ' }}</strong></p>
+        <form method="POST" action="{{ route('photoreview.toggle') }}" class="mt-3">
+            @csrf
+            <input type="hidden" name="enabled" value="{{ $__upOn ? 0 : 1 }}">
+            <button type="submit" style="background:{{ $__upOn ? '#b91c1c' : '#16a34a' }};color:#fff;font-weight:600;border:0;border-radius:8px;padding:8px 16px">{{ $__upOn ? 'বন্ধ করুন' : 'চালু করুন' }}</button>
+        </form>
+    </div>
 </div>
 @endsection

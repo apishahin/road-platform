@@ -172,3 +172,17 @@ Route::middleware('guest')->group(function () {
 
 \Illuminate\Support\Facades\Route::post('/issues/{publicId}/verify', [\App\Http\Controllers\IssueVerifyController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.verify');
 \Illuminate\Support\Facades\Route::get('/verify-queue', [\App\Http\Controllers\IssueVerifyController::class, 'queue'])->middleware('auth')->name('verify.queue');
+
+// ---- Update photos (citizen updates / on-site checks) ----
+\Illuminate\Support\Facades\Route::middleware('auth')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/photo-review', [\App\Http\Controllers\PhotoReviewController::class, 'index'])->name('photoreview.index');
+    \Illuminate\Support\Facades\Route::get('/photo-review/{evidence}/image', [\App\Http\Controllers\PhotoReviewController::class, 'image'])->name('photoreview.image');
+    \Illuminate\Support\Facades\Route::post('/photo-review/{evidence}/approve', [\App\Http\Controllers\PhotoReviewController::class, 'approve'])->name('photoreview.approve');
+    \Illuminate\Support\Facades\Route::post('/photo-review/{evidence}/hide', [\App\Http\Controllers\PhotoReviewController::class, 'hide'])->name('photoreview.hide');
+    \Illuminate\Support\Facades\Route::post('/photo-review/switch', [\App\Http\Controllers\PhotoReviewController::class, 'toggle'])->name('photoreview.toggle');
+});
+
+// ---- Update photos: cover (blur / black) a pending photo ----
+\Illuminate\Support\Facades\Route::middleware('auth')->group(function () {
+    \Illuminate\Support\Facades\Route::post('/photo-review/{evidence}/blur', [\App\Http\Controllers\PhotoReviewController::class, 'blur'])->name('photoreview.blur');
+});

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Issue;
+use App\Models\StatusEvent;
 use App\Models\User;
+use App\Services\EvidenceService;
 use App\Services\IssueStatusService;
 use App\Support\ModerationScope;
+use App\Support\UpdatePhotos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,8 +32,8 @@ class IssueVerifyController extends Controller
         return $issue->admin_area_id !== null && in_array((int) $issue->admin_area_id, $ids, true);
     }
 
-    /** Record a site visit. "repaired" is set only here, through IssueStatusService. */
-    public function store(Request $request, string $publicId, IssueStatusService $status)
+    /** Record a site visit. 'repaired' is set only here, through IssueStatusService. */
+    public function store(Request $request, string $publicId, IssueStatusService $status, EvidenceService $evidence)
     {
         $issue = Issue::where('public_id', $publicId)->firstOrFail();
 
@@ -48,6 +51,7 @@ class IssueVerifyController extends Controller
 
         $actor  = $request->user();
         $reason = trim($data['note']);
+        $before = (int) StatusEvent::where('issue_id', $issue->id)->max('id');
 
         DB::transaction(function () use ($status, $issue, $actor, $reason, $data) {
             if ($data['type'] === 'repaired') {
@@ -71,7 +75,37 @@ class IssueVerifyController extends Controller
             }
         });
 
-        return redirect(url('/issues/' . $issue->public_id) . '#verify')->with('verify_done', true);
+        $redirect = redirect(url('/issues/' . $issue->public_id) . '#verify')->with('verify_done', true);
+
+        $photo = UpdatePhotos::enabled()
+            ? ($request->file('photo_camera') ?: $request->file('photo_gallery'))
+            : null;
+
+        if ($photo) {
+            $redirect->with('photo_msg', $this->attachPhoto($evidence, $photo, $issue, $before, $actor->id));
+        }
+
+        return $redirect;
+    }
+
+    private function attachPhoto(EvidenceService $svc, $photo, Issue $issue, int $before, int $userId): array
+    {
+        $event = StatusEvent::where('issue_id', $issue->id)->where('id', '>', $before)
+                    ->where('dimension', 'verification')->orderByDesc('id')->first()
+              ?: StatusEvent::where('issue_id', $issue->id)->where('id', '>', $before)
+                    ->orderByDesc('id')->first();
+
+        if (! $event) {
+            return ['for' => 'verify', 'ok' => false, 'text' => __('issues.photo_failed')];
+        }
+
+        try {
+            $svc->store($photo, $userId, null, $event->id);
+        } catch (\Throwable $e) {
+            return ['for' => 'verify', 'ok' => false, 'text' => __('issues.photo_failed')];
+        }
+
+        return ['for' => 'verify', 'ok' => true, 'text' => __('issues.photo_pending')];
     }
 
     /** Issues where citizens say "fixed" but nobody has checked on site yet. */
