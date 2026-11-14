@@ -195,6 +195,11 @@ Route::middleware('guest')->group(function () {
 \Illuminate\Support\Facades\Route::post('/fund/pay/ssl/fail', [\App\Http\Controllers\FundDonateController::class, 'sslFail'])->name('fund.pay.ssl.fail');
 \Illuminate\Support\Facades\Route::post('/fund/pay/ssl/cancel', [\App\Http\Controllers\FundDonateController::class, 'sslCancel'])->name('fund.pay.ssl.cancel');
 \Illuminate\Support\Facades\Route::match(['get', 'post'], '/fund/pay/bkash/callback', [\App\Http\Controllers\FundDonateController::class, 'bkashCallback'])->name('fund.pay.bkash.callback');
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/site', [\App\Http\Controllers\Admin\SiteController::class, 'index'])->name('site.index');
+    \Illuminate\Support\Facades\Route::post('/site', [\App\Http\Controllers\Admin\SiteController::class, 'save'])->name('site.save');
+});
+
 \Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {
     \Illuminate\Support\Facades\Route::get('/', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('index');
     \Illuminate\Support\Facades\Route::post('/save', [\App\Http\Controllers\Admin\FundingController::class, 'save'])->name('save');

@@ -33,6 +33,7 @@
                 [route('admin.appearance.index'), __('issues.nav_appearance'), 0, 'brush'],
                 [route('admin.storage.index'), __('issues.nav_storage'), 0, 'storage'],
                 [route('admin.funding.index'), __('issues.nav_funding'), 0, 'fund'],
+                [route('admin.site.index'), __('issues.nav_site'), 0, 'layout'],
             ]];
         }
     }
@@ -52,6 +53,7 @@
         'brush'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16.5 15.5 6l2.5 2.5L7.5 19H5v-2.5ZM13.5 8l2.5 2.5"/></svg>',
         'storage'   => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8v-11"/><path d="M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></svg>',
         'fund'      => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="2"/><circle cx="12" cy="12.5" r="2.6"/><path stroke-linecap="round" d="M6.5 12.5h.01M17.5 12.5h.01"/></svg>',
+        'layout'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9h17M9.5 9v11.5"/></svg>',
         'report'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>',
     ];
 
@@ -71,7 +73,7 @@
             <div x-show="o" x-cloak
                  x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
                  x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0 -translate-y-1"
-                 class="absolute right-0 z-[1100] mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5">
+                 style="max-height:75vh;overflow-y:auto;overscroll-behavior:contain;" class="absolute right-0 z-[1100] mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5">
                 @foreach ($groups as $gi => $g)
                     @if ($gi > 0)<div class="my-1.5 border-t border-slate-100"></div>@endif
                     <p class="px-2.5 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $g['label'] }}</p>
@@ -89,9 +91,14 @@
     @if ($canApply)
         <a href="{{ route('volunteer.apply') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">{{ __('volapp.menu_apply') }}</a>
     @endif
+    @if (\App\Support\SiteSections::navOn('fund'))
+        <a href="{{ route('fund.show') }}" class="hidden text-sm font-medium text-emerald-700 hover:text-emerald-800 sm:inline-block">{{ __('issues.site_nav_fund') }}</a>
+    @endif
+    @if (\App\Support\SiteSections::navOn('report'))
     <a href="{{ url('/report') }}" class="hidden items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-700 sm:inline-flex">
         {!! $icons['report'] !!}{{ __('Report a problem') }}
     </a>
+    @endif
 @else
     @foreach ($groups as $g)
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
@@ -110,7 +117,9 @@
     @if ($canApply)
         <a href="{{ route('volunteer.apply') }}" class="text-sm font-medium text-slate-700">{{ __('volapp.menu_apply') }}</a>
     @endif
+    @if (\App\Support\SiteSections::navOn('report'))
     <a href="{{ url('/report') }}" class="flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm">
         {!! $icons['report'] !!}{{ __('Report a problem') }}
     </a>
+    @endif
 @endif

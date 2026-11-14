@@ -55,4 +55,6 @@ return [
     'mod_empty'            => 'No pending reports.',
     'mod_approved_msg'     => 'Report approved.',
     'mod_hidden_msg'       => 'Report hidden.',
+    'photos_choose' => 'Choose photos',
+    'photos_none' => 'No photo selected yet',
 ];

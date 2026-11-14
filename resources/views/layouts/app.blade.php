@@ -27,18 +27,24 @@
             </a>
 
             <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-                <a href="{{ route('home') }}" class="hover:text-slate-900">{{ __('Home') }}</a>
-                <a href="{{ route('issues.index') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
+                @if (\App\Support\SiteSections::navOn('home'))
+                    <a href="{{ route('home') }}" class="hover:text-slate-900">{{ __('Home') }}</a>
+                @endif
+                @if (\App\Support\SiteSections::navOn('issues'))
+                    <a href="{{ route('issues.index') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
+                @endif
                 @foreach (\App\Models\Page::menuItems() as $menuPage)
                     <a href="{{ route('page.show', $menuPage->slug) }}" class="hover:text-slate-900">{{ $menuPage->title() }}</a>
                 @endforeach
             </nav>
 
             <div class="flex items-center gap-3">
+                @if (\App\Support\SiteSections::navOn('lang'))
                 @if (app()->getLocale() === 'bn')
                     <a href="{{ route('lang', 'en') }}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"><svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.3-3.8-8.5S9.5 5.8 12 3.5Z"/></svg>English</a>
                 @else
                     <a href="{{ route('lang', 'bn') }}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"><svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.3-3.8-8.5S9.5 5.8 12 3.5Z"/></svg>বাংলা</a>
+                @endif
                 @endif
 
                 @guest
@@ -56,8 +62,12 @@
         {{-- Mobile menu --}}
         <div x-show="open" x-cloak x-transition class="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
             <div class="flex flex-col gap-3 text-sm font-medium">
-                <a href="{{ route('home') }}">{{ __('Home') }}</a>
-                <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
+                @if (\App\Support\SiteSections::navOn('home'))
+                    <a href="{{ route('home') }}">{{ __('Home') }}</a>
+                @endif
+                @if (\App\Support\SiteSections::navOn('issues'))
+                    <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
+                @endif
                 @foreach (\App\Models\Page::menuItems() as $menuPage)
                     <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
                 @endforeach
@@ -88,8 +98,20 @@
 
     {{-- Footer --}}
     <footer class="border-t border-slate-200 bg-white">
-        <div class="mx-auto max-w-6xl px-4 py-8 text-sm text-slate-600">
-            <p class="max-w-3xl">{{ __('Reports are claims submitted by users. A claim is not proof until it is verified, and every status shows its source.') }}</p>
+        @php $__site = \App\Support\SiteSections::all(); @endphp
+        <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-slate-600 sm:py-8">
+            @if ($__site['footer']['links_on'])
+                <nav class="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-slate-600" aria-label="Footer">
+                    <a href="{{ route('home') }}" class="hover:text-slate-900">{{ __('Home') }}</a>
+                    <a href="{{ route('issues.index') }}" class="hover:text-slate-900">{{ __('Issues') }}</a>
+                    <a href="{{ url('/report') }}" class="hover:text-slate-900">{{ __('Report a problem') }}</a>
+                    <a href="{{ route('fund.show') }}" class="hover:text-slate-900">{{ __('issues.site_nav_fund') }}</a>
+                    @foreach (\App\Models\Page::menuItems() as $menuPage)
+                        <a href="{{ route('page.show', $menuPage->slug) }}" class="hover:text-slate-900">{{ $menuPage->title() }}</a>
+                    @endforeach
+                </nav>
+            @endif
+            <p class="max-w-3xl">{{ $__site['footer']['text'] !== '' ? $__site['footer']['text'] : __('Reports are claims submitted by users. A claim is not proof until it is verified, and every status shows its source.') }}</p>
             <p class="mt-3 text-xs text-slate-400">© {{ now()->year }} {{ \App\Support\AppearanceSettings::siteName() }}</p>
         </div>
     </footer>

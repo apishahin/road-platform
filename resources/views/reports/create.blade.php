@@ -175,7 +175,23 @@
             <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step4_heading') }}</h2>
             <p class="text-sm text-slate-600">{{ __('report.photos_hint') }}</p>
             <p class="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ __('privacy.photo_warn') }}</p>
-            <input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="block w-full text-sm text-slate-600">
+            <div x-data="{ names: [] }">
+                <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V5m0 0-4 4m4-4 4 4"/><path stroke-linecap="round" d="M4 19h16"/></svg>
+                    <span>{{ __('report.photos_choose') }}</span>
+                    <input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only"
+                           @change="names = Array.from($event.target.files).map(f => f.name)">
+                </label>
+                <p x-show="names.length === 0" class="mt-1.5 text-center text-xs text-slate-400">{{ __('report.photos_none') }}</p>
+                <ul x-show="names.length > 0" class="mt-2 space-y-1 text-xs text-slate-600">
+                    <template x-for="n in names" :key="n">
+                        <li class="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5">
+                            <svg class="size-3.5 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+                            <span class="truncate" x-text="n"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
             <div class="rounded-lg bg-amber-50 p-4 text-xs text-amber-800">⚠️ {{ __('report.claim_notice') }}</div>
             <div class="flex justify-between">
                 <button type="button" @click="step = 3" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">← {{ __('report.back') }}</button>
