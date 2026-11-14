@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\SmsGateway;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\LoginSettings;
@@ -22,7 +23,24 @@ class LoginSettingsController extends Controller
     {
         $this->guard($request);
 
-        return view('admin.loginsettings.index', ['s' => LoginSettings::all()]);
+        // SMS/WhatsApp gateway editor lives on this page (moved from the
+        // old /admin/sms-gateways page, which redirects here).
+        $edit = $request->filled('edit') ? SmsGateway::find((int) $request->query('edit')) : null;
+
+        if ($edit) {
+            $form = $edit->only(['id', 'name', 'channel', 'method', 'url', 'body_type', 'params', 'headers', 'sender_id', 'success_marker', 'priority', 'enabled']);
+        } else {
+            $form = array_merge(SmsGatewaysController::BLANK, $request->query('preset') === 'bulksmsbd' ? SmsGatewaysController::BULKSMSBD : []);
+            $form['id'] = null;
+        }
+
+        return view('admin.loginsettings.index', [
+            's' => LoginSettings::all(),
+            'gateways' => SmsGateway::orderBy('channel')->orderBy('priority')->orderBy('id')->get(),
+            'form' => $form,
+            'editing' => (bool) $edit,
+            'editHasKey' => $edit ? $edit->hasKey() : false,
+        ]);
     }
 
     public function save(Request $request)
@@ -31,6 +49,7 @@ class LoginSettingsController extends Controller
 
         $request->validate([
             'otp_provider' => 'required|in:' . implode(',', LoginSettings::PROVIDERS),
+            'google_phone' => 'sometimes|in:required,optional',
         ]);
 
         $new = [];
@@ -47,6 +66,10 @@ class LoginSettingsController extends Controller
         }
 
         $new['otp_provider'] = (string) $request->input('otp_provider');
+        // Older forms may not send it; keep the current mode then.
+        if ($request->filled('google_phone')) {
+            $new['google_phone'] = (string) $request->input('google_phone');
+        }
         $new['firebase_api_key'] = trim((string) $request->input('firebase_api_key', ''));
         $new['firebase_auth_domain'] = trim((string) $request->input('firebase_auth_domain', ''));
         $new['firebase_project_id'] = trim((string) $request->input('firebase_project_id', ''));

@@ -83,50 +83,65 @@ class GoogleLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_phone_step_creates_user_and_logs_in(): void
+    public function test_phone_is_saved_without_otp_and_user_is_logged_in(): void
     {
         $this->enableGoogle();
 
-        $this->withSession(['google_pending' => ['id' => 'gid-2', 'email' => 'p@b.c', 'name' => 'P']])
-            ->post('/login/google/phone', ['phone' => '01700000022'])
-            ->assertSessionHasNoErrors();
+        $pending = ['google_pending' => ['id' => 'gid-2', 'email' => 'p@b.c', 'name' => 'P']];
 
-        $this->assertDatabaseHas('otp_codes', ['phone' => '+8801700000022', 'used_at' => null]);
-
-        // Wrong code: stays guest.
-        $this->withSession(['google_pending' => ['id' => 'gid-2', 'email' => 'p@b.c', 'name' => 'P'], 'google_phone' => '+8801700000022'])
-            ->post('/login/google/phone/verify', ['code' => '000000'])
-            ->assertSessionHasErrors('code');
+        // Invalid number refused.
+        $this->withSession($pending)
+            ->post('/login/google/phone', ['phone' => '123'])
+            ->assertSessionHasErrors('phone');
         $this->assertGuest();
 
-        // Now plant a known code with the same HMAC the service uses.
-        $otp = \App\Services\OtpService::class;
-        $phone = '+8801700000022';
-        $code  = '123456';
-        \DB::table('otp_codes')->where('phone', $phone)->whereNull('used_at')->update(['used_at' => now()]);
-        \DB::table('otp_codes')->insert([
-            'phone' => $phone,
-            'code_hash' => hash_hmac('sha256', $phone . '|' . $code, (string) config('app.key')),
-            'attempts' => 0,
-            'expires_at' => now()->addMinutes(5),
-            'used_at' => null,
-        ]);
-
-        $this->withSession(['google_pending' => ['id' => 'gid-2', 'email' => 'p@b.c', 'name' => 'P'], 'google_phone' => $phone])
-            ->post('/login/google/phone/verify', ['code' => $code])
+        $this->withSession($pending)
+            ->post('/login/google/phone', ['phone' => '01700000022'])
             ->assertRedirect(route('home'));
 
-        $user = User::where('phone', $phone)->first();
+        $user = User::where('phone', '+8801700000022')->first();
         $this->assertNotNull($user);
         $this->assertSame('gid-2', $user->google_id);
         $this->assertSame('p@b.c', $user->email);
+        // No OTP: the number is stored but not marked verified.
+        $this->assertNull($user->phone_verified_at);
         $this->assertAuthenticatedAs($user);
+        $this->assertNull(session('google_pending'));
     }
 
-    public function test_phone_step_without_pending_google_404(): void
+    public function test_phone_step_404_without_pending_and_skip_follows_mode(): void
     {
         $this->enableGoogle();
         $this->get('/login/google/phone')->assertNotFound();
+
+        $pending = ['google_pending' => ['id' => 'gid-3', 'email' => 's@b.c', 'name' => 'S']];
+
+        // Default mode "required": skip is not allowed.
+        $this->withSession($pending)->post('/login/google/phone/skip')->assertNotFound();
+        $this->assertGuest();
+
+        // Optional mode: phone form shows the skip button and skipping works.
+        LoginSettings::save(['google_phone' => 'optional']);
+        $this->withSession($pending)->get('/login/google/phone')
+            ->assertOk()->assertSee(route('login.google.phone.skip'), false);
+        $this->withSession($pending)->post('/login/google/phone/skip')->assertRedirect(route('home'));
+
+        $user = User::where('google_id', 'gid-3')->first();
+        $this->assertNotNull($user);
+        $this->assertNull($user->phone);
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_verified_number_cannot_be_taken_over(): void
+    {
+        $this->enableGoogle();
+        $this->makeUser('citizen', '+8801700000023', ['phone_verified_at' => now()]);
+
+        $pending = ['google_pending' => ['id' => 'gid-4', 'email' => 't@b.c', 'name' => 'T']];
+        $this->withSession($pending)
+            ->post('/login/google/phone', ['phone' => '01700000023'])
+            ->assertSessionHasErrors('phone');
+        $this->assertGuest();
     }
 
     public function test_google_login_button_on_login_page(): void

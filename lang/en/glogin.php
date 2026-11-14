@@ -13,6 +13,8 @@ return [
     'back'           => 'Back to other login options',
 
     'phone_title'    => 'Your mobile number',
-    'phone_intro'    => 'Enter the mobile number linked to your account. We will verify it once, then keep you logged in.',
-    'resend_code'    => 'Send a new code',
+    'phone_intro'    => 'Enter your mobile number. It is saved with your account — no code needed.',
+    'save_number'    => 'Save and continue',
+    'skip'           => 'Skip for now',
+    'number_in_use'  => 'This number already belongs to a verified account. Log in with the code instead.',
 ];

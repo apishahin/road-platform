@@ -44,7 +44,8 @@ class SmsGatewaysPageTest extends TestCase
     {
         $this->get('/admin/sms-gateways')->assertStatus(302);
         $c = User::create(['phone' => '+8801700000002', 'display_name' => 'C', 'role' => 'citizen']);
-        $this->actingAs($c)->get('/admin/sms-gateways')->assertStatus(403);
+        $this->actingAs($c)->get('/admin/login-settings')->assertStatus(403);
+        $this->actingAs($c)->get('/admin/sms-gateways')->assertStatus(302);
         $this->actingAs($c)->post('/admin/sms-gateways', $this->payload())->assertStatus(403);
         $this->assertSame(0, SmsGateway::count());
     }
@@ -52,8 +53,13 @@ class SmsGatewaysPageTest extends TestCase
     public function test_page_and_preset_open(): void
     {
         $a = $this->admin();
-        $this->actingAs($a)->get('/admin/sms-gateways')->assertOk();
-        $this->actingAs($a)->get('/admin/sms-gateways?preset=bulksmsbd')->assertOk()->assertSee('bulksmsbd.net/api/smsapi', false);
+        // The old standalone page redirects into the merged login-settings page.
+        $this->actingAs($a)->get('/admin/sms-gateways')
+            ->assertRedirect(route('admin.loginsettings.index') . '#gateways');
+        $this->actingAs($a)->get('/admin/sms-gateways?preset=bulksmsbd')
+            ->assertRedirect(route('admin.loginsettings.index', ['preset' => 'bulksmsbd']) . '#gateways');
+        $this->actingAs($a)->get('/admin/login-settings?preset=bulksmsbd')
+            ->assertOk()->assertSee('bulksmsbd.net/api/smsapi', false);
     }
 
     public function test_save_stores_encrypted_key_and_stays_off(): void
@@ -63,7 +69,7 @@ class SmsGatewaysPageTest extends TestCase
         $this->assertFalse($g->enabled);
         $this->assertSame('SECRETKEY9', $g->apiKey());
         $this->assertStringNotContainsString('SECRETKEY9', (string) $g->getRawOriginal('api_key_enc'));
-        $this->actingAs($a)->get('/admin/sms-gateways?edit=' . $g->id)->assertOk()->assertDontSee('SECRETKEY9');
+        $this->actingAs($a)->get('/admin/login-settings?edit=' . $g->id)->assertOk()->assertDontSee('SECRETKEY9');
     }
 
     public function test_http_url_refused(): void

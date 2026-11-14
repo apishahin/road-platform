@@ -171,9 +171,8 @@ Route::middleware('guest')->group(function () {
     Route::get('/login/google', [\App\Http\Controllers\GoogleLoginController::class, 'start'])->name('login.google');
     Route::post('/login/google/verify', [\App\Http\Controllers\GoogleLoginController::class, 'verify'])->middleware('throttle:10,1')->name('login.google.verify');
     Route::get('/login/google/phone', [\App\Http\Controllers\GoogleLoginController::class, 'phone'])->name('login.google.phone');
-    Route::post('/login/google/phone', [\App\Http\Controllers\GoogleLoginController::class, 'phoneSend'])->middleware('throttle:10,1')->name('login.google.phone.send');
-    Route::post('/login/google/phone/verify', [\App\Http\Controllers\GoogleLoginController::class, 'phoneVerify'])->middleware('throttle:10,1')->name('login.google.phone.verify');
-    Route::post('/login/google/phone/firebase', [\App\Http\Controllers\GoogleLoginController::class, 'phoneFirebaseVerify'])->middleware('throttle:10,1')->name('login.google.phone.firebase');
+    Route::post('/login/google/phone', [\App\Http\Controllers\GoogleLoginController::class, 'savePhone'])->middleware('throttle:10,1')->name('login.google.phone.save');
+    Route::post('/login/google/phone/skip', [\App\Http\Controllers\GoogleLoginController::class, 'skip'])->middleware('throttle:10,1')->name('login.google.phone.skip');
 });
 
 \Illuminate\Support\Facades\Route::post('/issues/{publicId}/observe', [\App\Http\Controllers\IssueObservationController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.observe');

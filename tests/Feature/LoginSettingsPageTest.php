@@ -30,6 +30,7 @@ class LoginSettingsPageTest extends TestCase
             'registration_open'  => '1',
             'password_for_staff' => '0',
             'otp_provider'       => 'log',
+            'google_phone'       => 'required',
         ], $over);
     }
 
@@ -67,6 +68,7 @@ class LoginSettingsPageTest extends TestCase
             ->post('/admin/login-settings', $this->payload([
                 'password_enabled' => '1',
                 'google_enabled'   => '1',
+                'google_phone'     => 'optional',
                 'firebase_api_key' => 'AIza-test-key',
                 'firebase_auth_domain' => 'x.firebaseapp.com',
                 'firebase_project_id' => 'project-x',
@@ -75,6 +77,7 @@ class LoginSettingsPageTest extends TestCase
 
         $this->assertTrue(LoginSettings::passwordEnabled());
         $this->assertTrue(LoginSettings::googleEnabled());
+        $this->assertSame('optional', LoginSettings::googlePhoneMode());
         $this->assertDatabaseHas('audit_events', ['action' => 'login_settings.save']);
     }
 

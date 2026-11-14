@@ -52,8 +52,18 @@
         </div>
         </div>
 
-        <p style="margin-top:18px;font-size:14px;"><a href="{{ route('admin.smsgateways.index') }}" style="color:#1d4ed8;text-decoration:underline;">{{ __('smsgw.menu') }}</a></p>
+        <div style="margin-top:18px;">
+            <label style="display:block;font-size:14px;font-weight:600;">{{ __('loginsettings.google_phone') }}</label>
+            <select name="google_phone" style="margin-top:6px;width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
+                <option value="required" @selected(old('google_phone', $s['google_phone'] ?? 'required') === 'required')>{{ __('loginsettings.gphone_required') }}</option>
+                <option value="optional" @selected(old('google_phone', $s['google_phone'] ?? 'required') === 'optional')>{{ __('loginsettings.gphone_optional') }}</option>
+            </select>
+            <p style="margin-top:4px;font-size:12px;color:#64748b;">{{ __('loginsettings.gphone_hint') }}</p>
+        </div>
+
         <button type="submit" style="margin-top:18px;padding:10px 18px;border:0;border-radius:8px;background:#ea580c;color:#fff;font-weight:600;cursor:pointer;">{{ __('loginsettings.save') }}</button>
     </form>
+
+    @include('admin.loginsettings._gateways')
 </div>
 @endsection

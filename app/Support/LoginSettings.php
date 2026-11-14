@@ -23,6 +23,7 @@ class LoginSettings
             'registration_open'  => true,
             'password_for_staff' => false,
             'otp_provider'       => 'log',
+            'google_phone'       => 'required',
             'firebase_api_key' => '',
             'firebase_auth_domain' => '',
             'firebase_project_id' => '',
@@ -59,6 +60,9 @@ class LoginSettings
         }
         if (isset($in['otp_provider']) && in_array($in['otp_provider'], self::PROVIDERS, true)) {
             $out['otp_provider'] = $in['otp_provider'];
+        }
+        if (isset($in['google_phone']) && in_array($in['google_phone'], ['required', 'optional'], true)) {
+            $out['google_phone'] = $in['google_phone'];
         }
 
         return $out;
@@ -103,4 +107,7 @@ class LoginSettings
     public static function registrationOpen(): bool { return (bool) self::all()['registration_open']; }
     public static function passwordForStaff(): bool { return (bool) self::all()['password_for_staff']; }
     public static function provider(): string { return (string) self::all()['otp_provider']; }
+
+    /** Whether Google sign-in must be followed by a mobile number ('required'|'optional'). */
+    public static function googlePhoneMode(): string { return (string) self::all()['google_phone']; }
 }

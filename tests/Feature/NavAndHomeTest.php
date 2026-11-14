@@ -32,7 +32,7 @@ class NavAndHomeTest extends TestCase
     public function test_admin_menu_has_all_groups(): void
     {
         $r = $this->as('admin')->get('/')->assertOk();
-        foreach (['admin.moderation.index', 'admin.issues.index', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.smsgateways.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
+        foreach (['admin.moderation.index', 'admin.issues.index', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
             $r->assertSee(route($name), false);
         }
     }

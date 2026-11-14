@@ -12,6 +12,10 @@ return [
     'password_hint' => 'If on, people can sign up and log in without OTP. The phone number is then not verified.',
     'google' => 'Login with Google',
     'google_hint' => 'Sign in with a Google account. The mobile number is asked right after the first sign-in.',
+    'google_phone' => 'Mobile number after Google login',
+    'gphone_required' => 'Required',
+    'gphone_optional' => 'Optional (can be skipped)',
+    'gphone_hint' => 'The number is saved without any OTP code. When required, accounts cannot be created without it.',
     'registration' => 'New accounts can be created',
     'registration_hint' => 'If off, only people who already have an account can log in.',
     'staff_password' => 'Allow password login for volunteers, moderators and admins',
@@ -35,4 +39,5 @@ return [
     'fbl_confirm' => 'Confirm',
     'fbl_need_config' => 'To use Firebase, fill in API Key, Auth Domain and Project ID first.',
     'gg_need_config' => 'To enable Google login, fill in the Firebase config (API Key, Auth Domain, Project ID) below.',
+    'gateways_here' => 'SMS and WhatsApp gateways live on this page too — see the section below.',
 ];

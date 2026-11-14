@@ -1,10 +1,5 @@
-@extends('layouts.app')
-
-@section('title', __('smsgw.title'))
-
-@section('content')
-<div class="mx-auto max-w-4xl px-4 py-8">
-    <h1 class="text-2xl font-bold text-slate-900">{{ __('smsgw.title') }}</h1>
+<section id="gateways" class="mt-10 border-t border-slate-200 pt-8">
+    <h2 class="text-xl font-bold text-slate-900">{{ __('smsgw.title') }}</h2>
     <p class="mt-1 text-sm text-slate-600">{{ __('smsgw.intro') }}</p>
 
     <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -50,7 +45,7 @@
                 @endif
 
                 <div class="mt-3 flex flex-wrap items-center gap-2">
-                    <a href="{{ route('admin.smsgateways.index', ['edit' => $g->id]) }}"
+                    <a href="{{ route('admin.loginsettings.index', ['edit' => $g->id]) }}"
                        class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200">{{ __('smsgw.edit') }}</a>
 
                     <form method="POST" action="{{ route('admin.smsgateways.toggle', $g->id) }}">
@@ -85,7 +80,7 @@
     <div class="mt-10 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-lg font-semibold text-slate-900">{{ $editing ? __('smsgw.form_edit') : __('smsgw.form_add') }}</h2>
         @unless ($editing)
-            <a href="{{ route('admin.smsgateways.index', ['preset' => 'bulksmsbd']) }}" class="mt-1 inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset') }}</a>
+            <a href="{{ route('admin.loginsettings.index', ['preset' => 'bulksmsbd']) }}" class="mt-1 inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset') }}</a>
         @endunless
 
         <form method="POST" action="{{ route('admin.smsgateways.save') }}" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -185,4 +180,5 @@
         </form>
     </div>
 </div>
-@endsection
+</div>
+</section>

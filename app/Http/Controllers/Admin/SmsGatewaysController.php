@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\Validator;
 
 class SmsGatewaysController extends Controller
 {
-    private const BLANK = [
+    public const BLANK = [
         'name' => '', 'channel' => 'sms', 'method' => 'GET', 'url' => 'https://',
         'body_type' => 'query', 'params' => '', 'headers' => '', 'sender_id' => '',
         'success_marker' => '', 'priority' => 10, 'enabled' => false,
     ];
 
-    private const BULKSMSBD = [
+    public const BULKSMSBD = [
         'name' => 'BulkSMSBD', 'channel' => 'sms', 'method' => 'GET',
         'url' => 'https://bulksmsbd.net/api/smsapi', 'body_type' => 'query',
         'params' => '{"api_key":"{api_key}","type":"text","number":"{to}","senderid":"{sender_id}","message":"{message}"}',
@@ -37,22 +37,8 @@ class SmsGatewaysController extends Controller
 
     public function index(Request $request)
     {
-        $this->guard($request);
-        $edit = $request->filled('edit') ? SmsGateway::find((int) $request->query('edit')) : null;
-
-        if ($edit) {
-            $form = $edit->only(['id', 'name', 'channel', 'method', 'url', 'body_type', 'params', 'headers', 'sender_id', 'success_marker', 'priority', 'enabled']);
-        } else {
-            $form = array_merge(self::BLANK, $request->query('preset') === 'bulksmsbd' ? self::BULKSMSBD : []);
-            $form['id'] = null;
-        }
-
-        return view('admin.smsgateways.index', [
-            'gateways' => SmsGateway::orderBy('channel')->orderBy('priority')->orderBy('id')->get(),
-            'form' => $form,
-            'editing' => (bool) $edit,
-            'editHasKey' => $edit ? $edit->hasKey() : false,
-        ]);
+        // The gateway editor lives on the login-settings page now.
+        return redirect(route('admin.loginsettings.index', $request->only(['edit', 'preset'])) . '#gateways');
     }
 
     public function save(Request $request)
@@ -116,7 +102,7 @@ class SmsGatewaysController extends Controller
             'name' => $g->name, 'channel' => $g->channel, 'enabled' => $g->enabled,
         ]);
 
-        return redirect()->route('admin.smsgateways.index')->with('gw_ok', __('smsgw.saved'));
+        return redirect(route('admin.loginsettings.index') . '#gateways')->with('gw_ok', __('smsgw.saved'));
     }
 
     public function toggle(Request $request, int $id)
@@ -129,7 +115,7 @@ class SmsGatewaysController extends Controller
             'name' => $g->name, 'enabled' => $g->enabled,
         ]);
 
-        return redirect()->route('admin.smsgateways.index')->with('gw_ok', __('smsgw.toggled'));
+        return redirect(route('admin.loginsettings.index') . '#gateways')->with('gw_ok', __('smsgw.toggled'));
     }
 
     public function delete(Request $request, int $id)
@@ -140,7 +126,7 @@ class SmsGatewaysController extends Controller
         $g->delete();
         app(AuditService::class)->log($admin, 'sms_gateway.delete', 'sms_gateway', (string) $id, ['name' => $name]);
 
-        return redirect()->route('admin.smsgateways.index')->with('gw_ok', __('smsgw.deleted'));
+        return redirect(route('admin.loginsettings.index') . '#gateways')->with('gw_ok', __('smsgw.deleted'));
     }
 
     public function test(Request $request, int $id)
