@@ -297,4 +297,5 @@ return [
     'fund_dstatus_pending' => 'Pending',
     'fund_dstatus_failed' => 'Failed',
     'fund_dstatus_void' => 'Void',
+    'nav_my_account'       => 'My account',
 ];

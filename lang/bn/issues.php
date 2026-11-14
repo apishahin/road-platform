@@ -297,4 +297,5 @@ return [
     'fund_dstatus_pending' => 'অপেক্ষমাণ',
     'fund_dstatus_failed' => 'ব্যর্থ',
     'fund_dstatus_void' => 'বাতিল',
+    'nav_my_account'       => 'আমার অ্যাকাউন্ট',
 ];

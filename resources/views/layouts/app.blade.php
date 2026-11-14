@@ -36,23 +36,17 @@
 
             <div class="flex items-center gap-3">
                 @if (app()->getLocale() === 'bn')
-                    <a href="{{ route('lang', 'en') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900">English</a>
+                    <a href="{{ route('lang', 'en') }}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"><svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.3-3.8-8.5S9.5 5.8 12 3.5Z"/></svg>English</a>
                 @else
-                    <a href="{{ route('lang', 'bn') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900">বাংলা</a>
+                    <a href="{{ route('lang', 'bn') }}" class="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"><svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 3.8 5.2 3.8 8.5s-1.3 6.2-3.8 8.5c-2.5-2.3-3.8-5.3-3.8-8.5S9.5 5.8 12 3.5Z"/></svg>বাংলা</a>
                 @endif
 
                 @guest
                     <a href="{{ route('login') }}" class="hidden rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 sm:inline-block">{{ __('Login') }}</a>
                 @endguest
 
-                @auth
-                    <a href="{{ route('account.password') }}" class="hidden text-sm font-medium text-slate-700 hover:text-slate-900 sm:inline-block">{{ __('acctpw.title') }}</a> <form method="POST" action="{{ route('logout') }}" class="hidden sm:block">
-                        @csrf
-                        <button type="submit" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">{{ __('login.logout') }}</button>
-                    </form>
-                @endauth
-
                 @include('partials.nav-staff', ['mobile' => false])
+                @include('partials.nav-user')
                 <button type="button" class="rounded-lg p-2 hover:bg-slate-100 md:hidden" @click="open = !open" aria-label="Menu">
                     <svg class="size-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
                 </button>
@@ -71,10 +65,13 @@
                     <a href="{{ route('login') }}">{{ __('Login') }}</a>
                 @endguest
                 @auth
-                    <a href="{{ route('account.password') }}">{{ __('acctpw.title') }}</a> <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="text-left">{{ __('login.logout') }}</button>
-                    </form>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                        <a href="{{ route('account.password') }}" class="block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctpw.title') }}</a>
+                        <form method="POST" action="{{ route('logout') }}" class="mt-1.5">
+                            @csrf
+                            <button type="submit" class="block w-full rounded-lg bg-rose-50 px-2.5 py-2 text-left text-sm font-bold text-rose-600">{{ __('login.logout') }}</button>
+                        </form>
+                    </div>
                 @endauth
                 @include('partials.nav-staff', ['mobile' => true])
             </div>
