@@ -95,7 +95,7 @@
         <a href="{{ route('fund.show') }}" class="hidden text-sm font-medium text-emerald-700 hover:text-emerald-800 sm:inline-block">{{ __('issues.site_nav_fund') }}</a>
     @endif
     @if (\App\Support\SiteSections::navOn('report'))
-    <a href="{{ url('/report') }}" class="hidden items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-brand-700 sm:inline-flex">
+    <a href="{{ url('/report') }}" class="rp-pill rp-report items-center gap-1.5">
         {!! $icons['report'] !!}{{ __('Report a problem') }}
     </a>
     @endif

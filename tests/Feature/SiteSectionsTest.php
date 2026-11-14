@@ -66,10 +66,10 @@ class SiteSectionsTest extends TestCase
 
     public function test_nav_report_button_can_be_hidden(): void
     {
-        $this->get('/')->assertOk()->assertSee('bg-brand-600 px-3.5', false); // navbar report button present
+        $this->get('/')->assertOk()->assertSee('rp-pill rp-report', false); // navbar report button present
 
         $this->override(['nav' => ['report' => false]]);
-        $this->get('/')->assertOk()->assertDontSee('bg-brand-600 px-3.5', false);
+        $this->get('/')->assertOk()->assertDontSee('rp-pill rp-report', false);
     }
 
     public function test_fund_nav_link_appears_when_enabled(): void
@@ -326,6 +326,46 @@ class SiteSectionsTest extends TestCase
             ->assertSee('data-footer-dark', false);
     }
 
+    public function test_admin_theme_colours_and_gradients(): void
+    {
+        // save a custom theme (toggle on)
+        $this->actingAs($this->admin())->post('/admin/site', [
+            'theme_on'       => '1',
+            'theme_green'    => '#123456',
+            'theme_green_deep' => '#0a0b0c',
+            'theme_accent'   => '#aabbcc',
+            'theme_cta_from' => '#112233',
+            'theme_cta_to'   => '#445566',
+            'theme_junk'     => 'not-a-colour',
+        ])->assertRedirect();
+
+        $t = SiteSections::theme();
+        $this->assertTrue($t['on']);
+        $this->assertSame('#123456', $t['green']);
+        $this->assertSame('#0a0b0c', $t['green_deep']);
+        $this->assertSame('#aabbcc', $t['accent']);
+        $this->assertSame('#112233', $t['cta_from']);
+        $this->assertSame('#445566', $t['cta_to']);
+
+        // homepage wears the custom colours + gradients (both designs include the theme block)
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('--green:#123456;', $html);
+        $this->assertStringContainsString('--cta-a:#112233;', $html);
+        $this->assertStringContainsString('--cta-b:#445566;', $html);
+        $this->assertStringContainsString('background:#0a0b0c;', $html); // footer deep shade override
+
+        // turn the toggle off → custom colours disappear, spec defaults return
+        $this->actingAs($this->admin())->post('/admin/site', [
+            'theme_green' => '#123456',
+        ])->assertRedirect();
+        $t2 = SiteSections::theme();
+        $this->assertFalse($t2['on']);
+        $this->assertSame('#123456', $t2['green']); // kept for later use
+        $html2 = $this->get('/')->assertOk()->getContent();
+        $this->assertStringNotContainsString('--green:#123456;', $html2);
+        $this->assertStringContainsString('#003d25', $html2);
+    }
+
     public function test_admin_can_upload_a_slide_image(): void
     {
         $admin = $this->admin();
@@ -346,5 +386,44 @@ class SiteSectionsTest extends TestCase
             'sec_hero_on' => '1',
             'slide_file_0' => \Illuminate\Http\UploadedFile::fake()->create('evil.php', 10, 'image/png'),
         ])->assertSessionHasErrors();
+    }
+
+    public function test_recent_list_shows_real_photo_thumbnails(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake(\App\Support\StorageSettings::publicDisk());
+
+        $cat = \App\Models\Category::unguarded(fn () => \App\Models\Category::firstOrCreate(
+            ['slug' => 'photo-cat'],
+            ['name_bn' => 'Photo Cat', 'name_en' => 'Photo Cat', 'sort' => 1, 'is_active' => 1]
+        ));
+        $issue = \App\Models\Issue::create([
+            'title' => 'ZZPHOTO issue', 'category_id' => $cat->id,
+            'lat' => 24.57, 'lng' => 90.40,
+            'progress_status' => 'reported', 'verification_status' => 'unverified',
+            'disposition' => 'active', 'reports_count' => 1,
+            'first_reported_at' => now(), 'last_activity_at' => now(),
+        ]);
+        $issue->forceFill(['published_at' => now()->toDateTimeString()])->save();
+        $reporter = $this->admin();
+        $report = \App\Models\Report::create([
+            'issue_id' => $issue->id, 'user_id' => $reporter->id, 'description' => 'd',
+            'lat' => 24.57, 'lng' => 90.40, 'moderation' => 'approved',
+        ]);
+        \Illuminate\Support\Facades\Storage::disk(\App\Support\StorageSettings::publicDisk())->put('ev/thumb.jpg', 'x');
+        \App\Models\Evidence::create([
+            'report_id' => $report->id, 'uploader_id' => $reporter->id,
+            'public_path' => 'ev/thumb.jpg', 'moderation' => 'approved',
+        ]);
+
+        // photo thumbnail appears in BOTH designs' recent list
+        $this->get('/')->assertOk()
+            ->assertSee('ZZPHOTO issue')
+            ->assertSee('ev/thumb.jpg', false); // classic
+
+        // modern home: photo thumbnail appears in the recent panel
+        $this->override(['design' => ['home' => 'modern']]);
+        $this->get('/')->assertOk()
+            ->assertSee('ZZPHOTO issue')
+            ->assertSee('ev/thumb.jpg', false);
     }
 }

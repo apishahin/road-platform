@@ -26,6 +26,9 @@ class SiteSections
     public const HERO_DIR    = 'uploads/hero'; // inside public/
     public const SOCIALS     = ['facebook', 'youtube', 'x', 'website'];
 
+    /** Admin-editable Modern-home colour/gradient theme (hex only). */
+    public const THEME_COLORS = ['green', 'green_dark', 'green_deep', 'accent', 'cta_from', 'cta_to'];
+
     /** text fields editable per section */
     public const TEXT_FIELDS = [
         'hero'     => ['title', 'text'],
@@ -66,6 +69,11 @@ class SiteSections
             'footer' => ['text' => '', 'links_on' => true, 'dark' => false, 'facebook' => '', 'youtube' => '', 'x' => '', 'website' => ''],
             'design' => ['home' => 'classic', 'report' => 'classic'],
             'hero_slider' => ['on' => false, 'slides' => [self::emptySlide(), self::emptySlide(), self::emptySlide()]],
+            'theme' => [
+                'on'         => false,
+                'green'      => '#078a48', 'green_dark' => '#00552f', 'green_deep' => '#003d25',
+                'accent'     => '#d7ff70', 'cta_from'   => '#006b39', 'cta_to'     => '#003d25',
+            ],
         ];
     }
 
@@ -134,7 +142,7 @@ class SiteSections
         $navIn = is_array($in['nav'] ?? null) ? $in['nav'] : [];
         $ftrIn = is_array($in['footer'] ?? null) ? $in['footer'] : [];
 
-        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => []];
+        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => [], 'theme' => []];
 
         foreach (self::SECTIONS as $s) {
             $base = $d['sections'][$s];
@@ -182,6 +190,13 @@ class SiteSections
             'on'     => (bool) ($hsIn['on'] ?? $d['hero_slider']['on']),
             'slides' => $slides,
         ];
+
+        $thIn = is_array($in['theme'] ?? null) ? $in['theme'] : [];
+        $out['theme'] = ['on' => (bool) ($thIn['on'] ?? $d['theme']['on'])];
+        foreach (self::THEME_COLORS as $c) {
+            $v = $thIn[$c] ?? $d['theme'][$c];
+            $out['theme'][$c] = (is_string($v) && preg_match('/^#[0-9a-fA-F]{6}$/', $v)) ? strtolower($v) : $d['theme'][$c];
+        }
 
         return $out;
     }
@@ -252,6 +267,26 @@ class SiteSections
     public static function heroImgUrl(string $file): string
     {
         return asset(self::HERO_DIR . '/' . $file);
+    }
+
+    /** Theme config; 'on' = admin overrides active, else spec defaults still returned. */
+    public static function theme(): array
+    {
+        return self::all()['theme'];
+    }
+
+    /** Render slide text with *asterisked* words wrapped in highlight spans. */
+    public static function heroHl(string $t): string
+    {
+        if (mb_substr_count($t, '*') < 2) {
+            return e($t);
+        }
+        $out = '';
+        foreach (explode('*', $t) as $i => $part) {
+            $out .= $i % 2 === 1 ? '<span class="hl">' . e($part) . '</span>' : e($part);
+        }
+
+        return $out;
     }
 
     /** Heading size class for section headings (Tailwind text-* utility). */

@@ -1,10 +1,11 @@
+@include('home._rp-css')
 <div data-home-design="classic">@php $S = \App\Support\SiteSections::class; @endphp
 
 {{-- Hero (photo slider mode, or the text hero) --}}
 @if ($S::on('hero'))
 @php $heroSlider = $S::heroSlider(); @endphp
 @if ($heroSlider['on'] && count($heroSlider['slides']) > 0)
-    @include('home._slider')
+    <div class="rp-home">@include('home._slider', ['heroSlides' => $heroSlider['slides']])</div>
     @if ($S::on('stats'))
         @include('home._stats-row')
     @endif
@@ -98,7 +99,7 @@
 
             <div id="issue-list" class="space-y-2.5">
                 @forelse ($recent as $issue)
-                    <x-issue-card :issue="$issue" />
+                    <x-issue-card :issue="$issue" :photo="$photos[$issue->id] ?? null" />
                 @empty
                     <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
                         {{ __('No reports yet. Be the first to report a problem.') }}
@@ -110,7 +111,7 @@
 </section>
 @endif
 
-@include('home._ribbon')
+<div class="rp-home">@include('home._ribbon')</div>
 
 {{-- How it works (4 steps) --}}
 @if ($S::on('how'))
@@ -151,8 +152,8 @@
                 <a href="{{ url('/issues') }}" class="text-sm font-semibold text-brand-700 hover:underline">{{ __('issues.home_view_all') }}</a>
             </div>
             <div class="mt-3 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                @foreach ($repaired as $issue)
-                    <x-issue-card :issue="$issue" />
+                @foreach ($repaired->take(3) as $issue)
+                    <x-issue-card :issue="$issue" :photo="$photos[$issue->id] ?? null" />
                 @endforeach
             </div>
         </div>
@@ -160,7 +161,7 @@
 @endif
 
 @if ($S::on('cta'))
-    @include('home._cta')
+    <div class="rp-home">@include('home._cta')</div>
 @endif
 
 @if ($S::on('privacy'))

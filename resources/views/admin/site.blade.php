@@ -56,6 +56,41 @@
         </div>
         <p style="margin-top:6px;font-size:12px;color:#94a3b8;">{{ __('issues.site_design_hint') }}</p>
 
+        {{-- ============ Colour & gradient theme ============ --}}
+        @php $th = $s['theme'] ?? []; @endphp
+        <h2 style="margin-top:24px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_sec_theme') }}</h2>
+        <div style="{{ $card }};margin-top:10px;" x-data="{ on: {{ ! empty($th['on']) ? 'true' : 'false' }} }">
+            <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;">
+                <div style="max-width:60ch;">
+                    <div style="font-weight:800;font-size:14px;color:#0f172a;">{{ __('issues.site_sec_theme') }}</div>
+                    <p style="font-size:12px;color:#64748b;margin-top:2px;">{{ __('issues.site_sec_theme_hint') }}</p>
+                </div>
+                <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#334155;cursor:pointer;">
+                    <input type="checkbox" name="theme_on" value="1" x-model="on" @checked(! empty($th['on']))>
+                    {{ __('issues.site_f_theme_on') }}
+                </label>
+            </div>
+            <p style="font-size:12px;color:#94a3b8;margin-top:8px;">{{ __('issues.site_f_theme_note') }}</p>
+            <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:10px;" x-show="on" x-cloak>
+                @foreach ([
+                    'green'      => 'site_f_theme_c_green',
+                    'green_dark' => 'site_f_theme_c_green_dark',
+                    'green_deep' => 'site_f_theme_c_green_deep',
+                    'accent'     => 'site_f_theme_c_accent',
+                    'cta_from'   => 'site_f_theme_c_cta_from',
+                    'cta_to'     => 'site_f_theme_c_cta_to',
+                ] as $ck => $lk)
+                    <div>
+                        <label style="{{ $lbl }}">{{ __('issues.' . $lk) }}</label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="text" name="theme_{{ $ck }}" value="{{ old('theme_' . $ck, $th[$ck] ?? '') }}" pattern="^#[0-9a-fA-F]{6}$" maxlength="7" placeholder="#078a48" style="{{ $inp }};max-width:110px;font-family:monospace;">
+                            <span style="display:inline-block;width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:{{ $th[$ck] ?? '#fff' }};" aria-hidden="true"></span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+
         {{-- ============ Hero slider ============ --}}
         <h2 style="margin-top:24px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_hero_slider') }}</h2>
         <div style="{{ $card }};margin-top:10px;" x-data="{ on: {{ $hs['on'] ? 'true' : 'false' }} }">

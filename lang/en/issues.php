@@ -384,7 +384,7 @@ return [
     // Admin: hero slider
     'site_hero_slider'      => 'Hero photo slider',
     'site_hero_slider_on'   => 'Show photo slider instead of the text hero',
-    'site_hero_slider_hint' => 'Up to 3 slides on the homepage — uploaded image or an image URL per slide.',
+    'site_hero_slider_hint' => 'Up to 3 slides on the homepage — uploaded image or an image URL per slide. Wrap words in *asterisks* in a headline to show them in yellow.',
     'site_hero_slider_note' => 'Empty title/text falls back to the hero wording below. Slides without any image are skipped.',
     'site_slide'           => 'Slide',
     'site_slide_img'       => 'Upload image (PNG/JPG/WebP, max 4 MB)',
@@ -430,4 +430,42 @@ return [
     'site_footer_social_hint'=> 'Leave empty to hide an icon. Links open in a new tab.',
     'footer_rights' => 'All rights reserved.',
     'back_to_top'   => 'Back to top',
+
+    // Design-handoff wording (Modern home)
+    'hero_slider_title' => 'Road problem? Report it now',
+    'hero_slider_sub'   => 'Together we build a safe, better Bangladesh',
+    'hero_map_btn'      => 'View on map',
+    'report_new_short'  => 'New report',
+    'legend_new'        => 'New',
+    'legend_ongoing'    => 'Ongoing',
+    'legend_repairing'  => 'Repair in progress',
+    'legend_done'       => 'Completed',
+    'how_title'         => 'How does it work?',
+    'fix_badge'         => 'Completed',
+    'fund_done'         => 'completed',
+    'fund_days_short'   => 'days left',
+    'footer_mission'    => 'A public welfare initiative',
+
+    // Reference-homepage wording
+    'hero_eyebrow'        => 'Civic initiative · Safe roads',
+    'hero_plain_title_1'  => 'Road problem?',
+    'hero_plain_title_hl' => 'Report it now',
+    'hero_plain_sub'      => 'Together we build a safe, better Bangladesh',
+    'hero_plain_text'     => 'See a pothole, waterlogging or any road problem? Report it and watch the progress before anyone else.',
+    'hero_note_1'         => 'Good roads are everybody\'s ',
+    'hero_note_hl'        => 'right',
+    'map_box_title'       => 'Problem map',
+    'fund_tagline_default'=> 'Let us all come forward, together',
+
+    // Admin: colour & gradient theme
+    'site_sec_theme'      => 'Site colour theme',
+    'site_sec_theme_hint' => ' colours + gradients (Modern home, buttons, hero, CTA band, dark footer). Saved once the toggle is on; turn off for the recommended palette.',
+    'site_f_theme_note'   => 'The six boxes below set the main colour, its dark shades, the hero highlight and the CTA gradient (start → end). You can also use the appearance colour preset for the global accent.',
+    'site_f_theme_on'     => 'Use my custom colours',
+    'site_f_theme_c_green'      => 'Main colour (green)',
+    'site_f_theme_c_green_dark' => 'Dark shade (buttons on hover etc.)',
+    'site_f_theme_c_green_deep' => 'Deep shade (footer background)',
+    'site_f_theme_c_accent'     => 'Hero highlight (highlighted words)',
+    'site_f_theme_c_cta_from'   => 'CTA gradient — start',
+    'site_f_theme_c_cta_to'     => 'CTA gradient — end',
 ];

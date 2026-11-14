@@ -16,7 +16,7 @@ class HomeData
         // Latest active issues, newest activity first
         $issues = Issue::query()
             ->active()
-            ->with('category')
+            ->with(['category', 'adminArea'])
             ->latest('last_activity_at')
             ->limit(config('roadplatform.map.max_markers'))
             ->get();
@@ -24,17 +24,39 @@ class HomeData
         $repaired = Issue::query()
             ->active()
             ->where('progress_status', 'repaired')
-            ->with('category')
+            ->with(['category', 'adminArea'])
             ->latest('last_activity_at')
-            ->limit(3)
+            ->limit(8)
             ->get();
 
         // Must happen before the map data is built, so the flag is included
         IssueNotice::mark($issues);
         IssueNotice::mark($repaired);
 
+        // Latest approved photo per visible issue (recent list + repair cards).
+        $ids = $issues->take(6)->pluck('id')->merge($repaired->pluck('id'))->unique()->all();
+        $photos = [];
+        try {
+            $evs = \App\Models\Evidence::query()
+                ->where('moderation', 'approved')
+                ->whereHas('report', fn ($q) => $q->whereIn('issue_id', $ids))
+                ->with('report:id,issue_id')
+                ->latest('id')
+                ->limit(60)
+                ->get();
+            foreach ($evs as $ev) {
+                $iid = $ev->report?->issue_id;
+                if ($iid && ! isset($photos[$iid])) {
+                    $photos[$iid] = $ev->url();
+                }
+            }
+        } catch (\Throwable $e) {
+            $photos = []; // never break the home page for a thumbnail
+        }
+
         return [
             'recent' => $issues->take(6),
+            'photos' => $photos,
             'mapIssues' => $issues->map(fn ($i) => IssuePresenter::map($i))->values(),
             'repaired' => $repaired,
             'stats' => [

@@ -68,6 +68,9 @@ class SiteController extends Controller
         }
         $rules['design_home']   = ['nullable', 'in:' . implode(',', SiteSections::DESIGNS)];
         $rules['design_report'] = ['nullable', 'in:' . implode(',', SiteSections::DESIGNS)];
+        foreach (SiteSections::THEME_COLORS as $c) {
+            $rules['theme_' . $c] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
+        }
 
         for ($i = 0; $i < SiteSections::HERO_SLIDES; $i++) {
             $rules["slide_file_{$i}"]  = ['nullable', 'file', 'max:4096'];
@@ -111,6 +114,11 @@ class SiteController extends Controller
             'home'   => $data['design_home'] ?? 'classic',
             'report' => $data['design_report'] ?? 'classic',
         ];
+
+        $new['theme'] = ['on' => $request->boolean('theme_on')];
+        foreach (SiteSections::THEME_COLORS as $c) {
+            $new['theme'][$c] = $data['theme_' . $c] ?? $old['theme'][$c];
+        }
 
         // Hero slider: keep old uploaded image unless a new file replaces it or admin clears it.
         $slides = [];

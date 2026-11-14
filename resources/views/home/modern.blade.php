@@ -1,108 +1,93 @@
-@php $S = \App\Support\SiteSections::class; @endphp
-<div data-home-design="modern">
+@include('home._rp-css')
+@php
+    $S = \App\Support\SiteSections::class;
+    $P = \App\Support\IssuePresenter::class;
+    $areaName = function ($issue) {
+        $a = $issue->adminArea ?? null;
+        if (! $a) { return ''; }
+        return app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn);
+    };
+    $stClass = ['new' => 'status-new', 'started' => 'status-active', 'repaired' => 'status-done'];
+@endphp
+<div data-home-design="modern" class="rp-home">
 
-{{-- Hero (photo slider mode, or the text hero) --}}
+{{-- ═══ SECTION 01: Hero — photo slider (or the plain green hero when no slide has a photo) ═══ --}}
 @if ($S::on('hero'))
-@php $heroSlider = $S::heroSlider(); @endphp
-@if ($heroSlider['on'] && count($heroSlider['slides']) > 0)
-    @include('home._slider')
-    @if ($S::on('stats'))
-        @include('home._stats-row')
-    @endif
-@else
-<section class="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900 text-white sm:rounded-b-[3rem]">
-    <div class="pointer-events-none absolute -top-24 right-[-10%] h-72 w-72 rounded-full bg-brand-600/25 blur-3xl sm:h-96 sm:w-96"></div>
-    <div class="pointer-events-none absolute bottom-[-40%] left-[-10%] h-72 w-72 rounded-full bg-indigo-600/20 blur-3xl"></div>
-
-    <div class="relative mx-auto max-w-6xl px-4 pb-9 pt-8 sm:pb-12 sm:pt-12">
-        <h1 class="max-w-3xl font-extrabold leading-tight tracking-tight {{ $S::sizeClass('hero') }}">
-            {{ $S::txt('hero', 'title', __('Find road problems. Follow the repair.')) }}
-        </h1>
-        <p class="mt-3 max-w-2xl text-[15px] leading-relaxed text-slate-300 sm:text-lg">
-            {{ $S::txt('hero', 'text', __('Report damaged roads, check whether someone already has, and follow what happens next in a public, dated record.')) }}
-        </p>
-
-        <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <a href="{{ url('/report') }}" class="inline-flex items-center justify-center gap-2 rounded-full bg-brand-600 px-6 py-3.5 text-base font-bold text-white shadow-lg shadow-brand-600/30 transition hover:bg-brand-700 active:scale-[.98] sm:py-3">
-                <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-                {{ __('Report a problem') }}
-            </a>
-            <a href="{{ url('/issues') }}" class="inline-flex items-center justify-center rounded-full border border-slate-400/60 px-6 py-3.5 text-base font-bold text-white transition hover:bg-white/10 sm:py-3">
-                {{ __('Browse issues') }}
-            </a>
-        </div>
-
-        @if ($S::on('stats'))
-        <dl class="mt-6 flex gap-2.5 overflow-x-auto pb-1 sm:grid sm:max-w-2xl sm:grid-cols-3 sm:gap-4 sm:overflow-visible">
-            <div class="min-w-[108px] shrink-0 rounded-2xl bg-white/5 px-3.5 py-3 ring-1 ring-white/10 backdrop-blur-sm sm:bg-slate-800">
-                <dt class="text-[11px] font-medium text-slate-400">{{ __('Open issues') }}</dt>
-                <dd class="mt-1 text-xl font-extrabold sm:text-3xl">{{ \App\Support\IssuePresenter::num($stats['open']) }}</dd>
-            </div>
-            <div class="min-w-[108px] shrink-0 rounded-2xl bg-white/5 px-3.5 py-3 ring-1 ring-white/10 backdrop-blur-sm sm:bg-slate-800">
-                <dt class="text-[11px] font-medium text-slate-400">{{ __('Verified repaired') }}</dt>
-                <dd class="mt-1 text-xl font-extrabold text-emerald-400 sm:text-3xl">{{ \App\Support\IssuePresenter::num($stats['repaired']) }}</dd>
-            </div>
-            <div class="min-w-[108px] shrink-0 rounded-2xl bg-white/5 px-3.5 py-3 ring-1 ring-white/10 backdrop-blur-sm sm:bg-slate-800">
-                <dt class="text-[11px] font-medium text-slate-400">{{ __('Reports received') }}</dt>
-                <dd class="mt-1 text-xl font-extrabold sm:text-3xl">{{ \App\Support\IssuePresenter::num($stats['reports']) }}</dd>
-            </div>
-        </dl>
-        @if (($stats['notified'] ?? 0) > 0)
-            <p class="mt-2.5 text-xs text-slate-400">{{ __('issues.home_notified', ['count' => \App\Support\IssuePresenter::num($stats['notified'])]) }}</p>
-        @endif
-        @endif
-    </div>
-</section>
-@endif
+    @include('home._slider', ['heroSlides' => $S::heroSlider()['on'] ? $S::heroSlider()['slides'] : []])
 @endif
 
+{{-- ═══ SECTION 02: Fund strip overlapping the hero ═══ --}}
 @if ($S::on('fund'))
-    @include('fund._home-box-modern')
+    <div class="{{ $S::on('hero') ? '' : 'fund-nohero' }}" style="{{ $S::on('hero') ? '' : 'padding-top:22px;' }}">
+        @include('fund._home-box-modern')
+    </div>
 @endif
 
-{{-- Map + list --}}
+{{-- ═══ SECTION 03: Live map + recent issues ═══ --}}
 @if ($S::on('map'))
-<section class="mx-auto max-w-6xl px-4 py-5 sm:py-7">
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 class="font-extrabold tracking-tight text-slate-900 {{ $S::sizeClass('map') }}">{{ $S::txt('map', 'title', __('Issues on the map')) }}</h2>
-        <button id="locate-btn" type="button"
-                class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:opacity-60">
-            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
-            {{ __('Use my location') }}
-        </button>
+<section class="rp-wrap rp-sec">
+    <div class="section-head">
+        <h2 class="section-title">
+            <span class="symbol"><svg style="width:17px;height:17px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20.25 3 17.25V3.75L9 6.75m0 13.5 6 3m-6-3V6.75m6 16.5 6-3V6.75l-6-3m0 16.5V3.75m0 0L9 6.75M15 3.75l6 3"/></svg></span>
+            {{ $S::txt('map', 'title', __('Issues on the map')) }}
+        </h2>
+        <a class="text-link" href="{{ url('/issues') }}">{{ __('issues.home_view_all') }} →</a>
     </div>
-
-    <div id="status-filter" class="mb-3 flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label="{{ __('issues.filter_label') }}" data-none="{{ __('issues.filter_none') }}">
-        @foreach (['all' => 'issues.filter_all', 'new' => 'issues.filter_new', 'started' => 'issues.filter_started', 'repaired' => 'issues.filter_repaired'] as $key => $label)
-            <button type="button" data-filter="{{ $key }}" aria-pressed="{{ $key === 'all' ? 'true' : 'false' }}"
-                    class="shrink-0 rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 sm:text-sm"
-                    style="{{ $key === 'all' ? 'background-color:#0f172a;color:#ffffff;border-color:#0f172a' : '' }}">
-                {{ __($label) }}
-            </button>
-        @endforeach
-    </div>
-
-    <div class="grid gap-4 lg:grid-cols-3">
-        <div class="lg:col-span-2">
-            <div id="home-map" class="h-[300px] w-full overflow-hidden rounded-2xl border border-slate-200 shadow-sm sm:h-[460px]"></div>
-            <div class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                <span class="font-semibold">{{ __('Status colours') }}:</span>
-                @foreach ([['#dc2626', 'Reported'], ['#d97706', 'Acknowledged'], ['#2563eb', 'Planned'], ['#4f46e5', 'Work started'], ['#9333ea', 'Completion claimed (not yet verified)'], ['#16a34a', 'Verified repaired']] as [$color, $label])
-                    <span class="inline-flex items-center gap-1.5">
-                        <span class="size-2.5 rounded-full" style="background-color: {{ $color }}"></span>{{ __($label) }}
-                    </span>
+    <div class="map-grid">
+        <div class="map-panel">
+            <div class="map-top">
+                <h3>📍 {{ __('issues.map_box_title') }}</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <button id="locate-btn" type="button" class="small-outline">◎ {{ __('Use my location') }}</button>
+                    <a href="{{ url('/report') }}" class="small-outline">＋ {{ __('issues.report_new_short') }}</a>
+                </div>
+            </div>
+            <div id="status-filter" class="rp-chips" role="group" aria-label="{{ __('issues.filter_label') }}" data-none="{{ __('issues.filter_none') }}">
+                @foreach (['all' => 'issues.filter_all', 'new' => 'issues.filter_new', 'started' => 'issues.filter_started', 'repaired' => 'issues.filter_repaired'] as $key => $label)
+                    <button type="button" data-filter="{{ $key }}" aria-pressed="{{ $key === 'all' ? 'true' : 'false' }}"
+                            class="rp-chip" style="{{ $key === 'all' ? 'background-color:#0f172a;color:#ffffff;border-color:#0f172a;' : '' }}">
+                        {{ __($label) }}
+                    </button>
                 @endforeach
             </div>
+            <div id="home-map" class="map-live"></div>
+            <div class="map-legend">
+                <span><i class="legend-dot" style="background:#e53935"></i>{{ __('issues.legend_new') }}</span>
+                <span><i class="legend-dot" style="background:#2584df"></i>{{ __('issues.legend_ongoing') }}</span>
+                <span><i class="legend-dot" style="background:#8b5cf6"></i>{{ __('issues.legend_repairing') }}</span>
+                <span><i class="legend-dot" style="background:#078a48"></i>{{ __('issues.legend_done') }}</span>
+            </div>
         </div>
-
-        <aside class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
-            <h3 id="list-title" class="mb-1.5 flex items-center gap-1.5 text-sm font-extrabold text-slate-900"><span class="relative flex size-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60"></span><span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span></span>{{ __('Recently active') }}</h3>
-            <p id="locate-status" class="mb-2 text-xs text-slate-500" aria-live="polite"></p>
-            <div id="issue-list" class="space-y-2.5">
-                @forelse ($recent as $issue)
-                    <x-issue-card :issue="$issue" />
+        <aside class="recent-panel">
+            <div class="recent-head">
+                <h3 id="list-title">{{ __('Recently active') }}</h3>
+                <a class="text-link" href="{{ url('/issues') }}">{{ __('issues.home_view_all') }}</a>
+            </div>
+            <p id="locate-status" style="font-size:11px;color:var(--muted);min-height:4px;margin:0 0 2px;" aria-live="polite"></p>
+            <div id="issue-list">
+                @forelse ($recent->take(5) as $issue)
+                    @php $d = $P::display($issue); $ph = $photos[$issue->id] ?? null; @endphp
+                    <a href="{{ url('/issues/' . $issue->public_id) }}" class="issue">
+                        @if ($ph)
+                            <img class="thumb" src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">
+                        @else
+                            <span class="thumb thumb-ph" aria-hidden="true">
+                                <svg style="width:22px;height:22px;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.14-7.5 11.25-7.5 11.25S4.5 17.64 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+                            </span>
+                        @endif
+                        <div>
+                            <div class="issue-title">
+                                <h4>{{ $issue->title }}</h4>
+                                <span class="status {{ $stClass[$P::group($issue)] ?? 'status-new' }}">{{ $d['label'] }}</span>
+                            </div>
+                            @if ($areaName($issue) !== '')
+                                <p>⌖ {{ $areaName($issue) }}</p>
+                            @endif
+                            <p>◷ {{ $issue->last_activity_at?->diffForHumans() }}</p>
+                        </div>
+                    </a>
                 @empty
-                    <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-600">
+                    <p style="border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:13px;color:var(--body);">
                         {{ __('No reports yet. Be the first to report a problem.') }}
                     </p>
                 @endforelse
@@ -112,84 +97,93 @@
 </section>
 @endif
 
+{{-- ═══ SECTION 04: Stats ribbon ═══ --}}
 @include('home._ribbon')
 
-{{-- How it works (4 steps, icons + connecting arrows on desktop) --}}
+{{-- ═══ SECTION 05: How it works (4 numbered steps) ═══ --}}
 @if ($S::on('how'))
-<section class="border-t border-slate-200 bg-slate-50">
-    <div class="mx-auto max-w-6xl px-4 py-6 sm:py-9">
-        <div class="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-stretch">
-        @php
-        $hwIcons = [
-            '<path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L3.83 22.83a2.83 2.83 0 0 1-1.41.76L1 24l.41-2.42a2.83 2.83 0 0 1 .76-1.41Z"/>',
-            '<path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
-            '<path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
-            '<path stroke-linecap="round" stroke-linejoin="round" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path stroke-linecap="round" d="M4 22v-7"/>',
-        ];
-        @endphp
-        @foreach ([
-            ['s1t', 'issues.how1_title', 's1x', 'issues.how1_text', 1],
-            ['s2t', 'issues.how2_title', 's2x', 'issues.how2_text', 2],
-            ['s3t', 'issues.how3_title', 's3x', 'issues.how3_text', 3],
-            ['s4t', 'issues.how4_title', 's4x', 'issues.how4_text', 4],
-        ] as [$tk, $tdef, $xk, $xdef, $num])
-            <div class="flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
-                <div class="flex items-center gap-2.5">
-                    <span class="grid size-9 shrink-0 place-items-center rounded-full bg-brand-600/10 text-brand-700">
-                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">{!! $hwIcons[$num - 1] !!}</svg>
-                    </span>
-                    <span class="text-xs font-extrabold text-slate-400">{{ \App\Support\IssuePresenter::num($num) }}</span>
-                </div>
-                <h3 class="mt-2.5 font-bold text-slate-900 {{ $S::sizeClass('how') === 'text-xl sm:text-2xl' ? 'text-base' : $S::sizeClass('how') }}">{{ $S::txt('how', $tk, __($tdef)) }}</h3>
-                <p class="mt-1 text-sm leading-relaxed text-slate-600">{{ $S::txt('how', $xk, __($xdef)) }}</p>
-            </div>
-            @if ($num < 4)
-                <div class="hidden items-center text-slate-300 md:flex" aria-hidden="true">
-                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12l-7.5 7.5M21 12H3"/></svg>
-                </div>
-            @endif
-        @endforeach
-        </div>
+<section class="rp-wrap rp-sec">
+    <div class="section-head">
+        <h2 class="section-title">
+            <span class="symbol"><svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></span>
+            {{ __('issues.how_title') }}
+        </h2>
         @php $howPage = \App\Models\Page::where('slug', 'how-it-works')->where('is_published', true)->first(); @endphp
         @if ($howPage)
-            <a href="{{ route('page.show', $howPage->slug) }}" class="mt-4 inline-block text-sm font-bold text-brand-700 hover:underline">{{ __('issues.how_more') }} &rarr;</a>
+            <a href="{{ route('page.show', $howPage->slug) }}" class="text-link">{{ __('issues.how_more') }} →</a>
         @endif
+    </div>
+    @php
+    $hwIcons = [
+        '<path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L3.83 22.83a2.83 2.83 0 0 1-1.41.76L1 24l.41-2.42a2.83 2.83 0 0 1 .76-1.41Z"/>',
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path stroke-linecap="round" d="M4 22v-7"/>',
+    ];
+    @endphp
+    <div class="steps">
+    @foreach ([
+        ['s1t', 'issues.how1_title', 's1x', 'issues.how1_text', 1],
+        ['s2t', 'issues.how2_title', 's2x', 'issues.how2_text', 2],
+        ['s3t', 'issues.how3_title', 's3x', 'issues.how3_text', 3],
+        ['s4t', 'issues.how4_title', 's4x', 'issues.how4_text', 4],
+    ] as [$tk, $tdef, $xk, $xdef, $num])
+        <div class="step-card">
+            <div class="step-top">
+                <span class="step-number">{{ $P::num($num) }}</span>
+                <span class="step-icon"><svg style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">{!! $hwIcons[$num - 1] !!}</svg></span>
+            </div>
+            <h3>{{ $S::txt('how', $tk, __($tdef)) }}</h3>
+            <p>{{ $S::txt('how', $xk, __($xdef)) }}</p>
+        </div>
+    @endforeach
     </div>
 </section>
 @endif
 
-{{-- Recently verified repairs --}}
+{{-- ═══ SECTION 06: Completed repair examples ═══ --}}
 @if ($S::on('repaired') && isset($repaired) && count($repaired) > 0)
-    <section class="border-t border-slate-200 bg-white">
-        <div class="mx-auto max-w-6xl px-4 py-5 sm:py-7">
-            <div class="flex flex-wrap items-end justify-between gap-2">
-                <div>
-                    <h2 class="flex items-center gap-2 font-extrabold tracking-tight text-slate-900 {{ $S::sizeClass('repaired') }}">
-                        <svg class="size-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="8.5"/></svg>{{ $S::txt('repaired', 'title', __('issues.home_repaired_title')) }}</h2>
-                    <p class="mt-1 text-sm text-slate-600">{{ $S::txt('repaired', 'text', __('issues.home_repaired_sub')) }}</p>
-                    <a href="{{ route('issues.index', ['tab' => 'repaired']) }}" class="mt-1.5 inline-block text-sm font-bold text-brand-700 hover:underline">{{ __('issues.home_area_solutions') }} &rarr;</a>
+<section class="rp-wrap rp-sec">
+    <div class="section-head">
+        <h2 class="section-title">
+            <span class="symbol"><svg style="width:16px;height:16px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-6-4h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3.18a4 4 0 0 0-7.64 0H6a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1Z"/></svg></span>
+            {{ $S::txt('repaired', 'title', __('issues.home_repaired_title')) }}
+        </h2>
+        <a href="{{ route('issues.index', ['tab' => 'repaired']) }}" class="text-link">{{ __('issues.home_view_all') }} →</a>
+    </div>
+    <div class="repairs">
+        @foreach ($repaired->take(8) as $issue)
+            @php $ph = $photos[$issue->id] ?? null; @endphp
+            <a href="{{ url('/issues/' . $issue->public_id) }}" class="repair-card">
+                <div class="repair-image">
+                    @if ($ph)
+                        <img src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">
+                    @else
+                        <span class="repair-ph" aria-hidden="true">
+                            <svg style="width:30px;height:30px;" fill="none" stroke="currentColor" stroke-width="1.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75 7.5 10.5l3.75 3.75 6-6L21.75 12.75M2.25 15.75V19.5h19.5v-6.75"/></svg>
+                        </span>
+                    @endif
+                    <span class="status">✓ {{ __('issues.fix_badge') }}</span>
                 </div>
-                <a href="{{ url('/issues') }}" class="text-sm font-bold text-brand-700 hover:underline">{{ __('issues.home_view_all') }}</a>
-            </div>
-            <div class="mt-3.5 grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                @foreach ($repaired as $issue)
-                    <x-issue-card :issue="$issue" />
-                @endforeach
-            </div>
-        </div>
-    </section>
+                <div class="repair-info">
+                    <strong>{{ $areaName($issue) !== '' ? $areaName($issue) : $issue->title }}</strong>
+                    <small>{{ $issue->last_activity_at?->diffForHumans() }}</small>
+                </div>
+            </a>
+        @endforeach
+    </div>
+</section>
 @endif
 
+{{-- ═══ SECTION 07: Community CTA band ═══ --}}
 @if ($S::on('cta'))
     @include('home._cta')
 @endif
 
 @if ($S::on('privacy'))
-<section class="border-t border-slate-200 bg-slate-50">
-    <div class="mx-auto max-w-6xl px-4 py-3">
-        <p class="text-xs text-slate-500">{{ $S::txt('privacy', 'text', __('issues.home_privacy')) }}</p>
+    <div class="rp-wrap">
+        <p class="rp-privacy">{{ $S::txt('privacy', 'text', __('issues.home_privacy')) }}</p>
     </div>
-</section>
 @endif
 
 </div>
