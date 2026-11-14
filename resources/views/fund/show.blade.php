@@ -12,6 +12,18 @@
 <div class="mx-auto max-w-3xl px-4 py-8">
     <h1 style="font-size:24px;font-weight:700;color:#0f172a;">{{ __('issues.fund_page_title') }}</h1>
 
+    @if (session('fund_flash'))
+        @php [$fType, $fMsg] = session('fund_flash'); @endphp
+        <div style="margin-top:12px;padding:12px 14px;border-radius:10px;font-weight:600;border:1px solid {{ $fType === 'ok' ? '#bbf7d0' : ($fType === 'warn' ? '#fde68a' : '#fecaca') }};background:{{ $fType === 'ok' ? '#f0fdf4' : ($fType === 'warn' ? '#fffbeb' : '#fef2f2') }};color:{{ $fType === 'ok' ? '#166534' : ($fType === 'warn' ? '#92400e' : '#991b1b') }};">{{ $fMsg }}</div>
+    @endif
+    @if ($errors->any())
+        <div style="margin-top:12px;padding:12px 14px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;">
+            @foreach ($errors->all() as $err)
+                <div>{{ $err }}</div>
+            @endforeach
+        </div>
+    @endif
+
     @if (! $campaign)
         <p style="margin-top:16px;color:#475569;">{{ __('issues.fund_none') }}</p>
     @else
@@ -65,7 +77,34 @@
 
         <div id="donate" style="margin-top:24px;padding:16px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;">
             @if ($canDonate)
-                <p style="font-weight:600;color:#166534;">{{ __('issues.fund_online_soon') }}</p>
+                @if (\App\Support\PaySettings::ready())
+                    <h2 style="font-size:17px;font-weight:700;color:#166534;">{{ __('issues.fund_pay_title') }}</h2>
+                    <form method="POST" action="{{ route('fund.pay.store') }}" style="margin-top:10px;">
+                        @csrf
+                        <label style="display:block;font-size:14px;font-weight:600;color:#334155;margin-bottom:4px;" for="donate-amount">{{ __('issues.fund_pay_amount') }}</label>
+                        <input id="donate-amount" type="number" name="amount" min="{{ \App\Support\PaySettings::minAmount() }}" max="1000000" step="1" required value="{{ old('amount', 100) }}" style="width:100%;padding:10px 12px;border:1px solid #86efac;border-radius:8px;font-size:16px;background:#fff;">
+                        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;">
+                            <div style="flex:1 1 160px;">
+                                <label style="display:block;font-size:14px;font-weight:600;color:#334155;margin-bottom:4px;" for="donate-name">{{ __('issues.fund_pay_name') }}</label>
+                                <input id="donate-name" name="donor_name" maxlength="120" value="{{ old('donor_name') }}" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;background:#fff;">
+                            </div>
+                            <div style="flex:1 1 160px;">
+                                <label style="display:block;font-size:14px;font-weight:600;color:#334155;margin-bottom:4px;" for="donate-contact">{{ __('issues.fund_pay_contact') }}</label>
+                                <input id="donate-contact" name="donor_contact" maxlength="150" value="{{ old('donor_contact') }}" style="width:100%;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;background:#fff;">
+                            </div>
+                        </div>
+                        @if ($campaign->show_donors)
+                            <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:14px;color:#334155;">
+                                <label><input type="checkbox" name="show_name" value="1" checked> {{ __('issues.fund_pay_show_name') }}</label>
+                                <label><input type="checkbox" name="hide_amount" value="1"> {{ __('issues.fund_pay_hide_amount') }}</label>
+                            </div>
+                        @endif
+                        <button type="submit" style="margin-top:12px;width:100%;padding:12px 16px;border-radius:10px;background:#16a34a;color:#fff;font-weight:700;font-size:17px;border:0;cursor:pointer;">{{ __('issues.fund_pay_btn') }}</button>
+                        <p style="margin-top:8px;font-size:13px;color:#166534;">{{ __('issues.fund_pay_hint') }}</p>
+                    </form>
+                @else
+                    <p style="font-weight:600;color:#166534;">{{ __('issues.fund_online_soon') }}</p>
+                @endif
             @else
                 <p style="font-weight:700;color:#166534;">{{ __('issues.fund_goal_met') }}</p>
             @endif

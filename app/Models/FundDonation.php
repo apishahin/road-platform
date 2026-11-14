@@ -14,6 +14,11 @@ class FundDonation extends Model
         'note', 'recorded_by', 'paid_at',
     ];
 
+    public function campaign(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(FundCampaign::class, 'campaign_id');
+    }
+
     protected $casts = [
         'amount'      => 'integer',
         'show_name'   => 'boolean',

@@ -8,6 +8,7 @@ use App\Models\FundDonation;
 use App\Models\FundHead;
 use App\Services\AuditService;
 use App\Support\Funding;
+use App\Support\PaySettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -133,5 +134,29 @@ class FundingController extends Controller
         $audit->log($request->user(), 'fund.manual_voided', 'fund_donation', (string) $donation->id, ['amount' => $donation->amount]);
 
         return redirect()->route('admin.funding.index', ['c' => $donation->campaign_id])->with('status', __('issues.fund_voided'));
+    }
+
+    public function saveGateway(Request $request, AuditService $audit)
+    {
+        $this->guard();
+        $data = $request->validate([
+            'up_base_url'   => ['nullable', 'string', 'max:200', 'regex:~^https?://~i'],
+            'up_api_key'    => ['nullable', 'string', 'max:200'],
+            'up_min_amount' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+        ]);
+
+        PaySettings::save([
+            'up_enabled'    => $request->boolean('up_enabled'),
+            'up_base_url'   => $data['up_base_url'] ?? '',
+            'up_api_key'    => $data['up_api_key'] ?? '',
+            'up_min_amount' => $data['up_min_amount'] ?? 10,
+        ]);
+
+        $audit->log($request->user(), 'fund.gateway_saved', 'settings', 'pay_settings', [
+            'enabled' => PaySettings::enabled(),
+            'base'    => PaySettings::baseUrl(),
+        ]);
+
+        return redirect()->route('admin.funding.index')->with('status', __('issues.fund_saved'));
     }
 }

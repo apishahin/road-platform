@@ -159,5 +159,24 @@
             @endforeach
         </div>
     @endif
+
+    {{-- Online payment gateway (UddoktaPay) -- always visible to admin --}}
+    @php $gws = \App\Support\PaySettings::all(); @endphp
+    <form method="POST" action="{{ route('admin.funding.gateway') }}" style="{{ $card }}">
+        @csrf
+        <h3 style="font-weight:700;color:#0f172a;">{{ __('issues.fund_gw_title') }}</h3>
+        <p style="margin-top:4px;font-size:13px;font-weight:600;color:{{ \App\Support\PaySettings::ready() ? '#166534' : '#b91c1c' }};">
+            {{ \App\Support\PaySettings::ready() ? __('issues.fund_gw_status_ready') : __('issues.fund_gw_status_off') }}
+        </p>
+        <label style="margin-top:8px;display:block;"><input type="checkbox" name="up_enabled" value="1" @checked($gws['up_enabled'])> {{ __('issues.fund_gw_enable') }}</label>
+        <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_gw_base') }}</label>
+        <input name="up_base_url" value="{{ old('up_base_url', $gws['up_base_url']) }}" placeholder="https://pay.your-domain.com" maxlength="200" style="{{ $inp }}">
+        <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_gw_key') }}</label>
+        <input name="up_api_key" value="{{ old('up_api_key', $gws['up_api_key']) }}" maxlength="200" style="{{ $inp }}">
+        <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_gw_min') }}</label>
+        <input type="number" name="up_min_amount" value="{{ old('up_min_amount', $gws['up_min_amount']) }}" min="1" style="{{ $inp }}">
+        <p style="margin-top:6px;font-size:13px;color:#64748b;">{{ __('issues.fund_gw_hint') }}</p>
+        <button type="submit" style="{{ $btn }};margin-top:12px;">{{ __('issues.fund_save') }}</button>
+    </form>
 </div>
 @endsection

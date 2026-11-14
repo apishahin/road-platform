@@ -189,11 +189,14 @@ Route::middleware('guest')->group(function () {
 
 // ---- Funding / donations ----
 \Illuminate\Support\Facades\Route::get('/fund', [\App\Http\Controllers\FundController::class, 'show'])->name('fund.show');
+\Illuminate\Support\Facades\Route::post('/fund/donate', [\App\Http\Controllers\FundDonateController::class, 'store'])->middleware('throttle:20,1')->name('fund.pay.store');
+\Illuminate\Support\Facades\Route::get('/fund/donate/callback', [\App\Http\Controllers\FundDonateController::class, 'callback'])->name('fund.pay.callback');
 \Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {
     \Illuminate\Support\Facades\Route::get('/', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('index');
     \Illuminate\Support\Facades\Route::post('/save', [\App\Http\Controllers\Admin\FundingController::class, 'save'])->name('save');
     \Illuminate\Support\Facades\Route::post('/manual', [\App\Http\Controllers\Admin\FundingController::class, 'manual'])->name('manual');
     \Illuminate\Support\Facades\Route::post('/donations/{donation}/void', [\App\Http\Controllers\Admin\FundingController::class, 'void'])->name('void');
+    \Illuminate\Support\Facades\Route::post('/gateway', [\App\Http\Controllers\Admin\FundingController::class, 'saveGateway'])->name('gateway');
 });
 
 // ---- Funding: expenses and vouchers ----
