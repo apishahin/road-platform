@@ -191,6 +191,10 @@ Route::middleware('guest')->group(function () {
 \Illuminate\Support\Facades\Route::get('/fund', [\App\Http\Controllers\FundController::class, 'show'])->name('fund.show');
 \Illuminate\Support\Facades\Route::post('/fund/donate', [\App\Http\Controllers\FundDonateController::class, 'store'])->middleware('throttle:20,1')->name('fund.pay.store');
 \Illuminate\Support\Facades\Route::get('/fund/donate/callback', [\App\Http\Controllers\FundDonateController::class, 'callback'])->name('fund.pay.callback');
+\Illuminate\Support\Facades\Route::post('/fund/pay/ssl/success', [\App\Http\Controllers\FundDonateController::class, 'sslSuccess'])->name('fund.pay.ssl.success');
+\Illuminate\Support\Facades\Route::post('/fund/pay/ssl/fail', [\App\Http\Controllers\FundDonateController::class, 'sslFail'])->name('fund.pay.ssl.fail');
+\Illuminate\Support\Facades\Route::post('/fund/pay/ssl/cancel', [\App\Http\Controllers\FundDonateController::class, 'sslCancel'])->name('fund.pay.ssl.cancel');
+\Illuminate\Support\Facades\Route::match(['get', 'post'], '/fund/pay/bkash/callback', [\App\Http\Controllers\FundDonateController::class, 'bkashCallback'])->name('fund.pay.bkash.callback');
 \Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {
     \Illuminate\Support\Facades\Route::get('/', [\App\Http\Controllers\Admin\FundingController::class, 'index'])->name('index');
     \Illuminate\Support\Facades\Route::post('/save', [\App\Http\Controllers\Admin\FundingController::class, 'save'])->name('save');

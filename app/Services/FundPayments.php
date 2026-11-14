@@ -6,19 +6,46 @@ use App\Models\FundDonation;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Settles a donation from a server-verified UddoktaPay invoice.
- * Shared by the browser callback and the webhook/IPN so both stay
- * consistent and idempotent.
+ * Donation settlement helpers shared by every gateway AND the UddoktaPay
+ * invoice-settlement flow below. Everything here is idempotent.
  */
 class FundPayments
 {
     public function __construct(
         private UddoktaPay $gateway,
         private AuditService $audit,
-    ) {}
+    ) {
+    }
+
+    /** Mark a donation paid exactly once. Safe to call from callback/IPN/webhook. */
+    public function markPaid(FundDonation $d, ?string $trxId, array $details = []): void
+    {
+        if ($d->status === 'paid') {
+            return;
+        }
+
+        $d->forceFill([
+            'status'  => 'paid',
+            'paid_at' => now(),
+            'tran_id' => ($trxId !== null && $trxId !== '') ? $trxId : $d->tran_id,
+        ])->save();
+
+        $this->audit->log(null, 'fund.paid_online', 'fund_donation', (string) $d->id, array_merge([
+            'trx' => $trxId, 'amount' => $d->amount, 'gateway' => $d->gateway,
+        ], $details));
+    }
+
+    /** Mark a still-pending donation failed (never undoes a paid one). */
+    public function markFailed(FundDonation $d): void
+    {
+        if ($d->status === 'pending') {
+            $d->forceFill(['status' => 'failed'])->save();
+        }
+    }
 
     /**
-     * Verify an invoice with the gateway and update our donation row.
+     * UddoktaPay: verify an invoice with the gateway and update our donation row.
+     * Shared by the browser callback and the webhook/IPN.
      *
      * @return array{result: 'paid'|'pending'|'failed'|'unknown'|'error', donation: ?FundDonation}
      */
@@ -36,7 +63,6 @@ class FundPayments
             return ['result' => 'unknown', 'donation' => null];
         }
 
-        // Always remember the invoice id so admin and retries can match it.
         if ($donation->invoice_id !== $invoiceId) {
             $donation->forceFill(['invoice_id' => $invoiceId])->save();
         }
@@ -46,7 +72,6 @@ class FundPayments
         if ($gwStatus === 'COMPLETED') {
             $amount = (int) ($v['amount'] ?? 0);
             if ($amount !== (int) $donation->amount) {
-                // Amount tampered or gateway fee confusion: keep pending and flag it.
                 Log::warning('UddoktaPay: paid amount mismatch', [
                     'invoice' => $invoiceId, 'expected' => $donation->amount, 'got' => $amount,
                 ]);
@@ -54,22 +79,12 @@ class FundPayments
                 return ['result' => 'pending', 'donation' => $donation];
             }
 
-            if ($donation->status !== 'paid') {
-                $trx = (string) ($v['transaction_id'] ?? '');
-                $donation->forceFill([
-                    'status' => 'paid',
-                    'paid_at' => now(),
-                    'tran_id' => $trx !== '' ? $trx : ($donation->tran_id ?: $invoiceId),
-                ])->save();
-
-                $this->audit->log(null, 'fund.paid_online', 'fund_donation', (string) $donation->id, [
-                    'invoice' => $invoiceId,
-                    'trx' => $trx !== '' ? $trx : null,
-                    'method' => $v['payment_method'] ?? null,
-                    'amount' => $donation->amount,
-                    'source' => $source,
-                ]);
-            }
+            $trx = (string) ($v['transaction_id'] ?? '');
+            $this->markPaid($donation, $trx !== '' ? $trx : $invoiceId, [
+                'invoice' => $invoiceId,
+                'method'  => $v['payment_method'] ?? null,
+                'source'  => $source,
+            ]);
 
             return ['result' => 'paid', 'donation' => $donation];
         }
@@ -78,23 +93,18 @@ class FundPayments
             return ['result' => 'pending', 'donation' => $donation];
         }
 
-        // ERROR / CANCELLED / ABORTED / anything else terminal.
-        if ($donation->status === 'pending') {
-            $donation->forceFill(['status' => 'failed'])->save();
-        }
+        $this->markFailed($donation);
 
         return ['result' => 'failed', 'donation' => $donation];
     }
 
     private function findDonation(array $v, string $invoiceId, ?int $expectedDonationId): ?FundDonation
     {
-        // 1) We stored the invoice id on an earlier attempt.
         $d = FundDonation::where('gateway', 'uddoktapay')->where('invoice_id', $invoiceId)->first();
         if ($d) {
             return $d;
         }
 
-        // 2) The metadata we passed at checkout time echoes back on verify.
         $meta = $v['metadata'] ?? null;
         if (is_string($meta)) {
             $meta = json_decode($meta, true);
@@ -107,7 +117,6 @@ class FundPayments
             }
         }
 
-        // 3) Browser session fallback (callback flow only).
         if ($expectedDonationId) {
             $d = FundDonation::where('gateway', 'uddoktapay')->find($expectedDonationId);
             if ($d) {

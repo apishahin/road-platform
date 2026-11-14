@@ -140,21 +140,36 @@ class FundingController extends Controller
     {
         $this->guard();
         $data = $request->validate([
-            'up_base_url'   => ['nullable', 'string', 'max:200', 'regex:~^https?://~i'],
-            'up_api_key'    => ['nullable', 'string', 'max:200'],
-            'up_min_amount' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'provider'         => ['required', 'in:none,uddoktapay,sslcommerz,bkash'],
+            'up_base_url'      => ['nullable', 'string', 'max:200', 'regex:~^https?://~i'],
+            'up_api_key'       => ['nullable', 'string', 'max:200'],
+            'ssl_store_id'     => ['nullable', 'string', 'max:100'],
+            'ssl_store_passwd' => ['nullable', 'string', 'max:100'],
+            'bk_app_key'       => ['nullable', 'string', 'max:150'],
+            'bk_app_secret'    => ['nullable', 'string', 'max:150'],
+            'bk_username'      => ['nullable', 'string', 'max:100'],
+            'bk_password'      => ['nullable', 'string', 'max:100'],
+            'min_amount'       => ['nullable', 'integer', 'min:1', 'max:1000000'],
         ]);
 
         PaySettings::save([
-            'up_enabled'    => $request->boolean('up_enabled'),
-            'up_base_url'   => $data['up_base_url'] ?? '',
-            'up_api_key'    => $data['up_api_key'] ?? '',
-            'up_min_amount' => $data['up_min_amount'] ?? 10,
+            'provider'         => $data['provider'],
+            'up_base_url'      => $data['up_base_url'] ?? '',
+            'up_api_key'       => $data['up_api_key'] ?? '',
+            'ssl_store_id'     => $data['ssl_store_id'] ?? '',
+            'ssl_store_passwd' => $data['ssl_store_passwd'] ?? '',
+            'ssl_sandbox'      => $request->boolean('ssl_sandbox'),
+            'bk_app_key'       => $data['bk_app_key'] ?? '',
+            'bk_app_secret'    => $data['bk_app_secret'] ?? '',
+            'bk_username'      => $data['bk_username'] ?? '',
+            'bk_password'      => $data['bk_password'] ?? '',
+            'bk_sandbox'       => $request->boolean('bk_sandbox'),
+            'min_amount'       => $data['min_amount'] ?? 10,
         ]);
 
         $audit->log($request->user(), 'fund.gateway_saved', 'settings', 'pay_settings', [
-            'enabled' => PaySettings::enabled(),
-            'base'    => PaySettings::baseUrl(),
+            'provider' => PaySettings::provider(),
+            'ready'    => PaySettings::ready(),
         ]);
 
         return redirect()->route('admin.funding.index')->with('status', __('issues.fund_saved'));

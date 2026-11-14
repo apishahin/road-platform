@@ -9,6 +9,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
 });
 
 // UddoktaPay IPN/webhook (no auth, no CSRF; state is always verified server-side).
+Route::post('/fund/sslcommerz/ipn', [FundDonateController::class, 'sslIpn'])
+    ->middleware('throttle:120,1')
+    ->name('fund.pay.ssl.ipn');
+
 Route::post('/fund/uddoktapay/webhook', [FundDonateController::class, 'webhook'])
     ->middleware('throttle:120,1')
     ->name('fund.pay.webhook');

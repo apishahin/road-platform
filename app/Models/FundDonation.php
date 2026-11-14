@@ -9,7 +9,7 @@ class FundDonation extends Model
     protected $table = 'fund_donations';
 
     protected $fillable = [
-        'campaign_id', 'amount', 'currency', 'status', 'gateway', 'tran_id',
+        'campaign_id', 'amount', 'currency', 'status', 'gateway', 'tran_id', 'invoice_id',
         'donor_name', 'donor_contact', 'show_name', 'hide_amount', 'is_manual',
         'note', 'recorded_by', 'paid_at',
     ];
