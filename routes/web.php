@@ -195,3 +195,9 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/manual', [\App\Http\Controllers\Admin\FundingController::class, 'manual'])->name('manual');
     \Illuminate\Support\Facades\Route::post('/donations/{donation}/void', [\App\Http\Controllers\Admin\FundingController::class, 'void'])->name('void');
 });
+
+// ---- Funding: expenses and vouchers ----
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {
+    \Illuminate\Support\Facades\Route::post('/expenses', [\App\Http\Controllers\Admin\FundExpenseController::class, 'store'])->name('expense.store');
+    \Illuminate\Support\Facades\Route::post('/expenses/{expense}/delete', [\App\Http\Controllers\Admin\FundExpenseController::class, 'destroy'])->name('expense.delete');
+});

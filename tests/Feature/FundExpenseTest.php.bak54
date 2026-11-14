@@ -1,0 +1,144 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\FundCampaign;
+use App\Models\FundExpense;
+use App\Models\FundHead;
+use App\Models\User;
+use App\Support\StorageSettings;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+class FundExpenseTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function user(string $role): User
+    {
+        return User::unguarded(fn () => User::create([
+            'public_id' => (string) Str::ulid(),
+            'phone'     => '0171' . random_int(1000000, 9999999),
+            'role'      => $role,
+        ]));
+    }
+
+    private function campaign(string $title = 'ZZFUND Exp'): FundCampaign
+    {
+        return FundCampaign::create([
+            'title' => $title, 'description' => 'd', 'goal_amount' => 1000,
+            'is_active' => true, 'show_donors' => false,
+        ]);
+    }
+
+    private function head(FundCampaign $c, string $name = 'ZZHEAD Srv'): FundHead
+    {
+        return FundHead::create(['campaign_id' => $c->id, 'name' => $name, 'amount' => 600, 'sort' => 0]);
+    }
+
+    public function test_admin_adds_expense_with_voucher_and_public_sees_it(): void
+    {
+        Storage::fake(StorageSettings::publicDisk());
+        $c = $this->campaign();
+        $h = $this->head($c);
+
+        $this->actingAs($this->user('admin'))->post('/admin/funding/expenses', [
+            'campaign_id' => $c->id, 'head_id' => $h->id, 'amount' => 450,
+            'spent_on' => '2026-11-01', 'description' => 'ZZEXP Server bill',
+            'voucher' => UploadedFile::fake()->create('bill.pdf', 100, 'application/pdf'),
+        ])->assertRedirect();
+
+        $e = FundExpense::first();
+        $this->assertNotNull($e);
+        $this->assertNotNull($e->voucher_path);
+        Storage::disk(StorageSettings::publicDisk())->assertExists($e->voucher_path);
+
+        $this->get('/fund')->assertOk()
+            ->assertSee('ZZEXP Server bill')
+            ->assertSee('funding/vouchers/', false);
+    }
+
+    public function test_only_admin_can_add_or_delete_expenses(): void
+    {
+        $c = $this->campaign();
+        $payload = ['campaign_id' => $c->id, 'amount' => 10, 'spent_on' => '2026-11-01', 'description' => 'x'];
+
+        $this->post('/admin/funding/expenses', $payload)->assertRedirect();
+        $this->actingAs($this->user('citizen'))->post('/admin/funding/expenses', $payload)->assertForbidden();
+        $this->assertSame(0, FundExpense::count());
+    }
+
+    public function test_bad_voucher_type_and_foreign_head_are_rejected(): void
+    {
+        Storage::fake(StorageSettings::publicDisk());
+        $c = $this->campaign();
+        $other = $this->campaign('ZZOTHER');
+        $foreign = $this->head($other, 'ZZFOREIGN');
+        $admin = $this->user('admin');
+
+        $this->actingAs($admin)->post('/admin/funding/expenses', [
+            'campaign_id' => $c->id, 'amount' => 10, 'spent_on' => '2026-11-01', 'description' => 'x',
+            'voucher' => UploadedFile::fake()->create('evil.txt', 10, 'text/plain'),
+        ])->assertSessionHasErrors('voucher');
+
+        $this->actingAs($admin)->post('/admin/funding/expenses', [
+            'campaign_id' => $c->id, 'head_id' => $foreign->id, 'amount' => 10,
+            'spent_on' => '2026-11-01', 'description' => 'x',
+        ])->assertSessionHasErrors('head_id');
+
+        $this->assertSame(0, FundExpense::count());
+    }
+
+    public function test_deleting_expense_removes_file_and_public_line(): void
+    {
+        Storage::fake(StorageSettings::publicDisk());
+        $c = $this->campaign();
+        $admin = $this->user('admin');
+
+        $this->actingAs($admin)->post('/admin/funding/expenses', [
+            'campaign_id' => $c->id, 'amount' => 100, 'spent_on' => '2026-11-02', 'description' => 'ZZEXP Gone',
+            'voucher' => UploadedFile::fake()->image('b.jpg', 400, 300),
+        ])->assertRedirect();
+
+        $e = FundExpense::first();
+        $path = $e->voucher_path;
+        $this->get('/fund')->assertSee('ZZEXP Gone');
+
+        $this->actingAs($admin)->post('/admin/funding/expenses/' . $e->id . '/delete')->assertRedirect();
+
+        $this->assertSame(0, FundExpense::count());
+        Storage::disk(StorageSettings::publicDisk())->assertMissing($path);
+        $this->get('/fund')->assertDontSee('ZZEXP Gone');
+    }
+
+    public function test_saving_campaign_keeps_head_ids_and_expense_links(): void
+    {
+        $c = $this->campaign();
+        $h = $this->head($c);
+        $e = FundExpense::create([
+            'campaign_id' => $c->id, 'head_id' => $h->id, 'amount' => 50,
+            'spent_on' => '2026-11-03', 'description' => 'ZZEXP Linked',
+        ]);
+
+        $this->actingAs($this->user('admin'))->post('/admin/funding/save', [
+            'id' => $c->id, 'title' => 'ZZFUND Exp', 'goal_amount' => 1000, 'is_active' => '1',
+            'heads' => [
+                ['id' => $h->id, 'name' => 'ZZHEAD Renamed', 'amount' => 700],
+                ['id' => '', 'name' => 'ZZHEAD Added', 'amount' => 300],
+            ],
+        ])->assertRedirect();
+
+        $this->assertSame($h->id, $e->fresh()->head_id);
+        $this->assertSame('ZZHEAD Renamed', $h->fresh()->name);
+        $this->assertSame(2, FundHead::where('campaign_id', $c->id)->count());
+    }
+
+    public function test_public_page_has_no_expense_section_without_expenses(): void
+    {
+        $this->campaign();
+        $this->get('/fund')->assertOk()->assertDontSee(__('issues.fund_expenses'));
+    }
+}

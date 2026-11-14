@@ -55,11 +55,12 @@
 
         <h3 style="margin-top:16px;font-weight:700;color:#0f172a;">{{ __('issues.fund_heads') }}</h3>
         @php
-            $hrows = $edit ? $edit->heads->map(fn ($h) => ['name' => $h->name, 'amount' => $h->amount])->all() : [];
-            for ($i = 0; $i < 3; $i++) { $hrows[] = ['name' => '', 'amount' => '']; }
+            $hrows = $edit ? $edit->heads->map(fn ($h) => ['id' => $h->id, 'name' => $h->name, 'amount' => $h->amount])->all() : [];
+            for ($i = 0; $i < 3; $i++) { $hrows[] = ['id' => '', 'name' => '', 'amount' => '']; }
         @endphp
         @foreach ($hrows as $i => $h)
             <div style="display:flex;gap:8px;margin-top:6px;">
+                <input type="hidden" name="heads[{{ $i }}][id]" value="{{ $h['id'] ?? '' }}">
                 <input name="heads[{{ $i }}][name]" value="{{ $h['name'] }}" placeholder="{{ __('issues.fund_head_name') }}" maxlength="150" style="{{ $inp }};flex:2;">
                 <input type="number" min="0" name="heads[{{ $i }}][amount]" value="{{ $h['amount'] }}" placeholder="{{ __('issues.fund_head_amount') }}" style="{{ $inp }};flex:1;">
             </div>
@@ -95,6 +96,49 @@
             <input name="note" maxlength="1000" style="{{ $inp }}">
             <button type="submit" style="{{ $btn }};margin-top:12px;">{{ __('issues.fund_save') }}</button>
         </form>
+
+        {{-- Expenses --}}
+        <form method="POST" action="{{ route('admin.funding.expense.store') }}" enctype="multipart/form-data" style="{{ $card }}">
+            @csrf
+            <input type="hidden" name="campaign_id" value="{{ $edit->id }}">
+            <h3 style="font-weight:700;color:#0f172a;">{{ __('issues.fund_add_expense') }}</h3>
+            <p style="margin-top:6px;padding:8px 10px;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:13px;">{{ __('issues.fund_voucher_warn') }}</p>
+            <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_e_head') }}</label>
+            <select name="head_id" style="{{ $inp }}">
+                <option value="">{{ __('issues.fund_head_other') }}</option>
+                @foreach ($edit->heads as $eh)
+                    <option value="{{ $eh->id }}">{{ $eh->name }}</option>
+                @endforeach
+            </select>
+            <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_e_amount') }}</label>
+            <input type="number" name="amount" min="1" required style="{{ $inp }}">
+            <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_e_date') }}</label>
+            <input type="date" name="spent_on" required style="{{ $inp }}">
+            <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_e_desc') }}</label>
+            <input name="description" maxlength="500" required style="{{ $inp }}">
+            <label style="{{ $lbl }};margin-top:8px;">{{ __('issues.fund_e_voucher') }}</label>
+            <input type="file" name="voucher" accept=".jpg,.jpeg,.png,.pdf,image/*,application/pdf" style="{{ $inp }}">
+            <button type="submit" style="{{ $btn }};margin-top:12px;">{{ __('issues.fund_save') }}</button>
+        </form>
+
+        <div style="{{ $card }}">
+            <h3 style="font-weight:700;color:#0f172a;">{{ __('issues.fund_expenses') }}</h3>
+            @foreach ($expenses as $x)
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:8px 0;border-top:1px solid #f1f5f9;font-size:14px;">
+                    <span>{{ $x->spent_on?->format('d/m/Y') }} &middot; {{ $x->description }}</span>
+                    <span>
+                        &#2547;{{ $F::num($x->amount) }}
+                        @if ($x->voucherUrl())
+                            &middot; <a href="{{ $x->voucherUrl() }}" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:underline;">{{ __('issues.fund_voucher_view') }}</a>
+                        @endif
+                        <form method="POST" action="{{ route('admin.funding.expense.delete', $x->id) }}" style="display:inline;" onsubmit="return confirm('{{ __('issues.fund_delete') }}?')">
+                            @csrf
+                            <button type="submit" style="margin-left:6px;padding:2px 8px;border-radius:6px;border:1px solid #fca5a5;background:#fff;color:#b91c1c;font-size:12px;cursor:pointer;">{{ __('issues.fund_delete') }}</button>
+                        </form>
+                    </span>
+                </div>
+            @endforeach
+        </div>
 
         {{-- Donations list --}}
         <div style="{{ $card }}">

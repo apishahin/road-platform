@@ -21,6 +21,7 @@ class FundController extends Controller
             'percent'   => Funding::percent($raised, $c->goal_amount),
             'canDonate' => Funding::canDonate($c, $raised),
             'donors'    => Funding::publicDonors($c),
+            'expenses'  => \App\Models\FundExpense::where('campaign_id', $c->id)->orderByDesc('spent_on')->orderByDesc('id')->get(),
         ]);
     }
 }

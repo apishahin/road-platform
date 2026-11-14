@@ -33,6 +33,7 @@ class FundingController extends Controller
             'edit'      => $edit,
             'raised'    => $edit ? Funding::raised($edit) : 0,
             'donations' => $edit ? FundDonation::where('campaign_id', $edit->id)->latest('id')->limit(300)->get() : collect(),
+            'expenses'  => $edit ? \App\Models\FundExpense::where('campaign_id', $edit->id)->orderByDesc('spent_on')->orderByDesc('id')->get() : collect(),
         ]);
     }
 
@@ -47,6 +48,7 @@ class FundingController extends Controller
             'heads'          => ['nullable', 'array', 'max:30'],
             'heads.*.name'   => ['nullable', 'string', 'max:150'],
             'heads.*.amount' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'heads.*.id'     => ['nullable', 'integer'],
         ]);
 
         $c = ! empty($data['id']) ? FundCampaign::findOrFail($data['id']) : new FundCampaign();
@@ -60,20 +62,24 @@ class FundingController extends Controller
                 'show_donors' => $request->boolean('show_donors'),
             ])->save();
 
-            FundHead::where('campaign_id', $c->id)->delete();
+            $keep = [];
             $sort = 0;
             foreach (($data['heads'] ?? []) as $h) {
                 $name = trim((string) ($h['name'] ?? ''));
                 if ($name === '') {
                     continue;
                 }
-                FundHead::create([
-                    'campaign_id' => $c->id,
-                    'name'        => $name,
-                    'amount'      => (int) ($h['amount'] ?? 0),
-                    'sort'        => $sort++,
-                ]);
+                $row = ['name' => $name, 'amount' => (int) ($h['amount'] ?? 0), 'sort' => $sort++];
+                $hid = (int) ($h['id'] ?? 0);
+                $head = $hid ? FundHead::where('campaign_id', $c->id)->where('id', $hid)->first() : null;
+                if ($head) {
+                    $head->update($row);
+                } else {
+                    $head = FundHead::create($row + ['campaign_id' => $c->id]);
+                }
+                $keep[] = $head->id;
             }
+            FundHead::where('campaign_id', $c->id)->whereNotIn('id', $keep)->delete();
 
             if ($c->is_active) {
                 FundCampaign::where('id', '!=', $c->id)->update(['is_active' => false]);
