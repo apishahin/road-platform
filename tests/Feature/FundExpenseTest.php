@@ -139,6 +139,6 @@ class FundExpenseTest extends TestCase
     public function test_public_page_has_no_expense_section_without_expenses(): void
     {
         $this->campaign();
-        $this->get('/fund')->assertOk()->assertDontSee(__('issues.fund_expenses'));
+        $this->get('/fund')->assertOk()->assertDontSee(__('issues.fund_expenses') . '</h2>', false); // scope to the section header: the bn page title also contains this phrase
     }
 }
