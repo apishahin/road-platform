@@ -55,7 +55,7 @@ class FirebaseLoginController extends Controller
         }
 
         session()->forget('otp_phone');
-        Auth::login($user);
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         return response()->json([

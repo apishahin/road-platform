@@ -11,7 +11,7 @@ return [
     'password' => 'Login with phone number + password (no OTP)',
     'password_hint' => 'If on, people can sign up and log in without OTP. The phone number is then not verified.',
     'google' => 'Login with Google',
-    'google_hint' => 'Not built yet. A phone number will be required after Google login.',
+    'google_hint' => 'Sign in with a Google account. The mobile number is asked right after the first sign-in.',
     'registration' => 'New accounts can be created',
     'registration_hint' => 'If off, only people who already have an account can log in.',
     'staff_password' => 'Allow password login for volunteers, moderators and admins',
@@ -34,4 +34,5 @@ return [
     'fbl_change' => 'Change number',
     'fbl_confirm' => 'Confirm',
     'fbl_need_config' => 'To use Firebase, fill in API Key, Auth Domain and Project ID first.',
+    'gg_need_config' => 'To enable Google login, fill in the Firebase config (API Key, Auth Domain, Project ID) below.',
 ];

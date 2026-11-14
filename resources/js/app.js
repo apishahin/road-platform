@@ -12,3 +12,7 @@ if (document.getElementById('home-map')) {
 if (document.getElementById('firebase-login')) {
     import('./firebase-login.js');
 }
+
+if (document.getElementById('google-login')) {
+    import('./google-login.js');
+}

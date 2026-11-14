@@ -3,132 +3,186 @@
 @section('title', __('smsgw.title'))
 
 @section('content')
-@php
-    $in = 'width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;margin:4px 0 12px 0;';
-    $lb = 'display:block;font-size:14px;font-weight:600;';
-    $btn = 'border:0;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;';
-@endphp
-<div style="max-width:860px;margin:0 auto;padding:24px 16px;">
-    <h1 style="font-size:22px;font-weight:700;">{{ __('smsgw.title') }}</h1>
-    <p style="margin-top:6px;font-size:14px;color:#475569;">{{ __('smsgw.intro') }}</p>
-    <p style="margin-top:8px;padding:8px 12px;border-radius:8px;background:#fef3c7;color:#92400e;font-size:13px;">{{ __('smsgw.key_note') }}</p>
+<div class="mx-auto max-w-4xl px-4 py-8">
+    <h1 class="text-2xl font-bold text-slate-900">{{ __('smsgw.title') }}</h1>
+    <p class="mt-1 text-sm text-slate-600">{{ __('smsgw.intro') }}</p>
 
-    @if (session('gw_ok'))
-        <p style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#dcfce7;color:#166534;font-size:14px;">{{ session('gw_ok') }}</p>
-    @endif
+    <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        {{ __('smsgw.key_note') }}
+    </div>
 
-    @if (session('gw_fail'))
-        <p style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fee2e2;color:#991b1b;font-size:14px;">{{ session('gw_fail') }}</p>
-    @endif
+    @foreach (['gw_ok' => ['green', 'border-green-200 bg-green-50 text-green-800'], 'gw_fail' => ['red', 'border-red-200 bg-red-50 text-red-800']] as $slot => [, $classes])
+        @if (session($slot))
+            <p class="mt-4 rounded-lg border px-4 py-3 text-sm {{ $classes }}">{{ session($slot) }}</p>
+        @endif
+    @endforeach
 
     @if ($errors->any())
-        <p style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#fee2e2;color:#991b1b;font-size:14px;">{{ $errors->first() }}</p>
+        <p class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ $errors->first() }}</p>
     @endif
 
-    <h2 style="margin-top:22px;font-size:17px;font-weight:700;">{{ __('smsgw.list_title') }}</h2>
-    <p style="font-size:12px;color:#64748b;">{{ __('smsgw.test_warn') }}</p>
+    <div class="mt-8 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-900">{{ __('smsgw.list_title') }}</h2>
+        <p class="text-xs text-slate-500">{{ __('smsgw.test_warn') }}</p>
+    </div>
 
-    @forelse ($gateways as $g)
-        <div style="margin-top:10px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;">
-            <div style="font-weight:600;">
-                {{ $g->name }}
-                <span style="font-size:12px;font-weight:400;color:#64748b;">
-                    - {{ $g->channel === 'whatsapp' ? __('smsgw.ch_wa') : __('smsgw.ch_sms') }}
-                    - {{ $g->priority }}
-                    - {{ $g->hasKey() ? __('smsgw.key_yes') : __('smsgw.key_no') }}
-                </span>
-                <span style="margin-left:6px;font-size:12px;padding:2px 8px;border-radius:999px;background:{{ $g->enabled ? '#dcfce7' : '#e2e8f0' }};color:{{ $g->enabled ? '#166534' : '#475569' }};">{{ $g->enabled ? __('smsgw.on') : __('smsgw.off') }}</span>
-            </div>
-            @if ($g->last_status)
-                <div style="margin-top:6px;font-size:12px;color:{{ $g->last_status === 'ok' ? '#166534' : '#991b1b' }};">
-                    {{ __('smsgw.last') }}: {{ $g->last_status }} {{ $g->last_used_at?->format('Y-m-d H:i') }} - {{ $g->last_note }}
+    <div class="mt-3 space-y-3">
+        @forelse ($gateways as $g)
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-semibold text-slate-900">{{ $g->name }}</span>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                        {{ $g->channel === 'whatsapp' ? __('smsgw.ch_wa') : __('smsgw.ch_sms') }}
+                    </span>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">#{{ $g->priority }}</span>
+                    <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {{ $g->hasKey() ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500' }}">
+                        {{ $g->hasKey() ? __('smsgw.key_yes') : __('smsgw.key_no') }}
+                    </span>
+                    <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $g->enabled ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600' }}">
+                        {{ $g->enabled ? __('smsgw.on') : __('smsgw.off') }}
+                    </span>
                 </div>
-            @endif
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-                <a href="{{ route('admin.smsgateways.index', ['edit' => $g->id]) }}" style="{{ $btn }}background:#e2e8f0;color:#0f172a;text-decoration:none;">{{ __('smsgw.edit') }}</a>
-                <form method="POST" action="{{ route('admin.smsgateways.toggle', $g->id) }}">
-                    @csrf
-                    <button type="submit" style="{{ $btn }}background:#0f172a;color:#fff;">{{ $g->enabled ? __('smsgw.turn_off') : __('smsgw.turn_on') }}</button>
-                </form>
-                <form method="POST" action="{{ route('admin.smsgateways.delete', $g->id) }}" onsubmit="return confirm(@js(__('smsgw.delete_confirm')))">
-                    @csrf
-                    <button type="submit" style="{{ $btn }}background:#fee2e2;color:#991b1b;">{{ __('smsgw.delete') }}</button>
-                </form>
-                <form method="POST" action="{{ route('admin.smsgateways.test', $g->id) }}" style="display:flex;gap:6px;align-items:center;">
-                    @csrf
-                    <input type="text" name="phone" placeholder="{{ __('smsgw.test_phone') }}" required style="border:1px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:13px;width:210px;">
-                    <button type="submit" style="{{ $btn }}background:#1d4ed8;color:#fff;">{{ __('smsgw.test_btn') }}</button>
-                </form>
+
+                @if ($g->last_status)
+                    <p class="mt-2 text-xs {{ $g->last_status === 'ok' ? 'text-green-700' : 'text-red-700' }}">
+                        {{ __('smsgw.last') }}: {{ $g->last_status }} {{ $g->last_used_at?->format('Y-m-d H:i') }} — {{ $g->last_note }}
+                    </p>
+                @endif
+
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <a href="{{ route('admin.smsgateways.index', ['edit' => $g->id]) }}"
+                       class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-200">{{ __('smsgw.edit') }}</a>
+
+                    <form method="POST" action="{{ route('admin.smsgateways.toggle', $g->id) }}">
+                        @csrf
+                        <button type="submit" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">
+                            {{ $g->enabled ? __('smsgw.turn_off') : __('smsgw.turn_on') }}
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('admin.smsgateways.delete', $g->id) }}" onsubmit="return confirm(@js(__('smsgw.delete_confirm')))">
+                        @csrf
+                        <button type="submit" class="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
+                            {{ __('smsgw.delete') }}
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('admin.smsgateways.test', $g->id) }}" class="flex flex-1 min-w-[220px] items-center gap-2">
+                        @csrf
+                        <input type="text" name="phone" placeholder="{{ __('smsgw.test_phone') }}" required
+                               class="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs">
+                        <button type="submit" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
+                            {{ __('smsgw.test_btn') }}
+                        </button>
+                    </form>
+                </div>
             </div>
-        </div>
-    @empty
-        <p style="margin-top:10px;font-size:14px;color:#64748b;">{{ __('smsgw.empty') }}</p>
-    @endforelse
+        @empty
+            <p class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">{{ __('smsgw.empty') }}</p>
+        @endforelse
+    </div>
 
-    <h2 style="margin-top:28px;font-size:17px;font-weight:700;">{{ $editing ? __('smsgw.form_edit') : __('smsgw.form_add') }}</h2>
-    @if (!$editing)
-        <p style="margin-top:6px;font-size:14px;"><a href="{{ route('admin.smsgateways.index', ['preset' => 'bulksmsbd']) }}" style="color:#1d4ed8;text-decoration:underline;">{{ __('smsgw.preset') }}</a></p>
-    @endif
+    <div class="mt-10 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-900">{{ $editing ? __('smsgw.form_edit') : __('smsgw.form_add') }}</h2>
+        @unless ($editing)
+            <a href="{{ route('admin.smsgateways.index', ['preset' => 'bulksmsbd']) }}" class="mt-1 inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset') }}</a>
+        @endunless
 
-    <form method="POST" action="{{ route('admin.smsgateways.save') }}" style="margin-top:12px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;">
-        @csrf
-        <input type="hidden" name="id" value="{{ old('id', $form['id']) }}">
+        <form method="POST" action="{{ route('admin.smsgateways.save') }}" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            @csrf
+            <input type="hidden" name="id" value="{{ old('id', $form['id']) }}">
 
-        <label style="{{ $lb }}">{{ __('smsgw.name') }}</label>
-        <input type="text" name="name" maxlength="80" required value="{{ old('name', $form['name']) }}" style="{{ $in }}">
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.name') }}</label>
+                <input type="text" name="name" maxlength="80" required value="{{ old('name', $form['name']) }}"
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.channel') }}</label>
-        <select name="channel" style="{{ $in }}">
-            <option value="sms" @selected(old('channel', $form['channel']) === 'sms')>{{ __('smsgw.ch_sms') }}</option>
-            <option value="whatsapp" @selected(old('channel', $form['channel']) === 'whatsapp')>{{ __('smsgw.ch_wa') }}</option>
-        </select>
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.channel') }}</label>
+                <select name="channel" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+                    <option value="sms" @selected(old('channel', $form['channel']) === 'sms')>{{ __('smsgw.ch_sms') }}</option>
+                    <option value="whatsapp" @selected(old('channel', $form['channel']) === 'whatsapp')>{{ __('smsgw.ch_wa') }}</option>
+                </select>
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.method') }}</label>
-        <select name="method" style="{{ $in }}">
-            <option value="GET" @selected(old('method', $form['method']) === 'GET')>GET</option>
-            <option value="POST" @selected(old('method', $form['method']) === 'POST')>POST</option>
-        </select>
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.method') }}</label>
+                <select name="method" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+                    <option value="GET" @selected(old('method', $form['method']) === 'GET')>GET</option>
+                    <option value="POST" @selected(old('method', $form['method']) === 'POST')>POST</option>
+                </select>
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.body_type') }}</label>
-        <select name="body_type" style="{{ $in }}">
-            <option value="query" @selected(old('body_type', $form['body_type']) === 'query')>{{ __('smsgw.bt_query') }}</option>
-            <option value="json" @selected(old('body_type', $form['body_type']) === 'json')>{{ __('smsgw.bt_json') }}</option>
-            <option value="form" @selected(old('body_type', $form['body_type']) === 'form')>{{ __('smsgw.bt_form') }}</option>
-        </select>
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.body_type') }}</label>
+                <select name="body_type" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
+                    <option value="query" @selected(old('body_type', $form['body_type']) === 'query')>{{ __('smsgw.bt_query') }}</option>
+                    <option value="json" @selected(old('body_type', $form['body_type']) === 'json')>{{ __('smsgw.bt_json') }}</option>
+                    <option value="form" @selected(old('body_type', $form['body_type']) === 'form')>{{ __('smsgw.bt_form') }}</option>
+                </select>
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.url') }}</label>
-        <input type="text" name="url" maxlength="500" required value="{{ old('url', $form['url']) }}" style="{{ $in }}">
+            <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.url') }}</label>
+                <input type="text" name="url" maxlength="500" required value="{{ old('url', $form['url']) }}"
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm">
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.params') }}</label>
-        <textarea name="params" rows="4" style="{{ $in }}font-family:monospace;font-size:13px;">{{ old('params', $form['params']) }}</textarea>
+            <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.params') }}</label>
+                <textarea name="params" rows="4" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm">{{ old('params', $form['params']) }}</textarea>
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.headers') }}</label>
-        <textarea name="headers" rows="2" style="{{ $in }}font-family:monospace;font-size:13px;">{{ old('headers', $form['headers']) }}</textarea>
+            <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.headers') }}</label>
+                <textarea name="headers" rows="2" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm">{{ old('headers', $form['headers']) }}</textarea>
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.sender_id') }}</label>
-        <input type="text" name="sender_id" maxlength="60" value="{{ old('sender_id', $form['sender_id']) }}" style="{{ $in }}">
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.sender_id') }}</label>
+                <input type="text" name="sender_id" maxlength="60" value="{{ old('sender_id', $form['sender_id']) }}"
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.marker') }}</label>
-        <input type="text" name="success_marker" maxlength="100" value="{{ old('success_marker', $form['success_marker']) }}" style="{{ $in }}">
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.marker') }}</label>
+                <input type="text" name="success_marker" maxlength="100" value="{{ old('success_marker', $form['success_marker']) }}"
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.priority') }}</label>
-        <input type="number" name="priority" min="1" max="999" required value="{{ old('priority', $form['priority']) }}" style="{{ $in }}">
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.priority') }}</label>
+                <input type="number" name="priority" min="1" max="999" required value="{{ old('priority', $form['priority']) }}"
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
 
-        <label style="{{ $lb }}">{{ __('smsgw.api_key') }}</label>
-        <input type="password" name="api_key" autocomplete="off" maxlength="500" value="" style="{{ $in }}margin-bottom:4px;">
-        @if ($editing)
-            <p style="font-size:12px;color:#64748b;margin-bottom:8px;">{{ __('smsgw.api_key_keep') }}</p>
-            <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:12px;">
-                <input type="checkbox" name="clear_key" value="1"> {{ __('smsgw.clear_key') }}
-            </label>
-        @endif
+            <div>
+                <label class="text-sm font-medium text-slate-700">{{ __('smsgw.api_key') }}</label>
+                <input type="password" name="api_key" autocomplete="off" maxlength="500" value=""
+                       class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                @if ($editing)
+                    <p class="mt-1 text-xs text-slate-500">{{ __('smsgw.api_key_keep') }}</p>
+                    <label class="mt-1 flex items-center gap-2 text-xs text-slate-600">
+                        <input type="checkbox" name="clear_key" value="1"> {{ __('smsgw.clear_key') }}
+                    </label>
+                @endif
+            </div>
 
-        <input type="hidden" name="enabled" value="0">
-        <label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:600;margin-bottom:16px;">
-            <input type="checkbox" name="enabled" value="1" @checked((bool) old('enabled', $form['enabled']))> {{ __('smsgw.enabled') }}
-        </label>
+            <div class="sm:col-span-2">
+                <input type="hidden" name="enabled" value="0">
+                <label class="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <input type="checkbox" name="enabled" value="1" @checked((bool) old('enabled', $form['enabled'])) class="h-4 w-4">
+                    {{ __('smsgw.enabled') }}
+                </label>
+            </div>
 
-        <button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;">{{ __('smsgw.save') }}</button>
-    </form>
+            <div class="sm:col-span-2">
+                <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">
+                    {{ __('smsgw.save') }}
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 @endsection

@@ -37,8 +37,6 @@ class LoginSettingsController extends Controller
         foreach (LoginSettings::BOOLS as $k) {
             $new[$k] = $request->boolean($k);
         }
-        // Google login is not built yet: keep it off.
-        $new['google_enabled'] = false;
 
         if (! LoginSettings::anyMethodEnabled($new)) {
             return back()->withInput()->withErrors(['methods' => __('loginsettings.need_one')]);
@@ -52,8 +50,12 @@ class LoginSettingsController extends Controller
         $new['firebase_api_key'] = trim((string) $request->input('firebase_api_key', ''));
         $new['firebase_auth_domain'] = trim((string) $request->input('firebase_auth_domain', ''));
         $new['firebase_project_id'] = trim((string) $request->input('firebase_project_id', ''));
-        if ($new['otp_provider'] === 'firebase' && ($new['firebase_api_key'] === '' || $new['firebase_auth_domain'] === '' || $new['firebase_project_id'] === '')) {
+        $fbMissing = $new['firebase_api_key'] === '' || $new['firebase_auth_domain'] === '' || $new['firebase_project_id'] === '';
+        if ($new['otp_provider'] === 'firebase' && $fbMissing) {
             return back()->withInput()->withErrors(['methods' => __('loginsettings.fbl_need_config')]);
+        }
+        if ($new['google_enabled'] && $fbMissing) {
+            return back()->withInput()->withErrors(['methods' => __('loginsettings.gg_need_config')]);
         }
 
         LoginSettings::save($new);

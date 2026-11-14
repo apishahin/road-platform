@@ -3,6 +3,10 @@
     "file": "assets/fonts-C9MNnjVw.css",
     "src": "_fonts-C9MNnjVw.css"
   },
+  "_index.esm-uOMWXTDz.js": {
+    "file": "assets/index.esm-uOMWXTDz.js",
+    "name": "index.esm"
+  },
   "_instrument-sans-400-normal-D1W7dsQl.woff": {
     "file": "assets/instrument-sans-400-normal-D1W7dsQl.woff",
     "src": "_instrument-sans-400-normal-D1W7dsQl.woff"
@@ -40,7 +44,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BsUCmTSw.css",
+    "file": "assets/app-DUn8533G.css",
     "name": "app",
     "names": [
       "app.css"
@@ -49,20 +53,33 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-C0VezqiS.js",
+    "file": "assets/app-BjH1uTBj.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
       "resources/js/home-map.js",
-      "resources/js/firebase-login.js"
+      "resources/js/firebase-login.js",
+      "resources/js/google-login.js"
     ]
   },
   "resources/js/firebase-login.js": {
-    "file": "assets/firebase-login-BErxmlgW.js",
+    "file": "assets/firebase-login-BkAs6MMC.js",
     "name": "firebase-login",
     "src": "resources/js/firebase-login.js",
-    "isDynamicEntry": true
+    "isDynamicEntry": true,
+    "imports": [
+      "_index.esm-uOMWXTDz.js"
+    ]
+  },
+  "resources/js/google-login.js": {
+    "file": "assets/google-login-C0lo7MM0.js",
+    "name": "google-login",
+    "src": "resources/js/google-login.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_index.esm-uOMWXTDz.js"
+    ]
   },
   "resources/js/home-map.js": {
     "file": "assets/home-map-DraqtnTR.js",

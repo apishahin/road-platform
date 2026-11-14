@@ -59,7 +59,7 @@ class LoginSettingsPageTest extends TestCase
             ->assertSee(__('loginsettings.title'));
     }
 
-    public function test_admin_can_save_and_google_stays_off(): void
+    public function test_admin_can_save_and_google_settings_keep_persist(): void
     {
         $admin = $this->makeUser('admin', '01700000014');
 
@@ -67,12 +67,30 @@ class LoginSettingsPageTest extends TestCase
             ->post('/admin/login-settings', $this->payload([
                 'password_enabled' => '1',
                 'google_enabled'   => '1',
+                'firebase_api_key' => 'AIza-test-key',
+                'firebase_auth_domain' => 'x.firebaseapp.com',
+                'firebase_project_id' => 'project-x',
             ]))
             ->assertSessionHasNoErrors();
 
         $this->assertTrue(LoginSettings::passwordEnabled());
-        $this->assertFalse(LoginSettings::googleEnabled());
+        $this->assertTrue(LoginSettings::googleEnabled());
         $this->assertDatabaseHas('audit_events', ['action' => 'login_settings.save']);
+    }
+
+    public function test_google_requires_firebase_config(): void
+    {
+        $admin = $this->makeUser('admin', '01700000016');
+
+        $this->actingAs($admin)
+            ->post('/admin/login-settings', $this->payload([
+                'google_enabled' => '1',
+                // firebase fields are empty in the payload
+            ]))
+            ->assertSessionHasErrors('methods');
+
+        $this->assertFalse(LoginSettings::googleEnabled());
+        $this->assertDatabaseMissing('audit_events', ['action' => 'login_settings.save']);
     }
 
     public function test_cannot_turn_off_every_login_method(): void

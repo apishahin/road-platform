@@ -85,6 +85,18 @@ class LoginSettings
         );
     }
 
+    /** Firebase web config for the browser (empty strings when unset). */
+    public static function firebaseConfig(): array
+    {
+        $cfg = self::all();
+
+        return [
+            'apiKey'     => (string) $cfg['firebase_api_key'],
+            'authDomain' => (string) $cfg['firebase_auth_domain'],
+            'projectId'  => (string) $cfg['firebase_project_id'],
+        ];
+    }
+
     public static function otpEnabled(): bool { return (bool) self::all()['otp_enabled']; }
     public static function passwordEnabled(): bool { return (bool) self::all()['password_enabled']; }
     public static function googleEnabled(): bool { return (bool) self::all()['google_enabled']; }

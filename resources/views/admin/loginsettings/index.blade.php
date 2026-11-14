@@ -19,7 +19,7 @@
             $rows = [
                 ['otp_enabled', 'otp', 'otp_hint', false],
                 ['password_enabled', 'password', 'password_hint', false],
-                ['google_enabled', 'google', 'google_hint', true],
+                ['google_enabled', 'google', 'google_hint', false],
                 ['registration_open', 'registration', 'registration_hint', false],
                 ['password_for_staff', 'staff_password', 'staff_hint', false],
             ];

@@ -37,14 +37,42 @@ if (root) {
         box.innerHTML = '';
     };
 
+    // When the phone is editable, wrap it in an input row before the send button.
+    let phoneInput = null;
+    if (d.phoneEditable === '1') {
+        phoneInput = document.createElement('input');
+        phoneInput.type = 'tel';
+        phoneInput.inputMode = 'tel';
+        phoneInput.autocomplete = 'tel';
+        phoneInput.maxLength = 30;
+        phoneInput.placeholder = '01XXXXXXXXX';
+        phoneInput.required = true;
+        phoneInput.className = 'block w-full rounded-lg border border-slate-300 px-3 py-2 text-base';
+        sendBtn.parentNode.insertBefore(phoneInput, sendBtn);
+    }
+
     sendBtn.addEventListener('click', async () => {
         if (!auth) return;
+
+        let phone = d.phone;
+        if (phoneInput) {
+            const raw = phoneInput.value.trim().replace(/[\s-]/g, '');
+            let norm = raw.replace(/[^\d+0189]/g, '');
+            if (/^01\d{9}$/.test(norm)) norm = '+88' + norm;
+            else if (/^8801\d{9}$/.test(norm)) norm = '+' + norm;
+            if (!/^\+8801\d{9}$/.test(norm)) {
+                say('textError', true);
+                return;
+            }
+            phone = norm;
+        }
+
         sendBtn.disabled = true;
         say('textSending');
         try {
             resetVerifier();
             verifier = new RecaptchaVerifier(auth, box, { size: 'invisible' });
-            confirmation = await signInWithPhoneNumber(auth, d.phone, verifier);
+            confirmation = await signInWithPhoneNumber(auth, phone, verifier);
             form.hidden = false;
             codeInput.focus();
             say('textSent');

@@ -157,7 +157,7 @@ class AuthController extends Controller
             $user->forceFill(['password' => null])->save();
         }
 
-        Auth::login($user);
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         return redirect()->intended(route('home'))->with('status', __('login.welcome'));
@@ -204,7 +204,7 @@ class AuthController extends Controller
         }
 
         RateLimiter::clear($pk);
-        Auth::login($user);
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         return redirect()->intended(route('home'))->with('status', __('login.welcome'));
@@ -247,7 +247,7 @@ class AuthController extends Controller
         $user = new User(['phone' => $phone, 'display_name' => 'User', 'role' => 'citizen']);
         $user->forceFill(['password' => $pw])->save();
 
-        Auth::login($user);
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         return redirect()->intended(route('home'))->with('status', __('loginpw.registered'));
