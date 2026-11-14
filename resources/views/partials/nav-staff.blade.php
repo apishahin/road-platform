@@ -30,7 +30,6 @@
                 [route('admin.loginsettings.index'), __('loginsettings.menu'), 0, 'key'],
                 [route('admin.smsgateways.index'), __('issues.nav_sms'), 0, 'sms'],
                 [route('admin.mail.index'), __('mailsettings.menu'), 0, 'mail'],
-                [route('admin.appearance.index'), __('issues.nav_appearance'), 0, 'brush'],
                 [route('admin.storage.index'), __('issues.nav_storage'), 0, 'storage'],
                 [route('admin.funding.index'), __('issues.nav_funding'), 0, 'fund'],
                 [route('admin.site.index'), __('issues.nav_site'), 0, 'layout'],

@@ -32,6 +32,7 @@ class SiteSectionsTest extends TestCase
             ->assertSee('id="home-map"', false)
             ->assertSee('id="issue-list"', false)
             ->assertSee('aria-label="Footer"', false)
+            ->assertSee('countryBounds', false) // home map frames the whole country
             ->assertSee(__('issues.home_privacy'));
     }
 
@@ -364,6 +365,21 @@ class SiteSectionsTest extends TestCase
         $html2 = $this->get('/')->assertOk()->getContent();
         $this->assertStringNotContainsString('--green:#123456;', $html2);
         $this->assertStringContainsString('#003d25', $html2);
+    }
+
+    public function test_appearance_editor_is_merged_into_site_page(): void
+    {
+        $admin = $this->admin();
+
+        // old URL keeps working (redirects into the merged page)
+        $this->actingAs($admin)->get(route('admin.appearance.index'))
+            ->assertRedirect(route('admin.site.index') . '#appearance');
+
+        // the merged page hosts the appearance form (colours + fonts + logo)
+        $this->actingAs($admin)->get(route('admin.site.index'))->assertOk()
+            ->assertSee('name="brand"', false)
+            ->assertSee('name="font_file"', false)
+            ->assertSee(route('admin.appearance.update'), false);
     }
 
     public function test_admin_can_upload_a_slide_image(): void

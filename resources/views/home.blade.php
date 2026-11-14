@@ -16,6 +16,7 @@
         'issues'      => $mapIssues,
         'center'      => config('roadplatform.map.center'),
         'zoom'        => config('roadplatform.map.zoom'),
+        'countryBounds' => config('roadplatform.map.country_bounds'),
         'tileUrl'     => config('roadplatform.map.tile_url'),
         'attribution' => config('roadplatform.map.attribution'),
         'nearbyUrl'   => url('/api/v1/issues/nearby'),

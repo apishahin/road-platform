@@ -468,4 +468,10 @@ return [
     'site_f_theme_c_accent'     => 'Hero highlight (highlighted words)',
     'site_f_theme_c_cta_from'   => 'CTA gradient — start',
     'site_f_theme_c_cta_to'     => 'CTA gradient — end',
+
+    // Merged appearance editor
+    'site_appearance_merged'      => 'Site appearance (name, logo, font, main colours)',
+    'site_appearance_merged_hint' => 'Everything about the site\'s look is now on this one page — remember to press each form\'s own save button.',
+    'appearance_moved'            => 'The appearance settings have moved to the "Homepage & site" page.',
+    'appearance_moved_link'       => 'Go there',
 ];

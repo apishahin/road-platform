@@ -80,7 +80,7 @@
 
     <div class="grid gap-4 lg:grid-cols-3">
         <div class="lg:col-span-2">
-            <div id="home-map" class="h-[280px] w-full overflow-hidden rounded-xl border border-slate-200 sm:h-[440px]"></div>
+            <div id="home-map" class="h-[320px] w-full overflow-hidden rounded-xl border border-slate-200 sm:h-[480px]"></div>
 
             {{-- Legend --}}
             <div class="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">

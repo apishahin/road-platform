@@ -20,10 +20,8 @@ class AppearanceController extends Controller
     {
         $this->guard();
 
-        return view('admin.appearance', [
-            's' => AppearanceSettings::all(),
-            'd' => AppearanceSettings::defaults(),
-        ]);
+        // Appearance editing now lives inside "Homepage & site" (one page for everything visual).
+        return redirect(route('admin.site.index') . '#appearance');
     }
 
     public function update(Request $request, AuditService $audit)

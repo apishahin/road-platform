@@ -119,9 +119,9 @@
 .rp-home .small-outline{border:1px solid #8acaa7;color:var(--green);background:#fff;border-radius:999px;padding:6px 11px;font-size:11px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
 @media (min-width:768px){ .rp-home .small-outline{font-size:13px;padding:7px 13px;} }
 .rp-home .small-outline:hover{background:var(--green-pale);}
-.rp-home .map-live{height:300px;position:relative;z-index:1;}
-@media (min-width:768px){ .rp-home .map-live{height:340px;} }
-@media (min-width:1100px){ .rp-home .map-live{height:420px;} }
+.rp-home .map-live{height:320px;position:relative;z-index:1;}
+@media (min-width:768px){ .rp-home .map-live{height:400px;} }
+@media (min-width:1100px){ .rp-home .map-live{height:490px;} }
 .rp-home .rp-chips{display:flex;gap:6px;overflow-x:auto;padding:8px 12px 4px;border-bottom:1px solid var(--line);}
 .rp-home .rp-chip{flex-shrink:0;border-radius:999px;border:1px solid var(--line);background:#fff;padding:5px 12px;font-size:11px;font-weight:600;color:var(--body);cursor:pointer;}
 .rp-home .map-legend{display:flex;justify-content:center;gap:10px 18px;flex-wrap:wrap;padding:9px 8px;font-size:10px;color:var(--body);border-top:1px solid var(--line);}

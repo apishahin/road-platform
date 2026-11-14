@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuditService;
+use App\Support\AppearanceSettings;
 use App\Support\SiteSections;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,7 +20,12 @@ class SiteController extends Controller
     {
         $this->guard($request);
 
-        return view('admin.site', ['s' => SiteSections::all()]);
+        return view('admin.site', [
+            's'   => SiteSections::all(),
+            // merged appearance panel (one page for everything visual)
+            'ap'  => AppearanceSettings::all(),
+            'apd' => AppearanceSettings::defaults(),
+        ]);
     }
 
     /** Move an uploaded hero slide image to public/uploads/hero with a safe generated name. */

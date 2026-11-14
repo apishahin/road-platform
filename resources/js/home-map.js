@@ -71,6 +71,8 @@ function card(issue) {
 
 // Map
 const map = L.map('home-map').setView(cfg.center, cfg.zoom);
+const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
+if (homeView) { map.fitBounds(cfg.countryBounds, { padding: [6, 6] }); }
 L.tileLayer(cfg.tileUrl, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
 
@@ -91,8 +93,13 @@ function drawMarkers() {
             .bindPopup(popupNode(issue))
             .addTo(markers);
     });
-    if (nearby === null && items.length > 0) {
-        map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
+    if (nearby === null) {
+        // "সব" / All keeps the whole country in frame; a chosen status zooms to its pins.
+        if (homeView && filter === 'all') {
+            map.fitBounds(cfg.countryBounds, { padding: [6, 6] });
+        } else if (items.length > 0) {
+            map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
+        }
     }
 }
 

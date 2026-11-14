@@ -31,6 +31,13 @@
         </div>
     @endif
 
+    {{-- ============ Appearance (merged here — everything visual on ONE page) ============ --}}
+    <h2 id="appearance" style="margin-top:20px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_appearance_merged') }}</h2>
+    <p style="margin-top:2px;font-size:12px;color:#94a3b8;">{{ __('issues.site_appearance_merged_hint') }}</p>
+    <div style="{{ $card }};margin-top:10px;">
+        @include('admin._appearance-form')
+    </div>
+
     <form method="POST" action="{{ route('admin.site.save') }}" enctype="multipart/form-data">
         @csrf
 
