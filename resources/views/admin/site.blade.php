@@ -32,6 +32,28 @@
     <form method="POST" action="{{ route('admin.site.save') }}">
         @csrf
 
+        {{-- ============ Design variants ============ --}}
+        <h2 style="margin-top:20px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_design') }}</h2>
+        <div style="{{ $card }};margin-top:10px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+            <div>
+                <label style="{{ $lbl }}">{{ __('issues.site_design_home') }}</label>
+                <select name="design_home" style="{{ $inp }}">
+                    @foreach (SiteSections::DESIGNS as $dsg)
+                        <option value="{{ $dsg }}" @selected(($s['design']['home'] ?? 'classic') === $dsg)>{{ __('issues.site_design_' . $dsg) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label style="{{ $lbl }}">{{ __('issues.site_design_report') }}</label>
+                <select name="design_report" style="{{ $inp }}">
+                    @foreach (SiteSections::DESIGNS as $dsg)
+                        <option value="{{ $dsg }}" @selected(($s['design']['report'] ?? 'classic') === $dsg)>{{ __('issues.site_design_' . $dsg) }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        <p style="margin-top:6px;font-size:12px;color:#94a3b8;">{{ __('issues.site_design_hint') }}</p>
+
         {{-- ============ Homepage sections ============ --}}
         <h2 style="margin-top:20px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_sections') }}</h2>
         <p style="margin-top:2px;font-size:13px;color:#64748b;">{{ __('issues.site_sections_hint') }}</p>

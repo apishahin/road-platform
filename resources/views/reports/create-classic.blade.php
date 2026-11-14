@@ -1,0 +1,193 @@
+<div data-report-design="classic">@php $inp = 'mt-1 block w-full rounded-lg border border-slate-300 p-2.5 text-sm'; @endphp
+<div class="mx-auto max-w-3xl px-4 py-8" x-data="reportWizard()">
+    <h1 class="text-2xl font-bold text-slate-900">{{ __('report.title') }}</h1>
+    <p class="mt-1 text-sm text-slate-600">{{ __('report.subtitle') }}</p>
+
+    <div class="mt-6 flex items-center justify-between border-b border-slate-200 pb-4">
+        @foreach ([1, 2, 3, 4] as $n)
+            <div class="flex items-center gap-2">
+                <span class="flex size-7 items-center justify-center rounded-full text-xs font-bold"
+                      :class="step >= {{ $n }} ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-600'">{{ $n }}</span>
+                <span class="hidden text-xs font-medium text-slate-700 sm:inline">{{ __('report.step' . $n) }}</span>
+            </div>
+        @endforeach
+    </div>
+
+    @if ($errors->any())
+        <div role="alert" class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            @foreach ($errors->all() as $error)
+                <p>{{ $error }}</p>
+            @endforeach
+        </div>
+    @endif
+
+    <form x-ref="form" method="POST" action="{{ route('report.store') }}" enctype="multipart/form-data" class="mt-6"
+          @keydown.enter="if ($event.target.tagName !== 'TEXTAREA') $event.preventDefault()">
+        @csrf
+        <input type="hidden" name="lat" :value="lat">
+        <input type="hidden" name="lng" :value="lng">
+        <input type="hidden" name="issue_id" :value="selectedIssue">
+
+        {{-- Step 1: location --}}
+        <div x-show="step === 1" class="space-y-4">
+            <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step1_heading') }}</h2>
+            <p class="text-sm text-slate-600">{{ __('report.step1_hint') }}</p>
+            <button type="button" @click="useMyLocation()"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                📍 {{ __('report.use_my_location') }}
+            </button>
+            <div id="report-map" class="h-80 w-full rounded-xl border border-slate-300"></div>
+            <div class="flex justify-end">
+                <button type="button" @click="toStep2()" :disabled="!lat"
+                        class="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                    {{ __('report.next') }} →
+                </button>
+            </div>
+        </div>
+
+        {{-- Step 2: duplicate check --}}
+        <div x-show="step === 2" x-cloak class="space-y-4">
+            <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step2_heading') }}</h2>
+
+            <p x-show="loading" class="text-sm text-slate-500">{{ __('report.checking_duplicates') }}</p>
+            <p x-show="dupError" class="text-sm text-red-700">{{ __('report.dup_error') }}</p>
+            <p x-show="!loading && !dupError && nearby.length === 0"
+               class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">{{ __('report.no_duplicates') }}</p>
+
+            <div x-show="!loading && nearby.length > 0" class="space-y-2">
+                <p class="text-sm text-slate-600">{{ __('report.duplicates_found') }}</p>
+                <template x-for="item in nearby" :key="item.id">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
+                           :class="selectedIssue === item.id ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white'">
+                        <input type="radio" :value="item.id" x-model="selectedIssue" class="mt-1">
+                        <div class="text-sm">
+                            <p class="font-semibold text-slate-900" x-text="item.title"></p>
+                            <p class="text-xs text-slate-500"
+                               x-text="item.category + ' · ' + item.status + ' · ' + Math.round(item.meters) + ' {{ __('report.meters_away') }}'"></p>
+                            <a :href="item.url" target="_blank" rel="noopener" class="text-xs text-brand-700 underline">{{ __('report.view') }}</a>
+                        </div>
+                    </label>
+                </template>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-4"
+                       :class="selectedIssue === '' ? 'border-brand-600 bg-brand-50' : 'border-slate-200 bg-white'">
+                    <input type="radio" value="" x-model="selectedIssue" class="mt-1">
+                    <div class="text-sm">
+                        <p class="font-semibold text-slate-900">{{ __('report.new_issue') }}</p>
+                        <p class="text-xs text-slate-500">{{ __('report.new_issue_hint') }}</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex justify-between">
+                <button type="button" @click="step = 1" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">← {{ __('report.back') }}</button>
+                <button type="button" @click="step = 3" :disabled="loading"
+                        class="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{{ __('report.next') }} →</button>
+            </div>
+        </div>
+
+        {{-- Step 3: details --}}
+        <div x-show="step === 3" x-cloak class="space-y-4">
+            <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step3_heading') }}</h2>
+            <p x-show="selectedIssue" class="rounded-lg bg-slate-100 p-3 text-xs text-slate-700">{{ __('report.existing_note') }}</p>
+
+            <div x-show="!selectedIssue" class="space-y-4">
+                <div>
+                    <label class="text-sm font-medium text-slate-700">{{ __('report.category') }} *</label>
+                    <select name="category_id" data-step3 :required="!selectedIssue" class="{{ $inp }}">
+                        <option value="">{{ __('report.select_category') }}</option>
+                        @foreach ($categories as $cat)
+                            <option value="{{ $cat['id'] }}" @selected(old('category_id') == $cat['id'])>{{ $cat['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700">{{ __('report.issue_title') }} *</label>
+                    <input type="text" name="title" data-step3 :required="!selectedIssue" maxlength="150"
+                           value="{{ old('title') }}" placeholder="{{ __('report.title_placeholder') }}" class="{{ $inp }}">
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="text-sm font-medium text-slate-700">{{ __('report.road_name') }}</label>
+                        <input type="text" name="road_name" maxlength="150" value="{{ old('road_name') }}"
+                               placeholder="{{ __('report.road_placeholder') }}" class="{{ $inp }}">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-slate-700">{{ __('report.landmark') }}</label>
+                        <input type="text" name="landmark" maxlength="150" value="{{ old('landmark') }}"
+                               placeholder="{{ __('report.landmark_placeholder') }}" class="{{ $inp }}">
+                    </div>
+                </div>
+            </div>
+
+            @php
+    $areaDivs = \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
+        ->map(fn ($a) => ['id' => $a->id, 'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
+        ->values();
+@endphp
+<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <p class="text-sm font-medium text-slate-700">{{ __('suggest.title') }}</p>
+    <p class="text-xs text-slate-500">{{ __('suggest.hint') }}</p>
+    <p x-show="areaAuto" class="mt-1 text-xs font-medium text-amber-700">{{ __('suggest.auto') }}</p>
+    <input type="hidden" name="suggested_area_id" :value="areaValue" :disabled="!areaValue">
+    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+        <select x-model="division" @change="pickDivision()" aria-label="{{ __('areas.division') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_divisions') }}</option>
+            <template x-for="a in divisions" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="districts.length > 0" x-model="district" @change="pickDistrict()" aria-label="{{ __('areas.district') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_districts') }}</option>
+            <template x-for="a in districts" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="upazilas.length > 0" x-model="upazila" @change="pickUpazila()" aria-label="{{ __('areas.upazila') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_upazilas') }}</option>
+            <template x-for="a in upazilas" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+        <select x-show="unions.length > 0" x-model="union" @change="pickUnion()" aria-label="{{ __('areas.union') }}" class="{{ $inp }}">
+            <option value="">{{ __('areas.all_unions') }}</option>
+            <template x-for="a in unions" :key="a.id"><option :value="String(a.id)" x-text="a.label"></option></template>
+        </select>
+    </div>
+</div>
+<div>
+                <label class="text-sm font-medium text-slate-700">{{ __('report.description') }} *</label>
+                <textarea name="description" data-step3 required rows="4" maxlength="1000"
+                          placeholder="{{ __('report.desc_placeholder') }}" class="{{ $inp }}">{{ old('description') }}</textarea>
+            </div>
+
+            <div class="flex justify-between">
+                <button type="button" @click="step = 2" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">← {{ __('report.back') }}</button>
+                <button type="button" @click="toStep4()" class="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white">{{ __('report.next') }} →</button>
+            </div>
+        </div>
+
+        {{-- Step 4: photos --}}
+        <div x-show="step === 4" x-cloak class="space-y-4">
+            <h2 class="text-lg font-semibold text-slate-900">{{ __('report.step4_heading') }}</h2>
+            <p class="text-sm text-slate-600">{{ __('report.photos_hint') }}</p>
+            <p class="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ __('privacy.photo_warn') }}</p>
+            <div x-data="{ names: [] }">
+                <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V5m0 0-4 4m4-4 4 4"/><path stroke-linecap="round" d="M4 19h16"/></svg>
+                    <span>{{ __('report.photos_choose') }}</span>
+                    <input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only"
+                           @change="names = Array.from($event.target.files).map(f => f.name)">
+                </label>
+                <p x-show="names.length === 0" class="mt-1.5 text-center text-xs text-slate-400">{{ __('report.photos_none') }}</p>
+                <ul x-show="names.length > 0" class="mt-2 space-y-1 text-xs text-slate-600">
+                    <template x-for="n in names" :key="n">
+                        <li class="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5">
+                            <svg class="size-3.5 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
+                            <span class="truncate" x-text="n"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+            <div class="rounded-lg bg-amber-50 p-4 text-xs text-amber-800">⚠️ {{ __('report.claim_notice') }}</div>
+            <div class="flex justify-between">
+                <button type="button" @click="step = 3" class="rounded-lg border border-slate-300 px-4 py-2 text-sm">← {{ __('report.back') }}</button>
+                <button type="submit" class="rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-brand-700">{{ __('report.submit') }}</button>
+            </div>
+        </div>
+    </form>
+</div>
+</div>

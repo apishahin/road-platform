@@ -346,4 +346,10 @@ return [
     'site_footer_links' => 'Show footer quick links',
     'site_footer_text' => 'Footer text',
     'nav_site' => 'Homepage & site',
+    'site_design' => 'Design variant',
+    'site_design_home' => 'Homepage design',
+    'site_design_report' => 'Report page design',
+    'site_design_classic' => 'Classic (current)',
+    'site_design_modern' => 'Modern (mobile-first)',
+    'site_design_hint' => 'Classic stays safe & identical to what you have now; Modern is the new touch-friendly look. You can switch back anytime.',
 ];

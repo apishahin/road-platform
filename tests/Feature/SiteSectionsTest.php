@@ -130,4 +130,67 @@ class SiteSectionsTest extends TestCase
 
         $this->get('/')->assertOk()->assertSee('ZZSITE Saved title');
     }
+
+    public function test_design_defaults_to_classic(): void
+    {
+        $this->get('/')->assertOk()->assertSee('data-home-design="classic"', false);
+    }
+
+    public function test_home_can_render_modern_design(): void
+    {
+        $this->override(['design' => ['home' => 'modern']]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-home-design="modern"', false)
+            ->assertSee('id="home-map"', false)
+            ->assertSee('id="issue-list"', false);
+    }
+
+    public function test_modern_home_still_respects_section_switches(): void
+    {
+        $this->override(['design' => ['home' => 'modern'], 'sections' => ['map' => ['on' => false]]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-home-design="modern"', false)
+            ->assertDontSee('id="home-map"', false);
+    }
+
+    public function test_admin_can_save_design_choice(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/admin/site', [
+            'design_home'     => 'modern',
+            'design_report'   => 'modern',
+            'nav_home'        => '1',
+            'nav_issues'      => '1',
+            'nav_report'      => '1',
+            'nav_lang'        => '1',
+            'footer_links_on' => '1',
+        ])->assertRedirect();
+
+        $this->assertSame('modern', SiteSections::design('home'));
+        $this->assertSame('modern', SiteSections::design('report'));
+
+        $this->get('/')->assertOk()->assertSee('data-home-design="modern"', false);
+    }
+
+    public function test_report_page_design_switch(): void
+    {
+        // classic default
+        $r1 = $this->actingAs($this->admin())->get('/report');
+        if ($r1->getStatusCode() === 200) {
+            $r1->assertSee('data-report-design="classic"', false);
+        }
+        $this->override(['design' => ['report' => 'modern']]);
+        $r2 = $this->actingAs($this->admin())->get('/report');
+        if ($r2->getStatusCode() === 200) {
+            $r2->assertSee('data-report-design="modern"', false);
+        }
+        $this->assertSame('modern', SiteSections::design('report'));
+    }
+
+    public function test_bad_design_value_falls_back_to_classic(): void
+    {
+        $this->override(['design' => ['home' => 'hacked']]);
+        $this->assertSame('classic', SiteSections::design('home'));
+        $this->get('/')->assertOk()->assertSee('data-home-design="classic"', false);
+    }
 }

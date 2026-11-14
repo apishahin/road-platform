@@ -35,6 +35,8 @@ class SiteController extends Controller
             }
         }
         $rules['footer_text'] = ['nullable', 'string', 'max:1000'];
+        $rules['design_home'] = ['nullable', 'in:' . implode(',', SiteSections::DESIGNS)];
+        $rules['design_report'] = ['nullable', 'in:' . implode(',', SiteSections::DESIGNS)];
         $data = $request->validate($rules);
 
         $new = ['sections' => [], 'nav' => [], 'footer' => []];
@@ -57,6 +59,11 @@ class SiteController extends Controller
         $new['footer'] = [
             'text'     => $data['footer_text'] ?? '',
             'links_on' => $request->boolean('footer_links_on'),
+        ];
+
+        $new['design'] = [
+            'home'   => $data['design_home'] ?? 'classic',
+            'report' => $data['design_report'] ?? 'classic',
         ];
 
         SiteSections::save($new);

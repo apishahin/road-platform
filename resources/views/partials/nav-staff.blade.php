@@ -117,6 +117,11 @@
     @if ($canApply)
         <a href="{{ route('volunteer.apply') }}" class="text-sm font-medium text-slate-700">{{ __('volapp.menu_apply') }}</a>
     @endif
+    @if (\App\Support\SiteSections::navOn('fund'))
+        <a href="{{ route('fund.show') }}" class="flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-sm font-bold text-emerald-700">
+            {!! $icons['fund'] !!} {{ __('issues.site_nav_fund') }}
+        </a>
+    @endif
     @if (\App\Support\SiteSections::navOn('report'))
     <a href="{{ url('/report') }}" class="flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm">
         {!! $icons['report'] !!}{{ __('Report a problem') }}

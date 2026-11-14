@@ -19,6 +19,8 @@ class SiteSections
     public const SECTIONS   = ['hero', 'stats', 'fund', 'map', 'how', 'repaired', 'privacy'];
     public const SIZES      = ['normal', 'large', 'xlarge'];
     public const NAV_ITEMS  = ['home', 'issues', 'report', 'lang', 'fund'];
+    public const PAGES      = ['home', 'report'];
+    public const DESIGNS    = ['classic', 'modern'];
 
     /** text fields editable per section */
     public const TEXT_FIELDS = [
@@ -48,6 +50,7 @@ class SiteSections
             ],
             'nav'    => ['home' => true, 'issues' => true, 'report' => true, 'lang' => true, 'fund' => false],
             'footer' => ['text' => '', 'links_on' => true],
+            'design' => ['home' => 'classic', 'report' => 'classic'],
         ];
     }
 
@@ -84,7 +87,7 @@ class SiteSections
         $navIn = is_array($in['nav'] ?? null) ? $in['nav'] : [];
         $ftrIn = is_array($in['footer'] ?? null) ? $in['footer'] : [];
 
-        $out = ['sections' => [], 'nav' => [], 'footer' => []];
+        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => []];
 
         foreach (self::SECTIONS as $s) {
             $base = $d['sections'][$s];
@@ -108,6 +111,12 @@ class SiteSections
             'text'     => mb_substr(trim((string) ($ftrIn['text'] ?? $d['footer']['text'])), 0, 1000),
             'links_on' => array_key_exists('links_on', $ftrIn) ? (bool) $ftrIn['links_on'] : $d['footer']['links_on'],
         ];
+
+        $dsnIn = is_array($in['design'] ?? null) ? $in['design'] : [];
+        foreach (self::PAGES as $pg) {
+            $v = $dsnIn[$pg] ?? $d['design'][$pg];
+            $out['design'][$pg] = in_array($v, self::DESIGNS, true) ? $v : $d['design'][$pg];
+        }
 
         return $out;
     }
@@ -133,6 +142,17 @@ class SiteSections
     public static function navOn(string $item): bool
     {
         return (bool) (self::all()['nav'][$item] ?? true);
+    }
+
+    /** Active design variant for a page: 'classic' (default) or 'modern'. */
+    public static function design(string $page): string
+    {
+        return self::all()['design'][$page] ?? 'classic';
+    }
+
+    public static function modern(string $page): bool
+    {
+        return self::design($page) === 'modern';
     }
 
     /** Custom text with translated fallback (empty = fallback). */
