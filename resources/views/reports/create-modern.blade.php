@@ -1,8 +1,5 @@
 @php
     $inp  = 'mt-1.5 block w-full rounded-xl border border-slate-300 bg-slate-50/60 p-3 text-[15px] focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20';
-    $areaDivs = \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
-        ->map(fn ($a) => ['id' => $a->id, 'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
-        ->values();
 @endphp
 <div class="mx-auto max-w-2xl px-4 pb-28 pt-5 sm:pb-10" x-data="reportWizard()" data-report-design="modern">
 

@@ -3,7 +3,7 @@
 
 {{-- Hero --}}
 @if ($S::on('hero'))
-<section class="relative overflow-hidden bg-slate-900 text-white">
+<section class="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900 text-white sm:rounded-b-[3rem]">
     <div class="pointer-events-none absolute -top-24 right-[-10%] h-72 w-72 rounded-full bg-brand-600/25 blur-3xl sm:h-96 sm:w-96"></div>
     <div class="pointer-events-none absolute bottom-[-40%] left-[-10%] h-72 w-72 rounded-full bg-indigo-600/20 blur-3xl"></div>
 
@@ -49,7 +49,7 @@
 @endif
 
 @if ($S::on('fund'))
-    @include('fund._home-box')
+    @include('fund._home-box-modern')
 @endif
 
 {{-- Map + list --}}
@@ -88,7 +88,7 @@
         </div>
 
         <aside class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
-            <h3 id="list-title" class="mb-1.5 text-sm font-extrabold text-slate-900">{{ __('Recently active') }}</h3>
+            <h3 id="list-title" class="mb-1.5 flex items-center gap-1.5 text-sm font-extrabold text-slate-900"><span class="relative flex size-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60"></span><span class="relative inline-flex size-2 rounded-full bg-emerald-500"></span></span>{{ __('Recently active') }}</h3>
             <p id="locate-status" class="mb-2 text-xs text-slate-500" aria-live="polite"></p>
             <div id="issue-list" class="space-y-2.5">
                 @forelse ($recent as $issue)
@@ -113,7 +113,7 @@
             ['s2t', '2. Follow the record', 's2x', 'Every status change is dated and shows who or what supplied it.', 2],
             ['s3t', '3. Verify the outcome', 's3x', 'A repair claim is not the same as a verified repair. The community can confirm it or reopen the issue.', 3],
         ] as [$tk, $tdef, $xk, $xdef, $num])
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
                 <div class="flex size-9 items-center justify-center rounded-full bg-brand-600/10 text-sm font-extrabold text-brand-700">{{ \App\Support\IssuePresenter::num($num) }}</div>
                 <h3 class="mt-2.5 font-bold text-slate-900 {{ $S::sizeClass('how') === 'text-xl sm:text-2xl' ? 'text-base' : $S::sizeClass('how') }}">{{ $S::txt('how', $tk, __($tdef)) }}</h3>
                 <p class="mt-1 text-sm leading-relaxed text-slate-600">{{ $S::txt('how', $xk, __($xdef)) }}</p>
@@ -129,7 +129,8 @@
         <div class="mx-auto max-w-6xl px-4 py-5 sm:py-7">
             <div class="flex flex-wrap items-end justify-between gap-2">
                 <div>
-                    <h2 class="font-extrabold tracking-tight text-slate-900 {{ $S::sizeClass('repaired') }}">{{ $S::txt('repaired', 'title', __('issues.home_repaired_title')) }}</h2>
+                    <h2 class="flex items-center gap-2 font-extrabold tracking-tight text-slate-900 {{ $S::sizeClass('repaired') }}">
+                        <svg class="size-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="8.5"/></svg>{{ $S::txt('repaired', 'title', __('issues.home_repaired_title')) }}</h2>
                     <p class="mt-1 text-sm text-slate-600">{{ $S::txt('repaired', 'text', __('issues.home_repaired_sub')) }}</p>
                     <a href="{{ route('issues.index', ['tab' => 'repaired']) }}" class="mt-1.5 inline-block text-sm font-bold text-brand-700 hover:underline">{{ __('issues.home_area_solutions') }} &rarr;</a>
                 </div>

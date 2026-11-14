@@ -54,18 +54,11 @@ class SiteSections
         ];
     }
 
-    private static ?array $cache = null;
-
-    public static function flush(): void
-    {
-        self::$cache = null;
-    }
-
     public static function all(): array
     {
-        if (self::$cache !== null) {
-            return self::$cache;
-        }
+        // NOTE: no static memoization here — the settings table row is tiny,
+        // and a static cache leaks stale values between DB rebuilds (tests)
+        // and long-running workers.
         $stored = [];
         try {
             $raw = DB::table('settings')->where('key', self::KEY)->value('value');
@@ -77,7 +70,7 @@ class SiteSections
             // never break the site on bad settings
         }
 
-        return self::$cache = self::sanitize($stored);
+        return self::sanitize($stored);
     }
 
     public static function sanitize(array $in): array
@@ -128,7 +121,6 @@ class SiteSections
             ['key' => self::KEY],
             ['value' => json_encode($clean), 'updated_at' => now()]
         );
-        self::flush();
         Cache::forget('settings.exists'); // in case a warm cache cared
     }
 

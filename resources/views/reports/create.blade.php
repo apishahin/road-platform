@@ -8,6 +8,13 @@
 @endpush
 
 @section('content')
+@php
+    // Shared by BOTH designs and by the wizard script below — must live in the
+    // parent view: variables set inside an included partial do not leak up.
+    $areaDivs = \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
+        ->map(fn ($a) => ['id' => $a->id, 'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
+        ->values();
+@endphp
 @if (\App\Support\SiteSections::modern('report'))
     @include('reports.create-modern')
 @else

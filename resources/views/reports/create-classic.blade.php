@@ -119,12 +119,7 @@
                 </div>
             </div>
 
-            @php
-    $areaDivs = \App\Models\AdminArea::where('level', 'division')->orderBy('name_en')->get()
-        ->map(fn ($a) => ['id' => $a->id, 'label' => app()->getLocale() === 'bn' ? ($a->name_bn ?: $a->name_en) : ($a->name_en ?: $a->name_bn)])
-        ->values();
-@endphp
-<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
     <p class="text-sm font-medium text-slate-700">{{ __('suggest.title') }}</p>
     <p class="text-xs text-slate-500">{{ __('suggest.hint') }}</p>
     <p x-show="areaAuto" class="mt-1 text-xs font-medium text-amber-700">{{ __('suggest.auto') }}</p>

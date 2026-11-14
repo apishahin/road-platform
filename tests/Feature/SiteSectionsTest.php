@@ -172,19 +172,28 @@ class SiteSectionsTest extends TestCase
         $this->get('/')->assertOk()->assertSee('data-home-design="modern"', false);
     }
 
-    public function test_report_page_design_switch(): void
+    public function test_report_page_renders_in_both_designs(): void
     {
-        // classic default
-        $r1 = $this->actingAs($this->admin())->get('/report');
-        if ($r1->getStatusCode() === 200) {
-            $r1->assertSee('data-report-design="classic"', false);
-        }
+        $admin = $this->admin();
+
+        // classic default — MUST be a real 200 render (regression: $areaDivs scope bug)
+        $this->actingAs($admin)->get('/report')->assertOk()
+            ->assertSee('data-report-design="classic"', false)
+            ->assertSee('function reportWizard()', false);
+
         $this->override(['design' => ['report' => 'modern']]);
-        $r2 = $this->actingAs($this->admin())->get('/report');
-        if ($r2->getStatusCode() === 200) {
-            $r2->assertSee('data-report-design="modern"', false);
-        }
+        $this->actingAs($admin)->get('/report')->assertOk()
+            ->assertSee('data-report-design="modern"', false)
+            ->assertSee('function reportWizard()', false);
+
         $this->assertSame('modern', SiteSections::design('report'));
+    }
+
+    public function test_home_page_renders_in_both_designs(): void
+    {
+        $this->get('/')->assertOk()->assertSee('data-home-design="classic"', false);
+        $this->override(['design' => ['home' => 'modern']]);
+        $this->get('/')->assertOk()->assertSee('data-home-design="modern"', false);
     }
 
     public function test_bad_design_value_falls_back_to_classic(): void
