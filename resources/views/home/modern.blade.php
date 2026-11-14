@@ -29,14 +29,12 @@
     <div class="section-head">
         <h2 class="section-title">
             <span class="symbol"><svg style="width:17px;height:17px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20.25 3 17.25V3.75L9 6.75m0 13.5 6 3m-6-3V6.75m6 16.5 6-3V6.75l-6-3m0 16.5V3.75m0 0L9 6.75M15 3.75l6 3"/></svg></span>
-            {{ $S::txt('map', 'title', __('Issues on the map')) }}
+            {{ $S::txt('map', 'title', __('issues.map_sec_title')) }}
         </h2>
-        <a class="text-link" href="{{ url('/issues') }}">{{ __('issues.home_view_all') }} →</a>
     </div>
     <div class="map-grid">
         <div class="map-panel">
-            <div class="map-top">
-                <h3>📍 {{ __('issues.map_box_title') }}</h3>
+            <div class="map-top" style="justify-content:flex-end;">
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <button id="locate-btn" type="button" class="small-outline">◎ {{ __('Use my location') }}</button>
                     <a href="{{ url('/report') }}" class="small-outline">＋ {{ __('issues.report_new_short') }}</a>
@@ -65,7 +63,7 @@
             </div>
             <p id="locate-status" style="font-size:11px;color:var(--muted);min-height:4px;margin:0 0 2px;" aria-live="polite"></p>
             <div id="issue-list">
-                @forelse ($recent->take(5) as $issue)
+                @forelse ($recent->take(7) as $issue)
                     @php $d = $P::display($issue); $ph = $photos[$issue->id] ?? null; @endphp
                     <a href="{{ url('/issues/' . $issue->public_id) }}" class="issue">
                         @if ($ph)

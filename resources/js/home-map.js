@@ -70,9 +70,15 @@ function card(issue) {
 }
 
 // Map
-const map = L.map('home-map').setView(cfg.center, cfg.zoom);
+const map = L.map('home-map', { zoomSnap: 0.25 }).setView(cfg.center, cfg.zoom);
 const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
-if (homeView) { map.fitBounds(cfg.countryBounds, { padding: [6, 6] }); }
+// default view: the whole of Bangladesh, zoomed a notch tighter
+function countryView() {
+    if (! homeView) { return; }
+    map.fitBounds(cfg.countryBounds, { padding: [2, 2] });
+    map.setZoom(map.getZoom() + 0.25);
+}
+countryView();
 L.tileLayer(cfg.tileUrl, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
 
@@ -96,7 +102,7 @@ function drawMarkers() {
     if (nearby === null) {
         // "সব" / All keeps the whole country in frame; a chosen status zooms to its pins.
         if (homeView && filter === 'all') {
-            map.fitBounds(cfg.countryBounds, { padding: [6, 6] });
+            countryView();
         } else if (items.length > 0) {
             map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
         }

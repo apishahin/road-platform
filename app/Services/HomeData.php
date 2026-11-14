@@ -34,7 +34,7 @@ class HomeData
         IssueNotice::mark($repaired);
 
         // Latest approved photo per visible issue (recent list + repair cards).
-        $ids = $issues->take(6)->pluck('id')->merge($repaired->pluck('id'))->unique()->all();
+        $ids = $issues->take(7)->pluck('id')->merge($repaired->pluck('id'))->unique()->all();
         $photos = [];
         try {
             $evs = \App\Models\Evidence::query()
@@ -55,7 +55,7 @@ class HomeData
         }
 
         return [
-            'recent' => $issues->take(6),
+            'recent' => $issues->take(7),
             'photos' => $photos,
             'mapIssues' => $issues->map(fn ($i) => IssuePresenter::map($i))->values(),
             'repaired' => $repaired,

@@ -455,6 +455,7 @@ return [
     'hero_note_1'         => 'Good roads are everybody\'s ',
     'hero_note_hl'        => 'right',
     'map_box_title'       => 'Problem map',
+    'map_sec_title'       => 'See problems on Bangladesh\'s map',
     'fund_tagline_default'=> 'Let us all come forward, together',
 
     // Admin: colour & gradient theme
