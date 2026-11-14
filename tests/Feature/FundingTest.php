@@ -53,6 +53,47 @@ class FundingTest extends TestCase
             ->assertSee('id="fund-donate-btn"', false);
     }
 
+    public function test_home_box_metrics_days_left_and_toggles(): void
+    {
+        $c = $this->campaign(['ends_at' => now()->addDays(30)->toDateString()]);
+        $this->donate($c, 200);
+        $this->donate($c, 100);
+
+        // 2 paid donors, 1 campaign, 30 days left, secure-payment note
+        $this->get('/')->assertOk()
+            ->assertSee(__('issues.fund_donors'))
+            ->assertSee(__('issues.fund_projects'))
+            ->assertSee(__('issues.fund_days_left', ['count' => \App\Support\Funding::num(30)]))
+            ->assertSee(__('issues.fund_secure_note'));
+
+        // every metric can be switched off from the admin
+        \App\Support\SiteSections::save(['sections' => ['fund' => ['on' => true, 'm_donors' => false, 'm_projects' => false, 'm_days' => false, 'note' => 'ZZNQ note']]]);
+        $this->get('/')->assertOk()
+            ->assertDontSee(__('issues.fund_days_left', ['count' => \App\Support\Funding::num(30)]))
+            ->assertSee('ZZNQ note');
+    }
+
+    public function test_days_left_helper(): void
+    {
+        $this->assertNull(Funding::daysLeft($this->campaign()));
+        $this->assertSame(10, Funding::daysLeft($this->campaign(['ends_at' => now()->addDays(10)->toDateString()])));
+        $this->assertSame(0, Funding::daysLeft($this->campaign(['ends_at' => now()->subDays(3)->toDateString()])));
+    }
+
+    public function test_admin_can_save_campaign_end_date(): void
+    {
+        $admin = $this->user('admin');
+        $this->actingAs($admin)->post(route('admin.funding.save'), [
+            'title' => 'ZZFUND Dated', 'goal_amount' => 500,
+            'ends_at' => now()->addDays(45)->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('fund_campaigns', ['title' => 'ZZFUND Dated']);
+        $c = FundCampaign::where('title', 'ZZFUND Dated')->first();
+        $this->assertNotNull($c->ends_at);
+        $this->assertSame(45, Funding::daysLeft($c));
+    }
+
     public function test_donate_button_hides_when_goal_met(): void
     {
         $c = $this->campaign();

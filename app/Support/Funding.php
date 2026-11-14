@@ -23,6 +23,32 @@ class Funding
         return (int) FundDonation::where('campaign_id', $c->id)->where('status', 'paid')->sum('amount');
     }
 
+    /** Number of paid donations (not amount) for the campaign. */
+    public static function donorCount(FundCampaign $c): int
+    {
+        return (int) FundDonation::where('campaign_id', $c->id)->where('status', 'paid')->count();
+    }
+
+    /** Total campaigns ever created ("projects" metric on the home page). */
+    public static function projectCount(): int
+    {
+        try {
+            return (int) FundCampaign::count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /** Whole days left until the campaign end date; null when no date set. */
+    public static function daysLeft(FundCampaign $c): ?int
+    {
+        if (! $c->ends_at) {
+            return null;
+        }
+
+        return max(0, (int) now()->startOfDay()->diffInDays($c->ends_at->copy()->startOfDay(), false));
+    }
+
     public static function canDonate(FundCampaign $c, ?int $raised = null): bool
     {
         $raised ??= self::raised($c);

@@ -202,4 +202,149 @@ class SiteSectionsTest extends TestCase
         $this->assertSame('classic', SiteSections::design('home'));
         $this->get('/')->assertOk()->assertSee('data-home-design="classic"', false);
     }
+
+    // ── Homepage audit additions (slider, ribbon, CTA, dark footer) ──
+
+    public function test_hero_slider_off_by_default_and_renders_when_enabled(): void
+    {
+        $this->get('/')->assertOk()->assertDontSee('data-hero-slider', false);
+
+        $this->override(['hero_slider' => ['on' => true, 'slides' => [
+            ['url' => 'https://img.example/road.jpg', 'title' => 'ZZSLIDE headline', 'tag' => 'ZZTAG slogan'],
+        ]]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-hero-slider', false)
+            ->assertSee('ZZSLIDE headline')
+            ->assertSee('ZZTAG slogan')
+            ->assertSee('https://img.example/road.jpg', false);
+
+        // and the modern design shows it too
+        $this->override(['design' => ['home' => 'modern'], 'hero_slider' => ['on' => true, 'slides' => [
+            ['url' => 'https://img.example/road.jpg'],
+        ]]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-home-design="modern"', false)
+            ->assertSee('data-hero-slider', false);
+    }
+
+    public function test_hero_slider_falls_back_to_text_hero_without_images(): void
+    {
+        $this->override(['hero_slider' => ['on' => true, 'slides' => [
+            ['title' => 'ZZSLIDE no image'],
+        ]]]);
+        // no usable slide → the classic text hero must still be there
+        $this->get('/')->assertOk()
+            ->assertDontSee('data-hero-slider', false)
+            ->assertSee('data-home-design="classic"', false);
+    }
+
+    public function test_stats_ribbon_toggle_metrics_and_district_override(): void
+    {
+        $this->get('/')->assertOk()->assertDontSee('data-stats-ribbon', false); // off by default
+
+        $this->override(['sections' => ['ribbon' => ['on' => true, 'district_n' => 'ZZ64 districts']]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-stats-ribbon', false)
+            ->assertSee(__('issues.ribbon_reports'))
+            ->assertSee(__('issues.ribbon_users'))
+            ->assertSee('ZZ64 districts');
+
+        // turn the users metric off
+        $this->override(['sections' => ['ribbon' => ['on' => true, 'm3' => false]]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-stats-ribbon', false)
+            ->assertDontSee(__('issues.ribbon_users'));
+    }
+
+    public function test_cta_band_defaults_off_and_is_customizable(): void
+    {
+        $this->get('/')->assertOk()->assertDontSee('data-cta-band', false);
+
+        $this->override(['sections' => ['cta' => ['on' => true, 'title' => 'ZZCTA headline', 'btn' => 'ZZCTA button', 'url' => 'https://go.example/act']]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-cta-band', false)
+            ->assertSee('ZZCTA headline')
+            ->assertSee('ZZCTA button')
+            ->assertSee('href="https://go.example/act"', false);
+    }
+
+    public function test_dark_footer_and_social_links(): void
+    {
+        $this->get('/')->assertOk()->assertDontSee('data-footer-dark', false);
+
+        $this->override(['footer' => [
+            'dark'     => true,
+            'facebook' => 'https://fb.example/lokdhoj',
+            'youtube'  => 'javascript:alert(1)',  // unsafe scheme must be dropped
+        ]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-footer-dark', false)
+            ->assertSee('https://fb.example/lokdhoj', false)
+            ->assertDontSee('javascript:alert', false);
+    }
+
+    public function test_how_it_works_has_four_steps_in_both_designs(): void
+    {
+        $this->get('/')->assertOk()->assertSee(__('issues.how4_title'));
+        $this->override(['design' => ['home' => 'modern']]);
+        $this->get('/')->assertOk()->assertSee(__('issues.how4_title'));
+    }
+
+    public function test_back_to_top_button_is_present(): void
+    {
+        $this->get('/')->assertOk()->assertSee('id="back-to-top"', false);
+    }
+
+    public function test_admin_save_handles_new_fields(): void
+    {
+        $admin = $this->admin();
+        $this->actingAs($admin)->post('/admin/site', [
+            'sec_hero_on'        => '1',
+            'hero_slider_on'     => '1',
+            'slide_url_0'        => 'https://img.example/a.jpg',
+            'slide_title_0'      => 'ZZSLIDE via admin',
+            'sec_ribbon_on'      => '1',
+            'sec_ribbon_m2'      => '1',
+            'sec_cta_on'         => '1',
+            'sec_cta_title'      => 'ZZCTA saved',
+            'footer_dark'        => '1',
+            'footer_facebook'    => 'https://fb.example/x',
+        ])->assertRedirect();
+
+        $s = SiteSections::all();
+        $this->assertTrue($s['hero_slider']['on']);
+        $this->assertSame('https://img.example/a.jpg', $s['hero_slider']['slides'][0]['url']);
+        $this->assertTrue($s['sections']['ribbon']['on']);
+        $this->assertTrue($s['sections']['ribbon']['m2']);
+        $this->assertFalse($s['sections']['ribbon']['m1']); // unchecked checkbox = off
+        $this->assertTrue($s['footer']['dark']);
+        $this->assertSame('https://fb.example/x', $s['footer']['facebook']);
+
+        $this->get('/')->assertOk()
+            ->assertSee('data-hero-slider', false)
+            ->assertSee('ZZCTA saved')
+            ->assertSee('data-footer-dark', false);
+    }
+
+    public function test_admin_can_upload_a_slide_image(): void
+    {
+        $admin = $this->admin();
+        $png   = \Illuminate\Http\UploadedFile::fake()->image('slide.png', 800, 400);
+        $this->actingAs($admin)->post('/admin/site', [
+            'sec_hero_on'    => '1',
+            'hero_slider_on' => '1',
+            'slide_file_0'   => $png,
+        ])->assertRedirect();
+
+        $s = SiteSections::all();
+        $img = $s['hero_slider']['slides'][0]['img'];
+        $this->assertMatchesRegularExpression('/^hero-[a-z0-9]{16}\.png$/', $img);
+        @unlink(public_path(SiteSections::HERO_DIR . '/' . $img)); // tidy up
+
+        // a text file masquerading as an image is rejected
+        $this->actingAs($admin)->post('/admin/site', [
+            'sec_hero_on' => '1',
+            'slide_file_0' => \Illuminate\Http\UploadedFile::fake()->create('evil.php', 10, 'image/png'),
+        ])->assertSessionHasErrors();
+    }
 }

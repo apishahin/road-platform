@@ -40,6 +40,8 @@ class AppearanceController extends Controller
             'header_text' => $hex,
             'name_bn'     => ['nullable', 'string', 'max:60'],
             'name_en'     => ['nullable', 'string', 'max:60'],
+            'tagline_bn'  => ['nullable', 'string', 'max:120'],
+            'tagline_en'  => ['nullable', 'string', 'max:120'],
             'font_file'   => ['nullable', 'file', 'max:2048'],
             'logo'        => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
             'remove_logo' => ['nullable', 'boolean'],
@@ -55,6 +57,8 @@ class AppearanceController extends Controller
         $new['header_text'] = strtolower($data['header_text']);
         $new['name_bn']     = trim((string) ($data['name_bn'] ?? ''));
         $new['name_en']     = trim((string) ($data['name_en'] ?? ''));
+        $new['tagline_bn']  = trim((string) ($data['tagline_bn'] ?? ''));
+        $new['tagline_en']  = trim((string) ($data['tagline_en'] ?? ''));
 
         $new['issue_view'] = $request->input('issue_view') === 'detailed' ? 'detailed' : 'simple';
 

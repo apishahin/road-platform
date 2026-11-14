@@ -13,6 +13,15 @@
         @endif
         <div style="margin-top:10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:15px;color:#0f172a;">
             <span><strong>&#2547;{{ \App\Support\Funding::num($fRaised) }}</strong> {{ __('issues.fund_raised') }}</span>
+            @if (\App\Support\SiteSections::boolOn('fund', 'm_donors'))
+                <span>{{ \App\Support\Funding::num(\App\Support\Funding::donorCount($fc)) }} {{ __('issues.fund_donors') }}</span>
+            @endif
+            @if (\App\Support\SiteSections::boolOn('fund', 'm_projects'))
+                <span>{{ \App\Support\Funding::num(\App\Support\Funding::projectCount()) }} {{ __('issues.fund_projects') }}</span>
+            @endif
+            @if (\App\Support\SiteSections::boolOn('fund', 'm_days') && ($fDaysLeft = \App\Support\Funding::daysLeft($fc)) !== null)
+                <span>{{ __('issues.fund_days_left', ['count' => \App\Support\Funding::num($fDaysLeft)]) }}</span>
+            @endif
             <span>{{ __('issues.fund_goal') }}: &#2547;{{ \App\Support\Funding::num($fc->goal_amount) }}</span>
         </div>
         <div style="margin-top:6px;height:12px;background:#fde68a;border-radius:999px;overflow:hidden;">
@@ -25,6 +34,7 @@
                 <span style="font-weight:700;color:#166534;">{{ __('issues.fund_goal_met') }}</span>
             @endif
             <a href="{{ route('fund.show') }}" style="font-size:14px;font-weight:600;color:#9a3412;text-decoration:underline;">{{ __('issues.fund_details') }}</a>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#166534;">&#128737;&#65039; {{ \App\Support\SiteSections::txt('fund', 'note', __('issues.fund_secure_note')) }}</span>
         </div>
     </div>
 </section>

@@ -105,10 +105,15 @@
                     <label style="{{ $lbl }}">{{ __('issues.fund_c_desc') }}</label>
                     <textarea name="description" rows="3" style="{{ $inp }}">{{ old('description', $edit->description ?? '') }}</textarea>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <div>
                         <label style="{{ $lbl }}">{{ __('issues.fund_c_goal') }}</label>
                         <input type="number" name="goal_amount" min="1" value="{{ old('goal_amount', $edit->goal_amount ?? '') }}" required style="{{ $inp }}">
+                    </div>
+                    <div>
+                        <label style="{{ $lbl }}">{{ __('issues.fund_c_ends_at') }}</label>
+                        <input type="date" name="ends_at" value="{{ old('ends_at', $edit?->ends_at?->format('Y-m-d') ?? '') }}" style="{{ $inp }}">
+                        <small style="color:#94a3b8;">{{ __('issues.fund_c_ends_hint') }}</small>
                     </div>
                     <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;padding-top:8px;">
                         <label style="font-size:13px;font-weight:600;color:#334155;"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $edit->is_active ?? false))> {{ __('issues.fund_c_active') }}</label>

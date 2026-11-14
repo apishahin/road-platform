@@ -46,6 +46,7 @@ class FundingController extends Controller
             'title'          => ['required', 'string', 'max:200'],
             'description'    => ['nullable', 'string', 'max:5000'],
             'goal_amount'    => ['required', 'integer', 'min:1', 'max:1000000000'],
+            'ends_at'        => ['nullable', 'date', 'after_or_equal:today'],
             'heads'          => ['nullable', 'array', 'max:30'],
             'heads.*.name'   => ['nullable', 'string', 'max:150'],
             'heads.*.amount' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
@@ -59,6 +60,7 @@ class FundingController extends Controller
                 'title'       => $data['title'],
                 'description' => $data['description'] ?? null,
                 'goal_amount' => (int) $data['goal_amount'],
+                'ends_at'     => $data['ends_at'] ?? null,
                 'is_active'   => $request->boolean('is_active'),
                 'show_donors' => $request->boolean('show_donors'),
             ])->save();

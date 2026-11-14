@@ -106,6 +106,19 @@
                 </label>
             </div>
             <p class="mt-2 text-xs text-slate-500">ডিফল্ট: মূল রং {{ $d['brand'] }}, হেডারের পটভূমি {{ $d['header_bg'] }}, লেখা {{ $d['header_text'] }}।</p>
+            {{-- Brand colour presets (one click) --}}
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span class="font-medium">প্রিসেট:</span>
+                <button type="button" onclick="this.closest('section').querySelector('input[name=brand]').value='#16a34a'"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="size-3.5 rounded-full" style="background:#16a34a"></span> সবুজ
+                </button>
+                <button type="button" onclick="this.closest('section').querySelector('input[name=brand]').value='#ea580c'"
+                        class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-50">
+                    <span class="size-3.5 rounded-full" style="background:#ea580c"></span> কমলা
+                </button>
+                <span>(ক্লিক করার পর সংরক্ষণ করতে ভুলবেন না)</span>
+            </div>
         </section>
 
         {{-- Name and logo --}}
@@ -119,6 +132,14 @@
                 <label class="text-sm">
                     <span class="block font-medium text-slate-700">Name (English)</span>
                     <input type="text" name="name_en" maxlength="60" value="{{ old('name_en', $s['name_en']) }}" placeholder="Empty = default name" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                </label>
+                <label class="text-sm">
+                    <span class="block font-medium text-slate-700">ট্যাগলাইন (বাংলা) — নামের নিচে ছোট লাইন</span>
+                    <input type="text" name="tagline_bn" maxlength="120" value="{{ old('tagline_bn', $s['tagline_bn'] ?? '') }}" placeholder="ফাঁকা থাকলে দেখানো হয় না" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
+                </label>
+                <label class="text-sm">
+                    <span class="block font-medium text-slate-700">Tagline (English) — small line under the name</span>
+                    <input type="text" name="tagline_en" maxlength="120" value="{{ old('tagline_en', $s['tagline_en'] ?? '') }}" placeholder="Empty = hidden" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2">
                 </label>
             </div>
 

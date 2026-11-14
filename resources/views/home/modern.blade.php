@@ -1,8 +1,15 @@
 @php $S = \App\Support\SiteSections::class; @endphp
 <div data-home-design="modern">
 
-{{-- Hero --}}
+{{-- Hero (photo slider mode, or the text hero) --}}
 @if ($S::on('hero'))
+@php $heroSlider = $S::heroSlider(); @endphp
+@if ($heroSlider['on'] && count($heroSlider['slides']) > 0)
+    @include('home._slider')
+    @if ($S::on('stats'))
+        @include('home._stats-row')
+    @endif
+@else
 <section class="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-900 text-white sm:rounded-b-[3rem]">
     <div class="pointer-events-none absolute -top-24 right-[-10%] h-72 w-72 rounded-full bg-brand-600/25 blur-3xl sm:h-96 sm:w-96"></div>
     <div class="pointer-events-none absolute bottom-[-40%] left-[-10%] h-72 w-72 rounded-full bg-indigo-600/20 blur-3xl"></div>
@@ -46,6 +53,7 @@
         @endif
     </div>
 </section>
+@endif
 @endif
 
 @if ($S::on('fund'))
@@ -104,21 +112,48 @@
 </section>
 @endif
 
-{{-- How it works --}}
+@include('home._ribbon')
+
+{{-- How it works (4 steps, icons + connecting arrows on desktop) --}}
 @if ($S::on('how'))
 <section class="border-t border-slate-200 bg-slate-50">
-    <div class="mx-auto grid max-w-6xl gap-3 px-4 py-6 sm:gap-4 sm:py-9 md:grid-cols-3">
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:py-9">
+        <div class="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-stretch">
+        @php
+        $hwIcons = [
+            '<path stroke-linecap="round" stroke-linejoin="round" d="m16.86 4.49 1.69-1.69a1.88 1.88 0 1 1 2.65 2.65L3.83 22.83a2.83 2.83 0 0 1-1.41.76L1 24l.41-2.42a2.83 2.83 0 0 1 .76-1.41Z"/>',
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path stroke-linecap="round" d="M4 22v-7"/>',
+        ];
+        @endphp
         @foreach ([
-            ['s1t', '1. Find or report', 's1x', 'Check the map first. Add to an existing issue, or report a new one with a location and photos.', 1],
-            ['s2t', '2. Follow the record', 's2x', 'Every status change is dated and shows who or what supplied it.', 2],
-            ['s3t', '3. Verify the outcome', 's3x', 'A repair claim is not the same as a verified repair. The community can confirm it or reopen the issue.', 3],
+            ['s1t', 'issues.how1_title', 's1x', 'issues.how1_text', 1],
+            ['s2t', 'issues.how2_title', 's2x', 'issues.how2_text', 2],
+            ['s3t', 'issues.how3_title', 's3x', 'issues.how3_text', 3],
+            ['s4t', 'issues.how4_title', 's4x', 'issues.how4_text', 4],
         ] as [$tk, $tdef, $xk, $xdef, $num])
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
-                <div class="flex size-9 items-center justify-center rounded-full bg-brand-600/10 text-sm font-extrabold text-brand-700">{{ \App\Support\IssuePresenter::num($num) }}</div>
+            <div class="flex-1 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
+                <div class="flex items-center gap-2.5">
+                    <span class="grid size-9 shrink-0 place-items-center rounded-full bg-brand-600/10 text-brand-700">
+                        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">{!! $hwIcons[$num - 1] !!}</svg>
+                    </span>
+                    <span class="text-xs font-extrabold text-slate-400">{{ \App\Support\IssuePresenter::num($num) }}</span>
+                </div>
                 <h3 class="mt-2.5 font-bold text-slate-900 {{ $S::sizeClass('how') === 'text-xl sm:text-2xl' ? 'text-base' : $S::sizeClass('how') }}">{{ $S::txt('how', $tk, __($tdef)) }}</h3>
                 <p class="mt-1 text-sm leading-relaxed text-slate-600">{{ $S::txt('how', $xk, __($xdef)) }}</p>
             </div>
+            @if ($num < 4)
+                <div class="hidden items-center text-slate-300 md:flex" aria-hidden="true">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12l-7.5 7.5M21 12H3"/></svg>
+                </div>
+            @endif
         @endforeach
+        </div>
+        @php $howPage = \App\Models\Page::where('slug', 'how-it-works')->where('is_published', true)->first(); @endphp
+        @if ($howPage)
+            <a href="{{ route('page.show', $howPage->slug) }}" class="mt-4 inline-block text-sm font-bold text-brand-700 hover:underline">{{ __('issues.how_more') }} &rarr;</a>
+        @endif
     </div>
 </section>
 @endif
@@ -143,6 +178,10 @@
             </div>
         </div>
     </section>
+@endif
+
+@if ($S::on('cta'))
+    @include('home._cta')
 @endif
 
 @if ($S::on('privacy'))

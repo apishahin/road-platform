@@ -1,7 +1,14 @@
 <div data-home-design="classic">@php $S = \App\Support\SiteSections::class; @endphp
 
-{{-- Hero --}}
+{{-- Hero (photo slider mode, or the text hero) --}}
 @if ($S::on('hero'))
+@php $heroSlider = $S::heroSlider(); @endphp
+@if ($heroSlider['on'] && count($heroSlider['slides']) > 0)
+    @include('home._slider')
+    @if ($S::on('stats'))
+        @include('home._stats-row')
+    @endif
+@else
 <section class="bg-slate-900 text-white">
     <div class="mx-auto max-w-6xl px-4 py-6 sm:py-10">
         <h1 class="max-w-3xl font-bold leading-snug {{ $S::sizeClass('hero') }}">
@@ -41,6 +48,7 @@
         @endif
     </div>
 </section>
+@endif
 @endif
 
 @if ($S::on('fund'))
@@ -102,20 +110,30 @@
 </section>
 @endif
 
-{{-- How it works --}}
+@include('home._ribbon')
+
+{{-- How it works (4 steps) --}}
 @if ($S::on('how'))
 <section class="border-t border-slate-200 bg-white">
-    <div class="mx-auto grid max-w-6xl gap-4 px-4 py-6 sm:gap-6 sm:py-8 md:grid-cols-3">
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+        <div class="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-4">
         @foreach ([
-            ['s1t', '1. Find or report', 's1x', 'Check the map first. Add to an existing issue, or report a new one with a location and photos.'],
-            ['s2t', '2. Follow the record', 's2x', 'Every status change is dated and shows who or what supplied it.'],
-            ['s3t', '3. Verify the outcome', 's3x', 'A repair claim is not the same as a verified repair. The community can confirm it or reopen the issue.'],
-        ] as [$tk, $tdef, $xk, $xdef])
+            ['s1t', 'issues.how1_title', 's1x', 'issues.how1_text', 1],
+            ['s2t', 'issues.how2_title', 's2x', 'issues.how2_text', 2],
+            ['s3t', 'issues.how3_title', 's3x', 'issues.how3_text', 3],
+            ['s4t', 'issues.how4_title', 's4x', 'issues.how4_text', 4],
+        ] as [$tk, $tdef, $xk, $xdef, $num])
             <div>
-                <h3 class="text-base font-semibold text-slate-900">{{ $S::txt('how', $tk, __($tdef)) }}</h3>
+                <span class="inline-flex size-7 items-center justify-center rounded-full bg-brand-600/10 text-xs font-extrabold text-brand-700">{{ \App\Support\IssuePresenter::num($num) }}</span>
+                <h3 class="mt-1.5 text-base font-semibold text-slate-900">{{ $S::txt('how', $tk, __($tdef)) }}</h3>
                 <p class="mt-1 text-sm text-slate-600">{{ $S::txt('how', $xk, __($xdef)) }}</p>
             </div>
         @endforeach
+        </div>
+        @php $howPage = \App\Models\Page::where('slug', 'how-it-works')->where('is_published', true)->first(); @endphp
+        @if ($howPage)
+            <a href="{{ route('page.show', $howPage->slug) }}" class="mt-4 inline-block text-sm font-semibold text-brand-700 hover:underline">{{ __('issues.how_more') }} &rarr;</a>
+        @endif
     </div>
 </section>
 @endif
@@ -139,6 +157,10 @@
             </div>
         </div>
     </section>
+@endif
+
+@if ($S::on('cta'))
+    @include('home._cta')
 @endif
 
 @if ($S::on('privacy'))

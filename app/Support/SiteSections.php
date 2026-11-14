@@ -16,25 +16,37 @@ class SiteSections
 {
     public const KEY = 'site';
 
-    public const SECTIONS   = ['hero', 'stats', 'fund', 'map', 'how', 'repaired', 'privacy'];
+    public const SECTIONS   = ['hero', 'stats', 'fund', 'ribbon', 'map', 'how', 'repaired', 'cta', 'privacy'];
     public const SIZES      = ['normal', 'large', 'xlarge'];
     public const NAV_ITEMS  = ['home', 'issues', 'report', 'lang', 'fund'];
     public const PAGES      = ['home', 'report'];
     public const DESIGNS    = ['classic', 'modern'];
 
+    public const HERO_SLIDES = 3;              // max slides
+    public const HERO_DIR    = 'uploads/hero'; // inside public/
+    public const SOCIALS     = ['facebook', 'youtube', 'x', 'website'];
+
     /** text fields editable per section */
     public const TEXT_FIELDS = [
         'hero'     => ['title', 'text'],
         'stats'    => [],
-        'fund'     => [],
+        'fund'     => ['note'],
+        'ribbon'   => ['l1', 'l2', 'l3', 'l4', 'district_n'],
         'map'      => ['title'],
-        'how'      => ['s1t', 's1x', 's2t', 's2x', 's3t', 's3x'],
+        'how'      => ['s1t', 's1x', 's2t', 's2x', 's3t', 's3x', 's4t', 's4x'],
         'repaired' => ['title', 'text'],
+        'cta'      => ['title', 'text', 'btn', 'url'],
         'privacy'  => ['text'],
     ];
 
+    /** per-section ON/OFF sub-toggles (metrics inside the section) */
+    public const BOOL_FIELDS = [
+        'fund'   => ['m_donors', 'm_projects', 'm_days'],
+        'ribbon' => ['m1', 'm2', 'm3', 'm4'],
+    ];
+
     /** sections that have a heading size control */
-    public const SIZE_FIELDS = ['hero', 'map', 'how', 'repaired'];
+    public const SIZE_FIELDS = ['hero', 'map', 'how', 'repaired', 'cta'];
 
     public static function defaults(): array
     {
@@ -42,16 +54,24 @@ class SiteSections
             'sections' => [
                 'hero'     => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => ''],
                 'stats'    => ['on' => true],
-                'fund'     => ['on' => true],
+                'fund'     => ['on' => true,  'note' => '', 'm_donors' => true, 'm_projects' => true, 'm_days' => true],
+                'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true],
                 'map'      => ['on' => true,  'size' => 'normal', 'title' => ''],
-                'how'      => ['on' => true,  'size' => 'normal', 's1t' => '', 's1x' => '', 's2t' => '', 's2x' => '', 's3t' => '', 's3x' => ''],
+                'how'      => ['on' => true,  'size' => 'normal', 's1t' => '', 's1x' => '', 's2t' => '', 's2x' => '', 's3t' => '', 's3x' => '', 's4t' => '', 's4x' => ''],
                 'repaired' => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => ''],
+                'cta'      => ['on' => false, 'size' => 'normal', 'title' => '', 'text' => '', 'btn' => '', 'url' => ''],
                 'privacy'  => ['on' => true,  'text' => ''],
             ],
             'nav'    => ['home' => true, 'issues' => true, 'report' => true, 'lang' => true, 'fund' => false],
-            'footer' => ['text' => '', 'links_on' => true],
+            'footer' => ['text' => '', 'links_on' => true, 'dark' => false, 'facebook' => '', 'youtube' => '', 'x' => '', 'website' => ''],
             'design' => ['home' => 'classic', 'report' => 'classic'],
+            'hero_slider' => ['on' => false, 'slides' => [self::emptySlide(), self::emptySlide(), self::emptySlide()]],
         ];
+    }
+
+    private static function emptySlide(): array
+    {
+        return ['img' => '', 'url' => '', 'title' => '', 'text' => '', 'tag' => ''];
     }
 
     public static function all(): array
@@ -73,6 +93,40 @@ class SiteSections
         return self::sanitize($stored);
     }
 
+    /** Only allow safe URLs: site-relative, or http(s). */
+    public static function cleanUrl($v, int $max = 300): string
+    {
+        $v = mb_substr(trim((string) $v), 0, $max);
+        if ($v === '') {
+            return '';
+        }
+        if (str_starts_with($v, '/') && ! str_starts_with($v, '//')) {
+            return $v;
+        }
+        if (preg_match('#^https?://#i', $v)) {
+            return $v;
+        }
+
+        return '';
+    }
+
+    /** Sanitize one hero slide row. Uploaded image = generated safe filename only. */
+    private static function cleanSlide(array $in): array
+    {
+        $img = (string) ($in['img'] ?? '');
+        if (! preg_match('/^hero-[a-z0-9]{16}\.(png|jpg|webp)$/', $img)) {
+            $img = '';
+        }
+
+        return [
+            'img'   => $img,
+            'url'   => self::cleanUrl($in['url'] ?? ''),
+            'title' => mb_substr(trim((string) ($in['title'] ?? '')), 0, 300),
+            'text'  => mb_substr(trim((string) ($in['text'] ?? '')), 0, 500),
+            'tag'   => mb_substr(trim((string) ($in['tag'] ?? '')), 0, 100),
+        ];
+    }
+
     public static function sanitize(array $in): array
     {
         $d = self::defaults();
@@ -80,7 +134,7 @@ class SiteSections
         $navIn = is_array($in['nav'] ?? null) ? $in['nav'] : [];
         $ftrIn = is_array($in['footer'] ?? null) ? $in['footer'] : [];
 
-        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => []];
+        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => []];
 
         foreach (self::SECTIONS as $s) {
             $base = $d['sections'][$s];
@@ -91,7 +145,10 @@ class SiteSections
             }
             foreach (self::TEXT_FIELDS[$s] as $f) {
                 $v = $over[$f] ?? $base[$f];
-                $row[$f] = mb_substr(trim((string) $v), 0, 500);
+                $row[$f] = $f === 'url' ? self::cleanUrl($v) : mb_substr(trim((string) $v), 0, 500);
+            }
+            foreach (self::BOOL_FIELDS[$s] ?? [] as $b) {
+                $row[$b] = array_key_exists($b, $over) ? (bool) $over[$b] : $base[$b];
             }
             $out['sections'][$s] = $row;
         }
@@ -103,13 +160,28 @@ class SiteSections
         $out['footer'] = [
             'text'     => mb_substr(trim((string) ($ftrIn['text'] ?? $d['footer']['text'])), 0, 1000),
             'links_on' => array_key_exists('links_on', $ftrIn) ? (bool) $ftrIn['links_on'] : $d['footer']['links_on'],
+            'dark'     => array_key_exists('dark', $ftrIn) ? (bool) $ftrIn['dark'] : $d['footer']['dark'],
         ];
+        foreach (self::SOCIALS as $soc) {
+            $out['footer'][$soc] = self::cleanUrl($ftrIn[$soc] ?? '');
+        }
 
         $dsnIn = is_array($in['design'] ?? null) ? $in['design'] : [];
         foreach (self::PAGES as $pg) {
             $v = $dsnIn[$pg] ?? $d['design'][$pg];
             $out['design'][$pg] = in_array($v, self::DESIGNS, true) ? $v : $d['design'][$pg];
         }
+
+        $hsIn = is_array($in['hero_slider'] ?? null) ? $in['hero_slider'] : [];
+        $slidesIn = is_array($hsIn['slides'] ?? null) ? $hsIn['slides'] : [];
+        $slides = [];
+        for ($i = 0; $i < self::HERO_SLIDES; $i++) {
+            $slides[] = self::cleanSlide(is_array($slidesIn[$i] ?? null) ? $slidesIn[$i] : []);
+        }
+        $out['hero_slider'] = [
+            'on'     => (bool) ($hsIn['on'] ?? $d['hero_slider']['on']),
+            'slides' => $slides,
+        ];
 
         return $out;
     }
@@ -128,6 +200,12 @@ class SiteSections
     public static function on(string $section): bool
     {
         return (bool) (self::all()['sections'][$section]['on'] ?? true);
+    }
+
+    /** Per-section metric/sub-toggle ON/OFF. Unknown = on. */
+    public static function boolOn(string $section, string $key): bool
+    {
+        return (bool) (self::all()['sections'][$section][$key] ?? true);
     }
 
     /** Nav item ON/OFF. Unknown item = on. */
@@ -153,6 +231,27 @@ class SiteSections
         $v = trim((string) (self::all()['sections'][$section][$field] ?? ''));
 
         return $v !== '' ? $v : $fallback;
+    }
+
+    /** Hero slider config: ['on'=>bool, 'slides'=>[...]]; slides with no image/url are dropped for display. */
+    public static function heroSlider(): array
+    {
+        $hs = self::all()['hero_slider'];
+        $slides = [];
+        foreach ($hs['slides'] as $sl) {
+            if ($sl['img'] !== '' || $sl['url'] !== '') {
+                $slides[] = $sl;
+            }
+        }
+        $hs['slides'] = $slides;
+
+        return $hs;
+    }
+
+    /** Public URL of an uploaded hero slide image. */
+    public static function heroImgUrl(string $file): string
+    {
+        return asset(self::HERO_DIR . '/' . $file);
     }
 
     /** Heading size class for section headings (Tailwind text-* utility). */

@@ -26,6 +26,26 @@
                 <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-amber-200/70">
                     <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-600 transition-all" style="width:{{ $fPct }}%"></div>
                 </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if (\App\Support\SiteSections::boolOn('fund', 'm_donors'))
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-amber-200">
+                            <svg class="size-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            {{ \App\Support\Funding::num(\App\Support\Funding::donorCount($fc)) }} {{ __('issues.fund_donors') }}
+                        </span>
+                    @endif
+                    @if (\App\Support\SiteSections::boolOn('fund', 'm_projects'))
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-amber-200">
+                            <svg class="size-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 3 4.06 15.06a.75.75 0 0 0 .53.24H11l-1.5 5.2L19 8.2a.75.75 0 0 0-.53-.7h-6.6l1.63-4.5Z"/></svg>
+                            {{ \App\Support\Funding::num(\App\Support\Funding::projectCount()) }} {{ __('issues.fund_projects') }}
+                        </span>
+                    @endif
+                    @if (\App\Support\SiteSections::boolOn('fund', 'm_days') && ($fDaysLeft = \App\Support\Funding::daysLeft($fc)) !== null)
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold text-slate-700 ring-1 ring-amber-200">
+                            <svg class="size-4 text-emerald-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="17" rx="2"/><path stroke-linecap="round" d="M8 2.5v4M16 2.5v4M3 10h18"/></svg>
+                            {{ __('issues.fund_days_left', ['count' => \App\Support\Funding::num($fDaysLeft)]) }}
+                        </span>
+                    @endif
+                </div>
             </div>
             <div class="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
                 @if ($fCan)
@@ -37,6 +57,10 @@
                     <span class="inline-flex items-center justify-center rounded-full bg-emerald-600/10 px-6 py-3 font-extrabold text-emerald-700">{{ __('issues.fund_goal_met') }}</span>
                 @endif
                 <a href="{{ route('fund.show') }}" class="text-center text-sm font-bold text-amber-800 underline-offset-2 hover:underline">{{ __('issues.fund_details') }}</a>
+                <p class="flex items-center justify-center gap-1 text-[11px] font-semibold text-emerald-800/80">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 6v5.25c0 4.7 3.2 8.28 7.5 9.75 4.3-1.47 7.5-5.05 7.5-9.75V6L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9.5 11.75 1.75 1.75 3.25-3.5"/></svg>
+                    {{ \App\Support\SiteSections::txt('fund', 'note', __('issues.fund_secure_note')) }}
+                </p>
             </div>
         </div>
     </div>

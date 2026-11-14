@@ -31,6 +31,8 @@ class AppearanceSettings
             'header_text' => '#475569',
             'name_bn'     => '',
             'name_en'     => '',
+            'tagline_bn'  => '',
+            'tagline_en'  => '',
             'logo'        => null,
             'issue_view'  => 'simple',
         ];
@@ -80,6 +82,11 @@ class AppearanceSettings
         foreach (['name_bn', 'name_en'] as $k) {
             $v = is_string($in[$k] ?? null) ? $in[$k] : '';
             $out[$k] = mb_substr(trim(strip_tags($v)), 0, 60);
+        }
+
+        foreach (['tagline_bn', 'tagline_en'] as $k) {
+            $v = is_string($in[$k] ?? null) ? $in[$k] : '';
+            $out[$k] = mb_substr(trim(strip_tags($v)), 0, 120);
         }
 
         $ff = $in['font_file'] ?? null;
@@ -154,6 +161,14 @@ class AppearanceSettings
         $logo = self::all()['logo'];
 
         return $logo ? asset(self::DIR . '/' . $logo) : null;
+    }
+
+    /** Short line shown under the site name (header + footer). Empty = hidden. */
+    public static function tagline(): string
+    {
+        $s = self::all();
+
+        return app()->getLocale() === 'bn' ? $s['tagline_bn'] : $s['tagline_en'];
     }
 
     public static function googleFontUrl(string $font): string

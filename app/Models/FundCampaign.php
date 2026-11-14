@@ -9,10 +9,11 @@ class FundCampaign extends Model
 {
     protected $table = 'fund_campaigns';
 
-    protected $fillable = ['title', 'description', 'goal_amount', 'is_active', 'show_donors'];
+    protected $fillable = ['title', 'description', 'goal_amount', 'ends_at', 'is_active', 'show_donors'];
 
     protected $casts = [
         'goal_amount' => 'integer',
+        'ends_at'     => 'date',
         'is_active'   => 'boolean',
         'show_donors' => 'boolean',
     ];
