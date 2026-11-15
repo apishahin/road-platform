@@ -15,6 +15,13 @@ Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name(
 
 // Report flow (login required)
 Route::middleware('auth')->group(function () {
+    // Verify (or set + verify) the mobile number of a logged-in account.
+    Route::get('/account/phone', [\App\Http\Controllers\PhoneVerificationController::class, 'show'])->name('account.phone');
+    Route::post('/account/phone/send', [\App\Http\Controllers\PhoneVerificationController::class, 'send'])->middleware('throttle:10,1')->name('account.phone.send');
+    Route::post('/account/phone/verify', [\App\Http\Controllers\PhoneVerificationController::class, 'verify'])->middleware('throttle:10,1')->name('account.phone.verify');
+    Route::post('/account/phone/firebase', [\App\Http\Controllers\PhoneVerificationController::class, 'firebase'])->middleware('throttle:10,1')->name('account.phone.firebase');
+    Route::post('/account/phone/dismiss', [\App\Http\Controllers\PhoneVerificationController::class, 'dismiss'])->name('account.phone.dismiss');
+
     Route::get('/report', [ReportController::class, 'create'])->name('report.create');
     Route::post('/report', [ReportController::class, 'store'])->middleware('throttle:20,1')->name('report.store');
     Route::get('/report/success', [ReportController::class, 'success'])->name('report.success');

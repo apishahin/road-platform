@@ -92,6 +92,8 @@
         </div>
     </header>
 
+    @include('partials.phone-banner')
+
     @if (session('status'))
         <div class="bg-green-50 px-4 py-3 text-center text-sm text-green-800">{{ session('status') }}</div>
     @endif
