@@ -12,7 +12,7 @@ class LoginSettings
 {
     public const KEY = 'login_settings';
     public const PROVIDERS = ['log', 'gateway', 'firebase', 'telegram'];
-    public const BOOLS = ['otp_enabled', 'password_enabled', 'google_enabled', 'registration_open', 'password_for_staff'];
+    public const BOOLS = ['otp_enabled', 'password_enabled', 'google_enabled', 'registration_open', 'password_for_staff', 'require_verified_phone'];
 
     public static function defaults(): array
     {
@@ -22,6 +22,7 @@ class LoginSettings
             'google_enabled'     => false,
             'registration_open'  => true,
             'password_for_staff' => false,
+            'require_verified_phone' => false,
             'otp_provider'       => 'log',
             'google_phone'       => 'required',
             'firebase_api_key' => '',
@@ -106,6 +107,9 @@ class LoginSettings
     public static function googleEnabled(): bool { return (bool) self::all()['google_enabled']; }
     public static function registrationOpen(): bool { return (bool) self::all()['registration_open']; }
     public static function passwordForStaff(): bool { return (bool) self::all()['password_for_staff']; }
+
+    /** When on, citizens must verify their number before contributing (report/observe/verify/volunteer). */
+    public static function requireVerifiedPhone(): bool { return (bool) self::all()['require_verified_phone']; }
     public static function provider(): string { return (string) self::all()['otp_provider']; }
 
     /** Whether Google sign-in must be followed by a mobile number ('required'|'optional'). */

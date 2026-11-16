@@ -16,4 +16,8 @@ return [
     'banner_verify'      => 'Your mobile number is not verified yet.',
     'banner_verify_cta'  => 'Verify now',
     'dismiss'            => 'Hide',
+
+    'settings_label'  => 'Require a verified mobile number',
+    'settings_help'   => 'When on, citizens must verify their number before reporting a problem, confirming or observing an issue, or applying as a volunteer. They are taken to the verification page first.',
+    'required_notice' => 'A verified mobile number is needed for this. Please verify your number below — it only takes a few seconds.',
 ];

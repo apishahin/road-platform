@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
         ]);
+        $middleware->alias([
+            'phone.verified' => \App\Http\Middleware\EnsurePhoneVerified::class,
+        ]);
         // Payment gateways POST the donor back here; they carry no CSRF token by design.
         $middleware->validateCsrfTokens(except: [
             'fund/pay/ssl/*',

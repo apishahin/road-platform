@@ -22,8 +22,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/account/phone/firebase', [\App\Http\Controllers\PhoneVerificationController::class, 'firebase'])->middleware('throttle:10,1')->name('account.phone.firebase');
     Route::post('/account/phone/dismiss', [\App\Http\Controllers\PhoneVerificationController::class, 'dismiss'])->name('account.phone.dismiss');
 
-    Route::get('/report', [ReportController::class, 'create'])->name('report.create');
-    Route::post('/report', [ReportController::class, 'store'])->middleware('throttle:20,1')->name('report.store');
+    Route::get('/report', [ReportController::class, 'create'])->middleware('phone.verified')->name('report.create');
+    Route::post('/report', [ReportController::class, 'store'])->middleware(['phone.verified', 'throttle:20,1'])->name('report.store');
     Route::get('/report/success', [ReportController::class, 'success'])->name('report.success');
 
     // Moderation (moderator/admin only; checked inside the controller)
@@ -92,8 +92,8 @@ Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenControlle
 
 // ---- Volunteer applications ----
 \Illuminate\Support\Facades\Route::middleware('auth')->group(function () {
-    \Illuminate\Support\Facades\Route::get('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'create'])->name('volunteer.apply');
-    \Illuminate\Support\Facades\Route::post('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'store'])->middleware('throttle:5,1')->name('volunteer.apply.store');
+    \Illuminate\Support\Facades\Route::get('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'create'])->middleware('phone.verified')->name('volunteer.apply');
+    \Illuminate\Support\Facades\Route::post('/volunteer/apply', [\App\Http\Controllers\VolunteerApplicationController::class, 'store'])->middleware(['phone.verified', 'throttle:5,1'])->name('volunteer.apply.store');
 });
 \Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/volunteer-applications')->name('admin.applications.')->group(function () {
     $c = \App\Http\Controllers\Admin\VolunteerApplicationsController::class;
@@ -182,9 +182,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/login/google/phone/skip', [\App\Http\Controllers\GoogleLoginController::class, 'skip'])->middleware('throttle:10,1')->name('login.google.phone.skip');
 });
 
-\Illuminate\Support\Facades\Route::post('/issues/{publicId}/observe', [\App\Http\Controllers\IssueObservationController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.observe');
+\Illuminate\Support\Facades\Route::post('/issues/{publicId}/observe', [\App\Http\Controllers\IssueObservationController::class, 'store'])->middleware(['auth', 'phone.verified', 'throttle:20,1'])->name('issues.observe');
 
-\Illuminate\Support\Facades\Route::post('/issues/{publicId}/verify', [\App\Http\Controllers\IssueVerifyController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('issues.verify');
+\Illuminate\Support\Facades\Route::post('/issues/{publicId}/verify', [\App\Http\Controllers\IssueVerifyController::class, 'store'])->middleware(['auth', 'phone.verified', 'throttle:20,1'])->name('issues.verify');
 \Illuminate\Support\Facades\Route::get('/verify-queue', [\App\Http\Controllers\IssueVerifyController::class, 'queue'])->middleware('auth')->name('verify.queue');
 
 // ---- Update photos (citizen updates / on-site checks) ----

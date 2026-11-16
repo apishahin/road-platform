@@ -110,7 +110,8 @@ class PhoneVerificationController extends Controller
         $this->finalize($user, $target);
         $request->session()->forget([self::SESSION_PHONE, self::SESSION_SENT]);
 
-        return redirect()->route('account.phone')->with('status', __('acctphone.verified_msg'));
+        // Back to where the verified-phone gate sent them from, if anywhere.
+        return redirect()->intended(route('account.phone'))->with('status', __('acctphone.verified_msg'));
     }
 
     /** Check the Firebase phone-OTP token (firebase provider). */
@@ -130,7 +131,7 @@ class PhoneVerificationController extends Controller
         $this->finalize($user, $target);
         $request->session()->forget([self::SESSION_PHONE, self::SESSION_SENT]);
 
-        return response()->json(['ok' => true, 'redirect' => route('account.phone')]);
+        return response()->json(['ok' => true, 'redirect' => $request->session()->pull('url.intended', route('account.phone'))]);
     }
 
     /** Hide the "verify your number" banner for the session. */

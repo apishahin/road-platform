@@ -36,6 +36,16 @@
             </div>
         @endforeach
 
+        {{-- Require a verified number before citizen contributions (gate in EnsurePhoneVerified). --}}
+        <div style="margin-top:14px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;">
+            <input type="hidden" name="require_verified_phone" value="0">
+            <label style="display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:600;">
+                <input type="checkbox" name="require_verified_phone" value="1" style="margin-top:3px;" @checked((bool) old('require_verified_phone', $s['require_verified_phone'] ?? false))>
+                <span>{{ __('acctphone.settings_label') }}</span>
+            </label>
+            <p style="margin:4px 0 0 24px;font-size:13px;color:#64748b;">{{ __('acctphone.settings_help') }}</p>
+        </div>
+
         <div style="margin-top:18px;">
             <label style="display:block;font-size:14px;font-weight:600;">{{ __('loginsettings.provider') }}</label>
             <select name="otp_provider" style="margin-top:6px;width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;">
