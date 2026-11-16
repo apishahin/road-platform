@@ -131,6 +131,7 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 });
 
 \Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/', [\App\Http\Controllers\Admin\DashboardController::class, '__invoke'])->name('dashboard');
     \Illuminate\Support\Facades\Route::get('users', [\App\Http\Controllers\Admin\UserAdminController::class, 'index'])->name('users.index');
     \Illuminate\Support\Facades\Route::post('users/{id}/role', [\App\Http\Controllers\Admin\UserAdminController::class, 'setRole'])->whereNumber('id')->name('users.role');
     \Illuminate\Support\Facades\Route::post('users/{id}/block', [\App\Http\Controllers\Admin\UserAdminController::class, 'block'])->whereNumber('id')->middleware('throttle:20,1')->name('users.block');

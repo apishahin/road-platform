@@ -23,6 +23,7 @@
         }
         if ($isAdmin) {
             $groups[] = ['label' => __('issues.nav_people'), 'items' => [
+                [route('admin.dashboard'), __('admindash.menu'), 0, 'gauge'],
                 [route('admin.users.index'), __('adminusers.menu'), 0, 'users'],
                 [route('admin.moderators.index'), __('issues.nav_volunteers'), 0, 'volunteer'],
             ]];
@@ -46,6 +47,7 @@
         'users'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="9.5" cy="8.5" r="3"/><path stroke-linecap="round" d="M4 19.5c.7-3.2 2.8-4.8 5.5-4.8s4.8 1.6 5.5 4.8M16 6a2.8 2.8 0 1 1-.9 5.5M17.5 14.9c1.8.6 3 2 3.4 3.6"/></svg>',
         'volunteer' => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3.2"/><path stroke-linecap="round" stroke-linejoin="round" d="m10.8 12-1.2 8L12 18l2.4 2-1.2-8M8 20.5h8"/></svg>',
         'key'       => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4.2"/><path stroke-linecap="round" stroke-linejoin="round" d="m11 12 8-8M16 7l2.5 2.5M13.5 9.5 16 12"/></svg>',
+        'gauge'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4.5 19a8.5 8.5 0 1 1 15 0"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 15l3.5-4.5M12 15h.01"/><circle cx="12" cy="15" r="1.6"/></svg>',
         'sms'       => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.2"/><path stroke-linecap="round" d="M11 18.5h2"/></svg>',
         'mail'      => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 7.5 7.5 5.5 7.5-5.5"/></svg>',
         'brush'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 16.5 15.5 6l2.5 2.5L7.5 19H5v-2.5ZM13.5 8l2.5 2.5"/></svg>',
