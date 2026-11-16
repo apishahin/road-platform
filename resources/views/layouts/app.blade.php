@@ -2,7 +2,14 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#059669">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ \App\Support\AppearanceSettings::siteName() }}">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 
     <title>@yield('title', __('Road Platform')) — {{ \App\Support\AppearanceSettings::siteName() }}</title>
     <meta name="description" content="@yield('description', __('A community-powered road repair platform for Bangladesh.'))">
@@ -190,5 +197,12 @@
     </script>
 
     @stack('scripts')
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js');
+    });
+}
+</script>
 </body>
 </html>

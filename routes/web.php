@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::view('/offline', 'offline')->name('offline');
 
 Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index');
 Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
