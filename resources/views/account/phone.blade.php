@@ -126,7 +126,7 @@
             @endif
         @endif
 
-        <a href="{{ route('home') }}" class="mt-5 block text-center text-sm text-slate-600 underline">{{ __('acctphone.back_home') }}</a>
+        
     </div>
 </div>
 @endsection

@@ -1,0 +1,123 @@
+From 2f3588006432b2ae4ed2aa74e8dc0f54af71a789 Mon Sep 17 00:00:00 2001
+From: Arena Assistant <assistant@arena.local>
+Date: Mon, 16 Nov 2026 16:28:59 +0000
+Subject: [PATCH] Account menu links: phone verification and delete account in
+ user menus
+
+- desktop avatar dropdown and mobile menu now link to /account/phone
+  (My mobile number) and /account/delete (Delete my account)
+- AccountNavTest: links visible for logged-in users, absent for guests
+---
+ lang/bn/acctphone.php                       |  1 +
+ lang/en/acctphone.php                       |  1 +
+ resources/views/layouts/app.blade.php       |  2 ++
+ resources/views/partials/nav-user.blade.php | 12 +++++++
+ tests/Feature/AccountNavTest.php            | 36 +++++++++++++++++++++
+ 5 files changed, 52 insertions(+)
+ create mode 100644 tests/Feature/AccountNavTest.php
+
+diff --git a/lang/bn/acctphone.php b/lang/bn/acctphone.php
+index 4a26dba..85b5e3c 100644
+--- a/lang/bn/acctphone.php
++++ b/lang/bn/acctphone.php
+@@ -23,6 +23,7 @@
+ 
+     // অ্যাকাউন্ট মুছে ফেলা (OTP-নিশ্চিত; ব্যক্তিগত তথ্য মুছে যায়, রিপোর্ট পাবলিক থাকে)
+     'del_link'           => 'আমার অ্যাকাউন্ট মুছে ফেলুন',
++    'nav_phone'          => 'আমার মোবাইল নম্বর',
+     'del_title'          => 'অ্যাকাউন্ট মুছে ফেলা',
+     'del_intro'          => 'এতে আপনার অ্যাকাউন্ট স্থায়ীভাবে মুছে যাবে। এগিয়ে যাওয়ার আগে যা ঘটবে তা পড়ে নিন:',
+     'del_point_personal' => 'আপনার নাম, মোবাইল নম্বর, ইমেইল ও Google সংযোগ অ্যাকাউন্ট থেকে মুছে যাবে।',
+diff --git a/lang/en/acctphone.php b/lang/en/acctphone.php
+index 8fd55ee..4050cfd 100644
+--- a/lang/en/acctphone.php
++++ b/lang/en/acctphone.php
+@@ -23,6 +23,7 @@
+ 
+     // Self-service account deletion (OTP-confirmed; personal data wiped, reports stay public).
+     'del_link'           => 'Delete my account',
++    'nav_phone'          => 'My mobile number',
+     'del_title'          => 'Delete account',
+     'del_intro'          => 'This permanently removes your account. Please read what happens before you continue:',
+     'del_point_personal' => 'Your name, mobile number, email and Google link are removed from your account.',
+diff --git a/resources/views/layouts/app.blade.php b/resources/views/layouts/app.blade.php
+index eb6fbd0..68f24be 100644
+--- a/resources/views/layouts/app.blade.php
++++ b/resources/views/layouts/app.blade.php
+@@ -81,6 +81,8 @@
+                 @auth
+                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                         <a href="{{ route('account.password') }}" class="block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctpw.title') }}</a>
++                        <a href="{{ route('account.phone') }}" class="mt-1.5 block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctphone.nav_phone') }}</a>
++                        <a href="{{ route('account.delete') }}" class="mt-1.5 block rounded-lg bg-rose-50 px-2.5 py-2 text-sm font-bold text-rose-600">{{ __('acctphone.del_link') }}</a>
+                         <form method="POST" action="{{ route('logout') }}" class="mt-1.5">
+                             @csrf
+                             <button type="submit" class="block w-full rounded-lg bg-rose-50 px-2.5 py-2 text-left text-sm font-bold text-rose-600">{{ __('login.logout') }}</button>
+diff --git a/resources/views/partials/nav-user.blade.php b/resources/views/partials/nav-user.blade.php
+index caa1e73..b7530bc 100644
+--- a/resources/views/partials/nav-user.blade.php
++++ b/resources/views/partials/nav-user.blade.php
+@@ -24,6 +24,18 @@ class="absolute right-0 z-[1100] mt-2 w-60 rounded-2xl border border-slate-200 b
+             </span>
+             <span class="flex-1">{{ __('acctpw.title') }}</span>
+         </a>
++        <a href="{{ route('account.phone') }}" class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
++            <span class="grid size-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-brand-600">
++                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path stroke-linecap="round" d="M10.5 18.5h3"/></svg>
++            </span>
++            <span class="flex-1">{{ __('acctphone.nav_phone') }}</span>
++        </a>
++        <a href="{{ route('account.delete') }}" class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">
++            <span class="grid size-7 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-500 transition-colors group-hover:bg-white">
++                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.5h15M9.5 6V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3V6m3.2.5-.7 13A1.6 1.6 0 0 1 15.4 21H8.6a1.6 1.6 0 0 1-1.6-1.5l-.7-13M10 10.5v6M14 10.5v6"/></svg>
++            </span>
++            <span class="flex-1">{{ __('acctphone.del_link') }}</span>
++        </a>
+         <form method="POST" action="{{ route('logout') }}">
+             @csrf
+             <button type="submit" class="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">
+diff --git a/tests/Feature/AccountNavTest.php b/tests/Feature/AccountNavTest.php
+new file mode 100644
+index 0000000..f528452
+--- /dev/null
++++ b/tests/Feature/AccountNavTest.php
+@@ -0,0 +1,36 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Str;
++use Tests\TestCase;
++
++class AccountNavTest extends TestCase
++{
++    use RefreshDatabase;
++
++    public function test_logged_in_user_sees_account_links_in_menus(): void
++    {
++        $u = User::unguarded(fn () => User::create([
++            'public_id' => (string) Str::ulid(),
++            'phone'     => '+8801700000030',
++            'role'      => 'citizen',
++            'phone_verified_at' => now(),
++        ]));
++
++        $this->actingAs($u)->get('/')
++            ->assertOk()
++            ->assertSee(route('account.phone'))
++            ->assertSee(route('account.delete'));
++    }
++
++    public function test_guest_sees_no_account_links(): void
++    {
++        $this->get('/')
++            ->assertOk()
++            ->assertDontSee(route('account.phone'))
++            ->assertDontSee(route('account.delete'));
++    }
++}
+-- 
+2.47.3
+
