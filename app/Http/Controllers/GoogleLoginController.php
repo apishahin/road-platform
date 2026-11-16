@@ -194,6 +194,12 @@ class GoogleLoginController extends Controller
 
     private function intended(Request $request): string
     {
+        // Staff land on the dashboard first after any login.
+        $me = $request->user();
+        if ($me && $me->isModerator()) {
+            return route('admin.dashboard');
+        }
+
         $default = route('home');
         $target  = (string) $request->session()->pull('url.intended', $default);
 

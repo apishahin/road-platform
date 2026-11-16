@@ -160,6 +160,11 @@ class AuthController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 
+        // Staff land on the dashboard first; citizens go back to wherever they were.
+        if ($user->isModerator()) {
+            return redirect()->route('admin.dashboard')->with('status', __('login.welcome'));
+        }
+
         return redirect()->intended(route('home'))->with('status', __('login.welcome'));
     }
 
@@ -206,6 +211,11 @@ class AuthController extends Controller
         RateLimiter::clear($pk);
         Auth::login($user, remember: true);
         $request->session()->regenerate();
+
+        // Staff land on the dashboard first; citizens go back to wherever they were.
+        if ($user->isModerator()) {
+            return redirect()->route('admin.dashboard')->with('status', __('login.welcome'));
+        }
 
         return redirect()->intended(route('home'))->with('status', __('login.welcome'));
     }

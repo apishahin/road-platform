@@ -5,6 +5,9 @@
     if ($u) {
         $isAdmin = $u->role === 'admin';
         $review = [];
+        if ($u->isModerator()) {
+            $review[] = [route('admin.dashboard'), __('admindash.menu'), 0, 'gauge'];
+        }
         if ($u->canModerate()) {
             $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), 0, 'shield'];
             $review[] = [route('verify.queue'), __('issues.nav_verify'), 0, 'verify'];
@@ -23,7 +26,6 @@
         }
         if ($isAdmin) {
             $groups[] = ['label' => __('issues.nav_people'), 'items' => [
-                [route('admin.dashboard'), __('admindash.menu'), 0, 'gauge'],
                 [route('admin.users.index'), __('adminusers.menu'), 0, 'users'],
                 [route('admin.moderators.index'), __('issues.nav_volunteers'), 0, 'volunteer'],
             ]];

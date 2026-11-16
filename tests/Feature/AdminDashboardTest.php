@@ -27,7 +27,8 @@ class AdminDashboardTest extends TestCase
         // House convention: admin pages answer guests with 403 (see login-settings).
         $this->get('/admin')->assertForbidden();
         $this->actingAs($this->user(['phone' => '+8801700000030']))->get('/admin')->assertForbidden();
-        $this->actingAs($this->user(['phone' => '+8801700000090', 'role' => 'moderator']))->get('/admin')->assertForbidden();
+        // Moderators are staff: they get the dashboard too.
+        $this->actingAs($this->user(['phone' => '+8801700000090', 'role' => 'moderator']))->get('/admin')->assertOk();
     }
 
     public function test_admin_sees_counts_that_match_the_database(): void

@@ -16,7 +16,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request)
     {
         $u = $request->user();
-        abort_unless($u && $u->role === 'admin', 403);
+        abort_unless($u && $u->isModerator(), 403);
 
         return view('admin.dashboard', [
             'stats' => [

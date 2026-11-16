@@ -60,7 +60,7 @@ class FirebaseLoginController extends Controller
 
         return response()->json([
             'ok' => true,
-            'redirect' => redirect()->intended(route('home'))->getTargetUrl(),
+            'redirect' => $user->isModerator() ? route('admin.dashboard') : redirect()->intended(route('home'))->getTargetUrl(),
         ]);
     }
 }
