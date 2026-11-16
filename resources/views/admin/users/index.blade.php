@@ -3,115 +3,142 @@
 @section('title', __('adminusers.title'))
 
 @section('content')
-<div class="mx-auto max-w-4xl px-4 py-8">
-    <h1 class="text-2xl font-bold text-slate-900">{{ __('adminusers.title') }}</h1>
-    <p class="mt-1 text-sm text-slate-500">{{ __('adminusers.note') }}</p>
+<div class="mx-auto max-w-5xl px-4 py-8">
+
+    {{-- Header --}}
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">{{ __('adminusers.title') }}</h1>
+            <p class="mt-1 text-sm text-slate-500">{{ __('adminusers.note') }}</p>
+        </div>
+        <span class="rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200">
+            {{ __('adminusers.total', ['count' => $users->total()]) }}
+        </span>
+    </div>
 
     @if(session('status'))
-        <div style="margin-top:12px;padding:8px 12px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0;font-size:14px;">{{ session('status') }}</div>
+        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{{ session('status') }}</div>
     @endif
 
-    <form method="GET" action="{{ route('admin.users.index') }}" style="margin-top:16px;">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <input type="text" name="q" value="{{ $q }}" placeholder="{{ __('adminusers.search') }}" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;">
-            <select name="role" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+    {{-- Filters --}}
+    <form method="GET" action="{{ route('admin.users.index') }}" class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="grid gap-2.5 md:grid-cols-[1fr_170px_200px_auto]">
+            <input type="text" name="q" value="{{ $q }}" placeholder="{{ __('adminusers.search') }}"
+                   class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+            <select name="role" class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none">
                 <option value="">{{ __('adminusers.all_roles') }}</option>
                 @foreach(['citizen','volunteer','moderator','admin'] as $r)
                     <option value="{{ $r }}" @selected($role === $r)>{{ __('adminusers.role_' . $r) }}</option>
                 @endforeach
             </select>
-            <select name="v" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+            <select name="v" class="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none">
                 <option value="">{{ __('adminusers.all_verified') }}</option>
                 @foreach(['verified','unverified','none'] as $vv)
                     <option value="{{ $vv }}" @selected($v === $vv)>{{ __('adminusers.f_' . $vv) }}</option>
                 @endforeach
             </select>
-            <button type="submit" style="padding:8px 16px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('adminusers.go') }}</button>
+            <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700">{{ __('adminusers.go') }}</button>
         </div>
-        <div style="margin-top:8px;position:relative;">
+        <div class="relative mt-3">
             <input type="hidden" name="area" id="areaId" value="{{ $areaId ?: '' }}">
-            <input type="text" id="areaInput" autocomplete="off" value="{{ $areaLabel }}" placeholder="{{ __('adminusers.area_ph') }}" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;">
-            <div id="areaBox" style="position:absolute;left:0;right:0;top:100%;z-index:20;background:#fff;border-radius:8px;"></div>
-            <div style="margin-top:4px;font-size:12px;color:#64748b;">
+            <input type="text" id="areaInput" autocomplete="off" value="{{ $areaLabel }}" placeholder="{{ __('adminusers.area_ph') }}"
+                   class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100">
+            <div id="areaBox" class="absolute inset-x-0 top-full z-20 overflow-hidden rounded-b-lg bg-white shadow-xl ring-1 ring-slate-200 empty:shadow-none empty:ring-0"></div>
+            <p class="mt-1.5 text-xs text-slate-500">
                 {{ __('adminusers.area_note') }}
                 @if($areaId)
-                    <a href="{{ route('admin.users.index', array_filter(['q' => $q, 'role' => $role, 'v' => $v])) }}" style="margin-left:8px;color:#b91c1c;">{{ __('adminusers.area_clear') }}</a>
+                    <a href="{{ route('admin.users.index', array_filter(['q' => $q, 'role' => $role, 'v' => $v])) }}" class="ml-2 font-semibold text-rose-600 hover:underline">{{ __('adminusers.area_clear') }}</a>
                 @endif
-            </div>
+            </p>
         </div>
     </form>
 
-    <div style="margin-top:16px;">
+    {{-- User list --}}
+    <div class="mt-5 space-y-2.5">
         @forelse($users as $u)
-            <div style="padding:12px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;">
-                <div>
-                    <div style="font-weight:600;">{{ $u->display_name ?: '-' }} <span style="color:#64748b;font-weight:400;">#{{ $u->id }}</span></div>
-                    <div style="font-size:13px;color:#64748b;">
-                        {{ __('adminusers.role_' . $u->role) }}
-                        @if($u->phone)
-                            &middot; ***{{ substr($u->phone, -4) }}
-                            @if($u->phone_verified_at)
-                                &middot; <span style="color:#15803d;">✓ {{ __('adminusers.verified') }}</span>
+            @php
+                $nm = trim((string) ($u->display_name ?? ''));
+                $initial = mb_strtoupper(mb_substr($nm !== '' ? $nm : 'U', 0, 1));
+            @endphp
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md">
+                <div class="flex min-w-0 items-center gap-3.5">
+                    <span class="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-600 to-amber-500 text-sm font-extrabold text-white shadow-sm">{{ $initial }}</span>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-bold text-slate-900">
+                            {{ $nm !== '' ? $nm : '-' }} <span class="font-normal text-slate-400">#{{ $u->id }}</span>
+                        </div>
+                        <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                            <span class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-bold text-slate-500">{{ __('adminusers.role_' . $u->role) }}</span>
+                            @if($u->phone)
+                                <span class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-bold text-slate-500">***{{ substr($u->phone, -4) }}</span>
+                                @if($u->phone_verified_at)
+                                    <span class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">✓ {{ __('adminusers.verified') }}</span>
+                                @else
+                                    <span class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 font-bold text-amber-700 ring-1 ring-inset ring-amber-200">⚠ {{ __('adminusers.unverified') }}</span>
+                                @endif
                             @else
-                                &middot; <span style="color:#b45309;">⚠ {{ __('adminusers.unverified') }}</span>
+                                <span class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-bold text-slate-400">{{ __('adminusers.no_phone') }}</span>
                             @endif
-                        @else
-                            &middot; <span style="color:#64748b;">{{ __('adminusers.no_phone') }}</span>
-                        @endif
-                        @if($u->is_banned) &middot; <span style="color:#b91c1c;">{{ __('adminusers.banned') }}</span> @endif
+                            @if($u->is_banned)
+                                <span class="inline-flex items-center rounded-md bg-rose-50 px-1.5 py-0.5 font-bold text-rose-700 ring-1 ring-inset ring-rose-200">{{ __('adminusers.banned') }}</span>
+                            @endif
+                        </div>
+                        @foreach(($labels[$u->id] ?? []) as $lb)
+                            <div class="mt-1 text-xs text-slate-500">{{ __('adminusers.work_area') }}: {{ $lb }}</div>
+                        @endforeach
                     </div>
-                    @foreach(($labels[$u->id] ?? []) as $lb)
-                        <div style="font-size:12px;color:#475569;">{{ __('adminusers.work_area') }}: {{ $lb }}</div>
-                    @endforeach
                 </div>
-                <div>
+                <div class="flex flex-wrap items-center gap-2">
                     @if($u->id !== auth()->id() && in_array($u->role, ['citizen','volunteer','moderator'], true))
-                        <form method="POST" action="{{ route('admin.users.role', ['id' => $u->id]) }}" onsubmit="return confirm('{{ __('adminusers.confirm') }}')" style="display:flex;gap:6px;">
+                        <form method="POST" action="{{ route('admin.users.role', ['id' => $u->id]) }}" onsubmit="return confirm('{{ __('adminusers.confirm') }}')" class="flex gap-1.5">
                             @csrf
-                            <select name="role" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;">
+                            <select name="role" class="rounded-lg border border-slate-300 px-2 py-1.5 text-xs text-slate-700 focus:border-brand-500 focus:outline-none">
                                 @foreach(['citizen','volunteer','moderator'] as $r)
                                     <option value="{{ $r }}" @selected($u->role === $r)>{{ __('adminusers.role_' . $r) }}</option>
                                 @endforeach
                             </select>
-                            <button type="submit" style="padding:6px 12px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('adminusers.col_action') }}</button>
+                            <button type="submit" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-700">{{ __('adminusers.col_action') }}</button>
                         </form>
-                        <form method="POST" action="{{ route('admin.users.block', ['id' => $u->id]) }}" onsubmit="return confirm('{{ __('adminusers.block_confirm') }}')" style="margin-top:6px;display:flex;gap:6px;">
+                        <form method="POST" action="{{ route('admin.users.block', ['id' => $u->id]) }}" onsubmit="return confirm('{{ __('adminusers.block_confirm') }}')" class="flex gap-1.5">
                             @csrf
                             @if($u->is_banned)
-                                <button formaction="{{ route('admin.users.unblock', ['id' => $u->id]) }}" type="submit" style="padding:6px 12px;border-radius:8px;background:#15803d;color:#fff;border:0;">{{ __('adminusers.unblock') }}</button>
+                                <button formaction="{{ route('admin.users.unblock', ['id' => $u->id]) }}" type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700">{{ __('adminusers.unblock') }}</button>
                             @else
-                                <button type="submit" style="padding:6px 12px;border-radius:8px;background:#b45309;color:#fff;border:0;">{{ __('adminusers.block') }}</button>
+                                <button type="submit" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700">{{ __('adminusers.block') }}</button>
                             @endif
-                            <button formaction="{{ route('admin.users.delete', ['id' => $u->id]) }}" onclick="return confirm('{{ __('adminusers.delete_confirm') }}')" type="submit" style="padding:6px 12px;border-radius:8px;background:#b91c1c;color:#fff;border:0;">{{ __('adminusers.delete') }}</button>
+                            <button formaction="{{ route('admin.users.delete', ['id' => $u->id]) }}" onclick="return confirm('{{ __('adminusers.delete_confirm') }}')" type="submit" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-700">{{ __('adminusers.delete') }}</button>
                         </form>
                     @else
-                        <span style="font-size:13px;color:#94a3b8;">-</span>
+                        <span class="text-xs text-slate-300">—</span>
                     @endif
                 </div>
             </div>
         @empty
-            <p style="color:#64748b;">{{ __('adminusers.none') }}</p>
+            <p class="rounded-2xl border border-dashed border-slate-300 py-10 text-center text-sm text-slate-400">{{ __('adminusers.none') }}</p>
         @endforelse
     </div>
 
     <div class="mt-6">{{ $users->links() }}</div>
 
+    {{-- Blocked device/IP list --}}
     @if($blockedIps->isNotEmpty())
-        <div style="margin-top:28px;padding-top:16px;border-top:1px solid #e2e8f0;">
-            <h2 style="font-size:16px;font-weight:700;">{{ __('adminusers.blocked_title') }}</h2>
-            @foreach($blockedIps as $b)
-                <div style="margin-top:8px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
-                    <div style="font-size:13px;color:#334155;">
-                        <code>{{ $b->ip }}</code>
-                        @if($b->user_id) &middot; #{{ $b->user_id }} @endif
-                        &middot; <span style="color:#64748b;">{{ $b->created_at->diffForHumans() }}</span>
+        <div class="mt-8 rounded-2xl border border-rose-200 bg-rose-50/40 p-4">
+            <h2 class="text-base font-bold text-rose-800">{{ __('adminusers.blocked_title') }}</h2>
+            <div class="mt-3 space-y-2">
+                @foreach($blockedIps as $b)
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-100 bg-white px-3.5 py-2.5">
+                        <div class="text-sm text-slate-700">
+                            <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-800">{{ $b->ip }}</code>
+                            @if($b->user_id) <span class="text-slate-400">&middot; #{{ $b->user_id }}</span> @endif
+                            <span class="ml-1 text-xs text-slate-400">{{ $b->created_at->diffForHumans() }}</span>
+                        </div>
+                        <form method="POST" action="{{ route('admin.users.unblockip', ['id' => $b->id]) }}">
+                            @csrf
+                            <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700">{{ __('adminusers.ip_unblock') }}</button>
+                        </form>
                     </div>
-                    <form method="POST" action="{{ route('admin.users.unblockip', ['id' => $b->id]) }}">
-                        @csrf
-                        <button type="submit" style="padding:6px 12px;border-radius:8px;background:#15803d;color:#fff;border:0;font-size:13px;">{{ __('adminusers.ip_unblock') }}</button>
-                    </form>
-                </div>
-            @endforeach
+                @endforeach
+            </div>
         </div>
     @endif
 </div>
@@ -138,7 +165,7 @@
                         var b = document.createElement('button');
                         b.type = 'button';
                         b.textContent = row.label;
-                        b.style.cssText = 'display:block;width:100%;text-align:left;padding:8px 12px;border:1px solid #e2e8f0;background:#fff;font-size:13px;cursor:pointer;';
+                        b.className = 'block w-full cursor-pointer border-b border-slate-100 px-3.5 py-2.5 text-left text-sm text-slate-700 hover:bg-brand-50';
                         b.addEventListener('click', function () {
                             hid.value = row.id;
                             inp.value = row.label;

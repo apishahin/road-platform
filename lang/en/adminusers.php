@@ -49,4 +49,5 @@ return [
     'ip_unblock'     => 'Lift block',
     'ip_removed'     => 'IP block removed.',
     'ip_blocked_msg' => 'You cannot use this site right now.',
+    'total'          => 'Total: :count',
 ];
