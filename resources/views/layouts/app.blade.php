@@ -81,6 +81,8 @@
                 @auth
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                         <a href="{{ route('account.password') }}" class="block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctpw.title') }}</a>
+                        <a href="{{ route('account.phone') }}" class="mt-1.5 block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctphone.nav_phone') }}</a>
+                        <a href="{{ route('account.delete') }}" class="mt-1.5 block rounded-lg bg-rose-50 px-2.5 py-2 text-sm font-bold text-rose-600">{{ __('acctphone.del_link') }}</a>
                         <form method="POST" action="{{ route('logout') }}" class="mt-1.5">
                             @csrf
                             <button type="submit" class="block w-full rounded-lg bg-rose-50 px-2.5 py-2 text-left text-sm font-bold text-rose-600">{{ __('login.logout') }}</button>

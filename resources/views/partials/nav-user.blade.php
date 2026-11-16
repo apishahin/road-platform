@@ -24,6 +24,18 @@
             </span>
             <span class="flex-1">{{ __('acctpw.title') }}</span>
         </a>
+        <a href="{{ route('account.phone') }}" class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900">
+            <span class="grid size-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500 transition-colors group-hover:bg-white group-hover:text-brand-600">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path stroke-linecap="round" d="M10.5 18.5h3"/></svg>
+            </span>
+            <span class="flex-1">{{ __('acctphone.nav_phone') }}</span>
+        </a>
+        <a href="{{ route('account.delete') }}" class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">
+            <span class="grid size-7 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-500 transition-colors group-hover:bg-white">
+                <svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.5h15M9.5 6V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3V6m3.2.5-.7 13A1.6 1.6 0 0 1 15.4 21H8.6a1.6 1.6 0 0 1-1.6-1.5l-.7-13M10 10.5v6M14 10.5v6"/></svg>
+            </span>
+            <span class="flex-1">{{ __('acctphone.del_link') }}</span>
+        </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50">

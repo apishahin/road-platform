@@ -23,6 +23,7 @@ return [
 
     // Self-service account deletion (OTP-confirmed; personal data wiped, reports stay public).
     'del_link'           => 'Delete my account',
+    'nav_phone'          => 'My mobile number',
     'del_title'          => 'Delete account',
     'del_intro'          => 'This permanently removes your account. Please read what happens before you continue:',
     'del_point_personal' => 'Your name, mobile number, email and Google link are removed from your account.',
