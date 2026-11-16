@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ \App\Support\AppearanceSettings::siteName() }}">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="{{ \App\Http\Controllers\PwaInstallController::iconUrl() ?? '/icons/apple-touch-icon.png' }}">
 
     <title>@yield('title', __('Road Platform')) — {{ \App\Support\AppearanceSettings::siteName() }}</title>
     <meta name="description" content="@yield('description', __('A community-powered road repair platform for Bangladesh.'))">
@@ -197,6 +197,7 @@
     </script>
 
     @stack('scripts')
+@include('partials.pwa-install')
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {

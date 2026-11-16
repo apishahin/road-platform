@@ -67,6 +67,8 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/appearance', [\App\Http\Controllers\Admin\AppearanceController::class, 'index'])->name('admin.appearance.index');
     Route::post('/appearance', [\App\Http\Controllers\Admin\AppearanceController::class, 'update'])->name('admin.appearance.update');
     Route::post('/appearance/reset', [\App\Http\Controllers\Admin\AppearanceController::class, 'reset'])->name('admin.appearance.reset');
+    Route::post('/appearance/pwa-icon', [\App\Http\Controllers\Admin\AppearanceController::class, 'pwaIcon'])->name('admin.appearance.pwa.icon');
+    Route::post('/appearance/pwa-icon/remove', [\App\Http\Controllers\Admin\AppearanceController::class, 'pwaIconRemove'])->name('admin.appearance.pwa.icon.remove');
 });
 // ---- Admin-managed pages ----
 \Illuminate\Support\Facades\Route::get('/p/{slug}', [\App\Http\Controllers\PageController::class, 'show'])->where('slug', '[a-z0-9-]+')->name('page.show');
@@ -232,6 +234,7 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/donations/{donation}/void', [\App\Http\Controllers\Admin\FundingController::class, 'void'])->name('void');
     \Illuminate\Support\Facades\Route::post('/gateway', [\App\Http\Controllers\Admin\FundingController::class, 'saveGateway'])->name('gateway');
 });
+require __DIR__.'/manifest.php';
 
 // ---- Funding: expenses and vouchers ----
 \Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin/funding')->name('admin.funding.')->group(function () {

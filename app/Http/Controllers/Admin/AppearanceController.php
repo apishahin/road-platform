@@ -161,4 +161,43 @@ class AppearanceController extends Controller
 
         return redirect()->route('admin.appearance.index')->with('status', 'ডিফল্ট চেহারায় ফেরানো হয়েছে।');
     }
+
+    /** Upload/replace the PWA home-screen icon (admin only). */
+    public function pwaIcon(Request $request)
+    {
+        $this->guard();
+
+        $request->validate([
+            'icon' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+        ]);
+
+        $old = \App\Support\PwaSettings::icon();
+
+        if (! \App\Support\PwaSettings::storeIcon($request->file('icon')->getRealPath())) {
+            return back()->withErrors(['icon' => __('pwa.admin_icon_bad')]);
+        }
+
+        $files = glob(public_path('uploads/pwa/icon-512-*.png')) ?: [];
+        rsort($files);
+        if (! $files || ! preg_match('/icon-512-([a-z0-9]{8})\.png$/', $files[0], $m)) {
+            \App\Support\PwaSettings::dropFiles($old);
+            return back()->withErrors(['icon' => __('pwa.admin_icon_bad')]);
+        }
+
+        \App\Support\PwaSettings::dropFiles($old);
+        \App\Support\PwaSettings::save(['file' => $m[1], 'at' => now()->toISOString()]);
+
+        return back()->with('status', __('pwa.admin_icon_ok'));
+    }
+
+    /** Remove the custom PWA icon (admin only). */
+    public function pwaIconRemove()
+    {
+        $this->guard();
+
+        \App\Support\PwaSettings::dropFiles(\App\Support\PwaSettings::icon());
+        \App\Support\PwaSettings::save(null);
+
+        return back()->with('status', __('pwa.admin_icon_ok'));
+    }
 }

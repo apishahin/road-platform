@@ -9,12 +9,13 @@
  *  - offline navigations               -> last cached copy, else the /offline page
  *  - POST / non-GET                    -> untouched (forms talk straight to the server)
  */
-const VERSION = 'pwa-v1';
+const VERSION = 'pwa-v2';
 const PAGE_CACHE = 'pages-' + VERSION;
 const ASSET_CACHE = 'assets-' + VERSION;
 
 const CACHEABLE_PAGE = (path) =>
-    path === '/' || path.startsWith('/issues') || path.startsWith('/p/') || path === '/offline';
+    path === '/' || path.startsWith('/issues') || path.startsWith('/p/') ||
+    path === '/offline' || path === '/manifest.json';
 
 const isAsset = (path) =>
     path.startsWith('/build/') || path.startsWith('/icons/') ||
@@ -22,7 +23,7 @@ const isAsset = (path) =>
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(PAGE_CACHE).then((c) => c.add('/offline')).then(() => self.skipWaiting())
+        caches.open(PAGE_CACHE).then((c) => c.addAll(['/offline', '/'])).then(() => self.skipWaiting())
     );
 });
 

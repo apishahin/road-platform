@@ -11,10 +11,8 @@ class PwaTest extends TestCase
 
     public function test_manifest_is_valid_and_complete(): void
     {
-        $path = public_path('manifest.json');
-        $this->assertFileExists($path);
-
-        $m = json_decode((string) file_get_contents($path), true);
+        // The manifest is served by PHP so the site name / custom icon flow in.
+        $m = $this->get('/manifest.json')->assertOk()->json();
         $this->assertIsArray($m);
         $this->assertSame('standalone', $m['display']);
         $this->assertSame('/', $m['start_url']);
