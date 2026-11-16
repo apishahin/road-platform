@@ -19,7 +19,9 @@
                 <p class="font-semibold">{{ __('acctphone.status_verified') }}</p>
                 <p class="mt-1">{{ \App\Support\Phone::mask((string) $user->phone) }}</p>
             </div>
-            <a href="{{ route('home') }}" class="mt-5 block text-center text-sm text-slate-600 underline">{{ __('acctphone.back_home') }}</a>
+            <a href="{{ route('account.delete') }}" class="mt-6 block text-center text-xs text-red-500 underline">{{ __('acctphone.del_link') }}</a>
+
+        <a href="{{ route('home') }}" class="mt-3 block text-center text-sm text-slate-600 underline">{{ __('acctphone.back_home') }}</a>
         @elseif ($provider === 'firebase')
             {{-- Firebase sends the SMS from the browser --}}
             <p class="mt-1 text-sm text-slate-600">

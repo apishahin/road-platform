@@ -22,6 +22,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/account/phone/firebase', [\App\Http\Controllers\PhoneVerificationController::class, 'firebase'])->middleware('throttle:10,1')->name('account.phone.firebase');
     Route::post('/account/phone/dismiss', [\App\Http\Controllers\PhoneVerificationController::class, 'dismiss'])->name('account.phone.dismiss');
 
+    // Self-service account deletion (citizen, OTP-confirmed).
+    Route::get('/account/delete', [\App\Http\Controllers\AccountDeletionController::class, 'show'])->name('account.delete');
+    Route::post('/account/delete/send', [\App\Http\Controllers\AccountDeletionController::class, 'send'])->middleware('throttle:5,1')->name('account.delete.send');
+    Route::post('/account/delete', [\App\Http\Controllers\AccountDeletionController::class, 'destroy'])->middleware('throttle:5,1')->name('account.delete.confirm');
+
     Route::get('/report', [ReportController::class, 'create'])->middleware('phone.verified')->name('report.create');
     Route::post('/report', [ReportController::class, 'store'])->middleware(['phone.verified', 'throttle:20,1'])->name('report.store');
     Route::get('/report/success', [ReportController::class, 'success'])->name('report.success');
