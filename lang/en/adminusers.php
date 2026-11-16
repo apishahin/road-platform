@@ -27,4 +27,12 @@ return [
     'area_clear' => 'Clear area',
     'work_area' => 'Work area',
     'area_note' => 'The area filter looks only at the work areas given to volunteers.',
+
+    'all_verified' => 'All verification states',
+    'f_verified'   => 'Verified number',
+    'f_unverified' => 'Unverified number',
+    'f_none'       => 'No number',
+    'verified'     => 'Verified',
+    'unverified'   => 'Unverified',
+    'no_phone'     => 'No number',
 ];

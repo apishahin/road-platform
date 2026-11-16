@@ -20,6 +20,12 @@
                     <option value="{{ $r }}" @selected($role === $r)>{{ __('adminusers.role_' . $r) }}</option>
                 @endforeach
             </select>
+            <select name="v" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+                <option value="">{{ __('adminusers.all_verified') }}</option>
+                @foreach(['verified','unverified','none'] as $vv)
+                    <option value="{{ $vv }}" @selected($v === $vv)>{{ __('adminusers.f_' . $vv) }}</option>
+                @endforeach
+            </select>
             <button type="submit" style="padding:8px 16px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('adminusers.go') }}</button>
         </div>
         <div style="margin-top:8px;position:relative;">
@@ -29,7 +35,7 @@
             <div style="margin-top:4px;font-size:12px;color:#64748b;">
                 {{ __('adminusers.area_note') }}
                 @if($areaId)
-                    <a href="{{ route('admin.users.index', array_filter(['q' => $q, 'role' => $role])) }}" style="margin-left:8px;color:#b91c1c;">{{ __('adminusers.area_clear') }}</a>
+                    <a href="{{ route('admin.users.index', array_filter(['q' => $q, 'role' => $role, 'v' => $v])) }}" style="margin-left:8px;color:#b91c1c;">{{ __('adminusers.area_clear') }}</a>
                 @endif
             </div>
         </div>
@@ -42,7 +48,16 @@
                     <div style="font-weight:600;">{{ $u->display_name ?: '-' }} <span style="color:#64748b;font-weight:400;">#{{ $u->id }}</span></div>
                     <div style="font-size:13px;color:#64748b;">
                         {{ __('adminusers.role_' . $u->role) }}
-                        @if($u->phone) &middot; ***{{ substr($u->phone, -4) }} @endif
+                        @if($u->phone)
+                            &middot; ***{{ substr($u->phone, -4) }}
+                            @if($u->phone_verified_at)
+                                &middot; <span style="color:#15803d;">✓ {{ __('adminusers.verified') }}</span>
+                            @else
+                                &middot; <span style="color:#b45309;">⚠ {{ __('adminusers.unverified') }}</span>
+                            @endif
+                        @else
+                            &middot; <span style="color:#64748b;">{{ __('adminusers.no_phone') }}</span>
+                        @endif
                         @if($u->is_banned) &middot; <span style="color:#b91c1c;">{{ __('adminusers.banned') }}</span> @endif
                     </div>
                     @foreach(($labels[$u->id] ?? []) as $lb)

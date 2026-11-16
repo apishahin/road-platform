@@ -46,7 +46,20 @@ class UserAdminController extends Controller
         $q = trim((string) $request->query('q', ''));
         $role = (string) $request->query('role', '');
         $areaId = (int) $request->query('area', 0);
+        $v = (string) $request->query('v', '');
         $users = User::query()->orderBy('id');
+
+        // Verification-state filter: verified / unverified / no-number.
+        if (! in_array($v, ['verified', 'unverified', 'none'], true)) {
+            $v = '';
+        }
+        if ($v === 'verified') {
+            $users->whereNotNull('phone')->whereNotNull('phone_verified_at');
+        } elseif ($v === 'unverified') {
+            $users->whereNotNull('phone')->whereNull('phone_verified_at');
+        } elseif ($v === 'none') {
+            $users->whereNull('phone');
+        }
 
         if ($q !== '') {
             $digits = preg_replace('/\D+/', '', $q);
@@ -103,6 +116,7 @@ class UserAdminController extends Controller
             'users' => $page,
             'q' => $q,
             'role' => $role,
+            'v' => $v,
             'areaId' => $areaId,
             'areaLabel' => $areaLabel,
             'labels' => $labels,
