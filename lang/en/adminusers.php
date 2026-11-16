@@ -35,4 +35,18 @@ return [
     'verified'     => 'Verified',
     'unverified'   => 'Unverified',
     'no_phone'     => 'No number',
+
+    // Admin block / delete controls
+    'block'          => 'Block',
+    'unblock'        => 'Unblock',
+    'delete'         => 'Delete',
+    'block_confirm'  => 'Block this user and their device/IP addresses?',
+    'delete_confirm' => 'Delete this account? Their name, number and login are removed; public reports stay online.',
+    'blocked_msg'    => 'User blocked: sessions killed and known IPs blocked.',
+    'unblocked_msg'  => 'User unblocked and IP blocks lifted.',
+    'deleted_msg'    => 'Account deleted (personal details removed).',
+    'blocked_title'  => 'Blocked device/IP addresses',
+    'ip_unblock'     => 'Lift block',
+    'ip_removed'     => 'IP block removed.',
+    'ip_blocked_msg' => 'You cannot use this site right now.',
 ];

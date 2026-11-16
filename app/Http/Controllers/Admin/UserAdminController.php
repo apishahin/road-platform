@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminArea;
+use App\Models\BlockedIp;
 use App\Models\AuthorityContact;
 use App\Models\User;
 use App\Services\AuditService;
@@ -120,6 +121,7 @@ class UserAdminController extends Controller
             'areaId' => $areaId,
             'areaLabel' => $areaLabel,
             'labels' => $labels,
+            'blockedIps' => BlockedIp::orderByDesc('id')->limit(50)->get(),
         ]);
     }
 
@@ -142,6 +144,94 @@ class UserAdminController extends Controller
             'id' => $a->id,
             'label' => AuthorityContact::pathOf($a),
         ])->values());
+    }
+
+    /** Block a user: ban flag (all existing checks apply), kill sessions, block every known IP. */
+    public function block(Request $request, int $id)
+    {
+        $admin = $this->guard($request);
+        $user = User::findOrFail($id);
+
+        if ($user->id === $admin->id || $user->role === 'admin') {
+            return back()->with('status', __('adminusers.cant'));
+        }
+
+        $user->is_banned = true;
+        $user->save();
+
+        // Known device IPs come from the database session store.
+        $ips = DB::table('sessions')->where('user_id', $user->id)
+            ->whereNotNull('ip_address')->pluck('ip_address')->unique();
+        foreach ($ips as $ip) {
+            BlockedIp::firstOrCreate(
+                ['ip' => $ip],
+                ['user_id' => $user->id, 'created_by' => $admin->id]
+            );
+        }
+        // Log them out everywhere right away.
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+
+        app(AuditService::class)->log($admin, 'user.block', 'user', (string) $user->id, ['ips' => $ips->count()]);
+
+        return back()->with('status', __('adminusers.blocked_msg'));
+    }
+
+    /** Unblock: clear the ban and lift that user's IP blocks. */
+    public function unblock(Request $request, int $id)
+    {
+        $admin = $this->guard($request);
+        $user = User::findOrFail($id);
+
+        if ($user->id === $admin->id || $user->role === 'admin') {
+            return back()->with('status', __('adminusers.cant'));
+        }
+
+        $user->is_banned = false;
+        $user->save();
+        BlockedIp::where('user_id', $user->id)->delete();
+
+        app(AuditService::class)->log($admin, 'user.unblock', 'user', (string) $user->id);
+
+        return back()->with('status', __('adminusers.unblocked_msg'));
+    }
+
+    /** Delete: wipe personal identifiers; the row stays so public reports keep an author. */
+    public function destroy(Request $request, int $id)
+    {
+        $admin = $this->guard($request);
+        $user = User::findOrFail($id);
+
+        if ($user->id === $admin->id || $user->role === 'admin') {
+            return back()->with('status', __('adminusers.cant'));
+        }
+
+        app(AuditService::class)->log($admin, 'user.delete', 'user', (string) $user->id);
+
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+        BlockedIp::where('user_id', $user->id)->delete();
+        $user->forceFill([
+            'phone'             => null,
+            'phone_verified_at' => null,
+            'display_name'      => null,
+            'email'             => null,
+            'google_id'         => null,
+            'password'          => null,
+            'remember_token'    => null,
+        ])->save();
+
+        return back()->with('status', __('adminusers.deleted_msg'));
+    }
+
+    /** Lift one IP block by hand (e.g. shared network caught by mistake). */
+    public function unblockIp(Request $request, int $id)
+    {
+        $admin = $this->guard($request);
+        $b = BlockedIp::findOrFail($id);
+        $b->delete();
+
+        app(AuditService::class)->log($admin, 'user.unblock_ip', 'blocked_ip', (string) $id, ['ip' => $b->ip]);
+
+        return back()->with('status', __('adminusers.ip_removed'));
     }
 
     public function setRole(Request $request, int $id)

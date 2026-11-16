@@ -31,3 +31,6 @@ Thumbs.db
 database/data/geojson/
 database/data/bgd_*
 database/data/*.geojson
+
+# Local sqlite dev database — never commit
+/road_platform

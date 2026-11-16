@@ -75,6 +75,15 @@
                             </select>
                             <button type="submit" style="padding:6px 12px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('adminusers.col_action') }}</button>
                         </form>
+                        <form method="POST" action="{{ route('admin.users.block', ['id' => $u->id]) }}" onsubmit="return confirm('{{ __('adminusers.block_confirm') }}')" style="margin-top:6px;display:flex;gap:6px;">
+                            @csrf
+                            @if($u->is_banned)
+                                <button formaction="{{ route('admin.users.unblock', ['id' => $u->id]) }}" type="submit" style="padding:6px 12px;border-radius:8px;background:#15803d;color:#fff;border:0;">{{ __('adminusers.unblock') }}</button>
+                            @else
+                                <button type="submit" style="padding:6px 12px;border-radius:8px;background:#b45309;color:#fff;border:0;">{{ __('adminusers.block') }}</button>
+                            @endif
+                            <button formaction="{{ route('admin.users.delete', ['id' => $u->id]) }}" onclick="return confirm('{{ __('adminusers.delete_confirm') }}')" type="submit" style="padding:6px 12px;border-radius:8px;background:#b91c1c;color:#fff;border:0;">{{ __('adminusers.delete') }}</button>
+                        </form>
                     @else
                         <span style="font-size:13px;color:#94a3b8;">-</span>
                     @endif
@@ -86,6 +95,25 @@
     </div>
 
     <div class="mt-6">{{ $users->links() }}</div>
+
+    @if($blockedIps->isNotEmpty())
+        <div style="margin-top:28px;padding-top:16px;border-top:1px solid #e2e8f0;">
+            <h2 style="font-size:16px;font-weight:700;">{{ __('adminusers.blocked_title') }}</h2>
+            @foreach($blockedIps as $b)
+                <div style="margin-top:8px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+                    <div style="font-size:13px;color:#334155;">
+                        <code>{{ $b->ip }}</code>
+                        @if($b->user_id) &middot; #{{ $b->user_id }} @endif
+                        &middot; <span style="color:#64748b;">{{ $b->created_at->diffForHumans() }}</span>
+                    </div>
+                    <form method="POST" action="{{ route('admin.users.unblockip', ['id' => $b->id]) }}">
+                        @csrf
+                        <button type="submit" style="padding:6px 12px;border-radius:8px;background:#15803d;color:#fff;border:0;font-size:13px;">{{ __('adminusers.ip_unblock') }}</button>
+                    </form>
+                </div>
+            @endforeach
+        </div>
+    @endif
 </div>
 
 <script>

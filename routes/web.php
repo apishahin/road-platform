@@ -133,6 +133,10 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 \Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
     \Illuminate\Support\Facades\Route::get('users', [\App\Http\Controllers\Admin\UserAdminController::class, 'index'])->name('users.index');
     \Illuminate\Support\Facades\Route::post('users/{id}/role', [\App\Http\Controllers\Admin\UserAdminController::class, 'setRole'])->whereNumber('id')->name('users.role');
+    \Illuminate\Support\Facades\Route::post('users/{id}/block', [\App\Http\Controllers\Admin\UserAdminController::class, 'block'])->whereNumber('id')->middleware('throttle:20,1')->name('users.block');
+    \Illuminate\Support\Facades\Route::post('users/{id}/unblock', [\App\Http\Controllers\Admin\UserAdminController::class, 'unblock'])->whereNumber('id')->middleware('throttle:20,1')->name('users.unblock');
+    \Illuminate\Support\Facades\Route::post('users/{id}/delete', [\App\Http\Controllers\Admin\UserAdminController::class, 'destroy'])->whereNumber('id')->middleware('throttle:20,1')->name('users.delete');
+    \Illuminate\Support\Facades\Route::post('blocked-ips/{id}/delete', [\App\Http\Controllers\Admin\UserAdminController::class, 'unblockIp'])->whereNumber('id')->middleware('throttle:20,1')->name('users.unblockip');
 });
 
 \Illuminate\Support\Facades\Route::prefix('admin')->name('admin.')->group(function () {
