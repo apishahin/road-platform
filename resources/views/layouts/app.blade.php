@@ -197,9 +197,6 @@
     </script>
 
     @stack('scripts')
-@if (! request()->routeIs('home'))
-    @include('partials.report-cta')
-@endif
 @include('partials.pwa-install')
 <script>
 if ('serviceWorker' in navigator) {

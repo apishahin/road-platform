@@ -3,7 +3,6 @@
 @section('title', __('Find and report road problems'))
 
 @section('content')
-@include('partials.report-cta')
 @if (\App\Support\SiteSections::modern('home'))
     @include('home.modern')
 @else

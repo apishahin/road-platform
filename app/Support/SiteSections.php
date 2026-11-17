@@ -31,7 +31,7 @@ class SiteSections
 
     /** text fields editable per section */
     public const TEXT_FIELDS = [
-        'hero'     => ['title', 'text'],
+        'hero'     => ['title', 'text', 'cta_label', 'cta_sub'],
         'stats'    => [],
         'fund'     => ['note'],
         'ribbon'   => ['l1', 'l2', 'l3', 'l4', 'district_n'],
@@ -55,7 +55,7 @@ class SiteSections
     {
         return [
             'sections' => [
-                'hero'     => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => ''],
+                'hero'     => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => '', 'cta_label' => '', 'cta_sub' => ''],
                 'stats'    => ['on' => true],
                 'fund'     => ['on' => true,  'note' => '', 'm_donors' => true, 'm_projects' => true, 'm_days' => true],
                 'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true],
@@ -241,7 +241,7 @@ class SiteSections
     }
 
     /** Custom text with translated fallback (empty = fallback). */
-    public static function txt(string $section, string $field, string $fallback): string
+    public static function txt(string $section, string $field, string $fallback = ''): string
     {
         $v = trim((string) (self::all()['sections'][$section][$field] ?? ''));
 

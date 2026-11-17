@@ -21,8 +21,11 @@
 
         <div class="mt-4 flex flex-col gap-2.5 sm:mt-5 sm:flex-row sm:gap-3">
             <a href="{{ url('/report') }}" class="rounded-lg bg-brand-600 px-5 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-700 sm:text-base">
-                {{ __('Report a problem') }}
+                {{ \App\Support\SiteSections::txt('hero', 'cta_label', __('Report a problem')) }}
             </a>
+            @if (\App\Support\SiteSections::txt('hero', 'cta_sub') !== '')
+                <p class="mt-2 text-[12.5px] text-slate-400">{{ \App\Support\SiteSections::txt('hero', 'cta_sub') }}</p>
+            @endif
             <a href="{{ url('/issues') }}" class="rounded-lg border border-slate-500 px-5 py-2.5 text-center text-sm font-semibold text-white hover:bg-slate-800 sm:text-base">
                 {{ __('Browse issues') }}
             </a>

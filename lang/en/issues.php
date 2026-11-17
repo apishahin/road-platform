@@ -323,6 +323,8 @@ return [
     'site_size_large' => 'Large',
     'site_size_xlarge' => 'Extra large',
     'site_f_hero_title' => 'Headline',
+    'site_f_hero_cta_label' => 'Hero button label (e.g. Report a problem)',
+    'site_f_hero_cta_sub'   => 'Small line under the hero button (e.g. 1 minute, free)',
     'site_f_hero_text' => 'Subtext',
     'site_f_map_title' => 'Section heading',
     'site_f_repaired_title' => 'Section heading',

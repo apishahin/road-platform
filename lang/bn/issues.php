@@ -323,6 +323,8 @@ return [
     'site_size_large' => 'বড়',
     'site_size_xlarge' => 'অতি বড়',
     'site_f_hero_title' => 'শিরোনাম',
+    'site_f_hero_cta_label' => 'হিরো বাটনের লেখা (যেমন: সমস্যা জানান)',
+    'site_f_hero_cta_sub'   => 'হিরো বাটনের নিচে ছোট লাইন (যেমন: ১ মিনিট, ফ্রি)',
     'site_f_hero_text' => 'বর্ণনা',
     'site_f_map_title' => 'সেকশনের শিরোনাম',
     'site_f_repaired_title' => 'সেকশনের শিরোনাম',

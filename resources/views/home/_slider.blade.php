@@ -21,9 +21,12 @@
                 <div class="hero-sub">{{ __('issues.hero_plain_sub') }}</div>
                 <p class="hero-desc">{{ __('issues.hero_plain_text') }}</p>
                 <div class="hero-actions">
-                    <a class="btn btn-primary" href="{{ url('/report') }}">⚑ {{ __('Report a problem') }}</a>
+                    <a class="btn btn-primary" href="{{ url('/report') }}">⚑ {{ \App\Support\SiteSections::txt('hero', 'cta_label', __('Report a problem')) }}</a>
                     <a class="btn btn-outline-light" href="#home-map">⌖ {{ __('issues.hero_map_btn') }}</a>
                 </div>
+                @if (\App\Support\SiteSections::txt('hero', 'cta_sub') !== '')
+                    <p style="margin:10px 0 0;font-size:12.5px;color:rgba(255,255,255,.72);">{{ \App\Support\SiteSections::txt('hero', 'cta_sub') }}</p>
+                @endif
             </div>
             <div class="hero-note">{{ __('issues.hero_note_1') }}<span>{{ __('issues.hero_note_hl') }}</span></div>
         </div>
@@ -48,7 +51,7 @@
                             <p class="hero-desc">{!! \App\Support\SiteSections::heroHl($sl['text']) !!}</p>
                         @endif
                         <div class="hero-actions">
-                            <a class="btn btn-primary" href="{{ url('/report') }}">⚑ {{ __('Report a problem') }}</a>
+                            <a class="btn btn-primary" href="{{ url('/report') }}">⚑ {{ \App\Support\SiteSections::txt('hero', 'cta_label', __('Report a problem')) }}</a>
                             <a class="btn btn-outline-light" href="#home-map">⌖ {{ __('issues.hero_map_btn') }}</a>
                         </div>
                         @if ($__slides->count() > 1)
