@@ -98,6 +98,60 @@
             </div>
         </div>
 
+        {{-- ============ Floating buttons (install pill / report FAB / scroll-to-top) ============ --}}
+        @php $fl = $s['float'] ?? []; @endphp
+        <h2 style="margin-top:24px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_float') }}</h2>
+        <p style="margin-top:2px;font-size:12px;color:#94a3b8;">{{ __('issues.site_float_hint') }}</p>
+        <div style="margin-top:10px;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+            @foreach ([
+                'pill' => ['title' => 'site_float_pill', 'desc' => 'site_float_pill_hint'],
+                'fab'  => ['title' => 'site_float_fab',  'desc' => 'site_float_fab_hint'],
+                'top'  => ['title' => 'site_float_top',  'desc' => 'site_float_top_hint'],
+            ] as $b => $meta)
+                <div style="{{ $card }}" x-data="{ on: {{ ! empty($fl[$b . '_on']) ? 'true' : 'false' }} }">
+                    <label style="font-size:14px;font-weight:800;color:#0f172a;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" name="float_{{ $b }}_on" value="1" x-model="on" @checked(! empty($fl[$b . '_on']))> {{ __('issues.' . $meta['title']) }}
+                    </label>
+                    <p style="font-size:12px;color:#94a3b8;margin-top:2px;">{{ __('issues.' . $meta['desc']) }}</p>
+                    <div x-show="on" x-cloak style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+                        @if ($b !== 'top')
+                            <div>
+                                <label style="{{ $lbl }}">{{ __('issues.site_float_label') }}</label>
+                                <input name="float_{{ $b }}_label" value="{{ old('float_' . $b . '_label', $fl[$b . '_label'] ?? '') }}" maxlength="60"
+                                       placeholder="{{ __('issues.site_placeholder_default') }}" style="{{ $inp }}">
+                            </div>
+                        @endif
+                        <div>
+                            <label style="{{ $lbl }}">{{ __('issues.site_float_color') }}</label>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <input type="text" name="float_{{ $b }}_color" value="{{ old('float_' . $b . '_color', $fl[$b . '_color'] ?? '') }}" pattern="^#[0-9a-fA-F]{6}$" maxlength="7" placeholder="#059669" style="{{ $inp }};max-width:110px;font-family:monospace;">
+                                <span style="display:inline-block;width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:{{ $fl[$b . '_color'] ?? '#fff' }};" aria-hidden="true"></span>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                            <div>
+                                <label style="{{ $lbl }}">{{ __('issues.site_float_size') }}</label>
+                                <select name="float_{{ $b }}_size" style="{{ $inp }}">
+                                    @foreach (SiteSections::FLOAT_SIZES as $sz)
+                                        <option value="{{ $sz }}" @selected(($fl[$b . '_size'] ?? 'md') === $sz)>{{ __('issues.site_float_size_' . $sz) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label style="{{ $lbl }}">{{ __('issues.site_float_pos') }}</label>
+                                <select name="float_{{ $b }}_pos" style="{{ $inp }}">
+                                    @foreach (SiteSections::FLOAT_POS as $ps)
+                                        <option value="{{ $ps }}" @selected(($fl[$b . '_pos'] ?? '') === $ps)>{{ __('issues.site_float_pos_' . $ps) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+
         {{-- ============ Hero slider ============ --}}
         <h2 style="margin-top:24px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_hero_slider') }}</h2>
         <div style="{{ $card }};margin-top:10px;" x-data="{ on: {{ $hs['on'] ? 'true' : 'false' }} }">

@@ -29,6 +29,11 @@ class SiteSections
     /** Admin-editable Modern-home colour/gradient theme (hex only). */
     public const THEME_COLORS = ['green', 'green_dark', 'green_deep', 'accent', 'cta_from', 'cta_to'];
 
+    /** Floating button ids, sizes (sm/md/lg) and positions (bl/bc/br). */
+    public const FLOAT_BTNS  = ['pill', 'fab', 'top'];
+    public const FLOAT_SIZES = ['sm', 'md', 'lg'];
+    public const FLOAT_POS   = ['bl', 'bc', 'br'];
+
     /** text fields editable per section */
     public const TEXT_FIELDS = [
         'hero'     => ['title', 'text', 'cta_label', 'cta_sub'],
@@ -73,6 +78,13 @@ class SiteSections
                 'on'         => false,
                 'green'      => '#078a48', 'green_dark' => '#00552f', 'green_deep' => '#003d25',
                 'accent'     => '#d7ff70', 'cta_from'   => '#006b39', 'cta_to'     => '#003d25',
+            ],
+            // Floating buttons (install pill / report FAB / scroll-to-top):
+            // on/off, label, colour, size, screen position — all admin-controlled.
+            'float' => [
+                'pill_on' => true,  'pill_label' => '', 'pill_color' => '#059669', 'pill_size' => 'md', 'pill_pos' => 'bc',
+                'fab_on'  => true,  'fab_label'  => '', 'fab_color'  => '#059669', 'fab_size'  => 'md', 'fab_pos'  => 'br',
+                'top_on'  => true,  'top_color'  => '#334155', 'top_size' => 'md', 'top_pos' => 'bl',
             ],
         ];
     }
@@ -142,7 +154,7 @@ class SiteSections
         $navIn = is_array($in['nav'] ?? null) ? $in['nav'] : [];
         $ftrIn = is_array($in['footer'] ?? null) ? $in['footer'] : [];
 
-        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => [], 'theme' => []];
+        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => [], 'theme' => [], 'float' => []];
 
         foreach (self::SECTIONS as $s) {
             $base = $d['sections'][$s];
@@ -197,6 +209,22 @@ class SiteSections
             $v = $thIn[$c] ?? $d['theme'][$c];
             $out['theme'][$c] = (is_string($v) && preg_match('/^#[0-9a-fA-F]{6}$/', $v)) ? strtolower($v) : $d['theme'][$c];
         }
+
+        $flIn = is_array($in['float'] ?? null) ? $in['float'] : [];
+        $fl = [];
+        foreach (self::FLOAT_BTNS as $b) {
+            $fl[$b . '_on'] = array_key_exists($b . '_on', $flIn) ? (bool) $flIn[$b . '_on'] : $d['float'][$b . '_on'];
+            if ($b !== 'top') {
+                $fl[$b . '_label'] = mb_substr(trim((string) ($flIn[$b . '_label'] ?? $d['float'][$b . '_label'])), 0, 60);
+            }
+            $c = (string) ($flIn[$b . '_color'] ?? $d['float'][$b . '_color']);
+            $fl[$b . '_color'] = preg_match('/^#[0-9a-fA-F]{6}$/', $c) ? strtolower($c) : $d['float'][$b . '_color'];
+            $sz = $flIn[$b . '_size'] ?? '';
+            $fl[$b . '_size'] = in_array($sz, self::FLOAT_SIZES, true) ? $sz : $d['float'][$b . '_size'];
+            $ps = $flIn[$b . '_pos'] ?? '';
+            $fl[$b . '_pos'] = in_array($ps, self::FLOAT_POS, true) ? $ps : $d['float'][$b . '_pos'];
+        }
+        $out['float'] = $fl;
 
         return $out;
     }

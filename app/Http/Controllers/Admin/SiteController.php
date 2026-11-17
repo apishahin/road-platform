@@ -77,6 +77,12 @@ class SiteController extends Controller
         foreach (SiteSections::THEME_COLORS as $c) {
             $rules['theme_' . $c] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
         }
+        foreach (SiteSections::FLOAT_BTNS as $b) {
+            $rules["float_{$b}_label"] = ['nullable', 'string', 'max:60'];
+            $rules["float_{$b}_color"] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
+            $rules["float_{$b}_size"]  = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_SIZES)];
+            $rules["float_{$b}_pos"]   = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_POS)];
+        }
 
         for ($i = 0; $i < SiteSections::HERO_SLIDES; $i++) {
             $rules["slide_file_{$i}"]  = ['nullable', 'file', 'max:4096'];
@@ -124,6 +130,18 @@ class SiteController extends Controller
         $new['theme'] = ['on' => $request->boolean('theme_on')];
         foreach (SiteSections::THEME_COLORS as $c) {
             $new['theme'][$c] = $data['theme_' . $c] ?? $old['theme'][$c];
+        }
+
+        // Floating buttons (install pill / report FAB / scroll-to-top).
+        $new['float'] = [];
+        foreach (SiteSections::FLOAT_BTNS as $b) {
+            $new['float'][$b . '_on'] = $request->boolean("float_{$b}_on");
+            if ($b !== 'top') {
+                $new['float'][$b . '_label'] = $data["float_{$b}_label"] ?? '';
+            }
+            $new['float'][$b . '_color'] = $data["float_{$b}_color"] ?? $old['float'][$b . '_color'];
+            $new['float'][$b . '_size']  = $data["float_{$b}_size"] ?? 'md';
+            $new['float'][$b . '_pos']   = $data["float_{$b}_pos"] ?? $old['float'][$b . '_pos'];
         }
 
         // Hero slider: keep old uploaded image unless a new file replaces it or admin clears it.

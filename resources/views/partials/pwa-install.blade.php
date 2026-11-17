@@ -19,14 +19,35 @@
         </div>
     </div>
 
-    {{-- Floating pill --}}
+    {{-- Floating install pill — label, colour, size, position & on/off from
+         admin → Homepage & site → Floating buttons.
+         Inline styles: immune to which Tailwind classes the last build kept. --}}
+    @php
+        $__fl = \App\Support\SiteSections::all()['float'] ?? [];
+        $__pillOn    = $__fl['pill_on'] ?? true;
+        $__pillLabel = ($__fl['pill_label'] ?? '') !== '' ? $__fl['pill_label'] : __('pwa.pill');
+        $__pillColor = $__fl['pill_color'] ?? '#059669';
+        $__pillPosCss = match ($__fl['pill_pos'] ?? 'bc') {
+            'bl' => 'left:16px;bottom:16px;',
+            'br' => 'right:16px;bottom:16px;',
+            default => 'left:50%;bottom:16px;transform:translateX(-50%);',
+        };
+        [$__pillPad, $__pillFs, $__pillIc] = match ($__fl['pill_size'] ?? 'md') {
+            'sm' => ['6px 12px 6px 10px', '12px', '14px'],
+            'lg' => ['14px 24px 14px 20px', '16px', '20px'],
+            default => ['8px 16px 8px 12px', '14px', '16px'],
+        };
+    @endphp
+    @if ($__pillOn)
     <button type="button" data-pwa-pill hidden
-            class="pwa-pill fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full bg-brand-600 py-2 pl-3 pr-4 text-sm font-bold text-white shadow-lg shadow-brand-600/30 transition-transform active:scale-95">
-        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            class="pwa-pill fixed z-40 flex items-center gap-2 rounded-full font-bold text-white shadow-lg"
+            style="{{ $__pillPosCss }}padding: {{ $__pillPad }}; font-size: {{ $__pillFs }}; background: {{ $__pillColor }}; box-shadow: 0 10px 25px -5px {{ $__pillColor }}4d;">
+        <svg class="pwa-pill-ic" style="width: {{ $__pillIc }}; height: {{ $__pillIc }};" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4m-5 8h14"/>
         </svg>
-        {{ __('pwa.pill') }}
+        <span class="pwa-pill-label">{{ $__pillLabel }}</span>
     </button>
+    @endif
 </div>
 
 <script>
@@ -53,6 +74,7 @@
     function show() {
         helper.hidden = false;
         // Pill appears once the hero card scrolls away (or on pages without it).
+        if (!pill) { return; }
         if (card) {
             var io = new IntersectionObserver(function (entries) {
                 pill.hidden = entries[0].isIntersecting;
@@ -77,7 +99,7 @@
             hint = 'Menu (⋮) → "' + hint + '" / "Install app"';
         }
         btns.forEach(function (b) { b.textContent = '?'; });
-        pill.insertAdjacentHTML('afterend',
+        (pill || helper).insertAdjacentHTML('afterend',
             '<div class="pwa-hint fixed bottom-16 left-1/2 z-40 -translate-x-1/2 rounded-xl bg-zinc-900 px-4 py-2.5 text-[12px] font-medium text-white shadow-xl">' +
             hint + '</div>');
         setTimeout(function () {
@@ -103,9 +125,11 @@
     });
     if (close) { close.addEventListener('click', dismiss); }
 
-    pill.addEventListener('click', function () {
-        if (deferredPrompt) { deferredPrompt.prompt(); } else { manualHint(); }
-    });
+    if (pill) {
+        pill.addEventListener('click', function () {
+            if (deferredPrompt) { deferredPrompt.prompt(); } else { manualHint(); }
+        });
+    }
 
     window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();

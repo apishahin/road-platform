@@ -198,6 +198,8 @@
 
     @stack('scripts')
 @include('partials.pwa-install')
+@include('partials.report-fab')
+@include('partials.scroll-top')
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
