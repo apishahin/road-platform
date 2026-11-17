@@ -7,10 +7,12 @@
     $__fabOn    = $__fl['fab_on'] ?? true;
     $__fabLabel = ($__fl['fab_label'] ?? '') !== '' ? $__fl['fab_label'] : __('reportcta.fab');
     $__fabColor = $__fl['fab_color'] ?? '#059669';
+    $__fb = (int) ($__fl['fab_bottom'] ?? 16);
+    $__fs = (int) ($__fl['fab_side'] ?? 16);
     $__fabPosCss = match ($__fl['fab_pos'] ?? 'br') {
-        'bl' => 'left:16px;bottom:16px;',
-        'bc' => 'left:50%;bottom:16px;transform:translateX(-50%);',
-        default => 'right:16px;bottom:16px;',
+        'bl' => "left:{$__fs}px;bottom:{$__fb}px;",
+        'bc' => "left:50%;bottom:{$__fb}px;transform:translateX(-50%);",
+        default => "right:{$__fs}px;bottom:{$__fb}px;",
     };
     [$__fabPad, $__fabFs, $__fabIc] = match ($__fl['fab_size'] ?? 'md') {
         'sm' => ['8px 12px 8px 10px', '12px', '16px'],

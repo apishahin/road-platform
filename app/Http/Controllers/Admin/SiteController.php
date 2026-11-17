@@ -50,6 +50,28 @@ class SiteController extends Controller
         return $name;
     }
 
+    /** Move an uploaded popup image to public/uploads/popup with a safe generated name. */
+    private function storePopupImage($file): string
+    {
+        $info  = @getimagesize($file->getRealPath());
+        $types = [IMAGETYPE_PNG => 'png', IMAGETYPE_JPEG => 'jpg', IMAGETYPE_WEBP => 'webp'];
+
+        if ($info === false || ! isset($types[$info[2]])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'popup_file' => __('issues.popup_img_bad'),
+            ]);
+        }
+
+        $dir = public_path(SiteSections::POPUP_DIR);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $name = 'popup-' . Str::lower(Str::random(16)) . '.' . $types[$info[2]];
+        $file->move($dir, $name);
+
+        return $name;
+    }
+
     public function save(Request $request, AuditService $audit)
     {
         $this->guard($request);
@@ -78,11 +100,19 @@ class SiteController extends Controller
             $rules['theme_' . $c] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
         }
         foreach (SiteSections::FLOAT_BTNS as $b) {
-            $rules["float_{$b}_label"] = ['nullable', 'string', 'max:60'];
-            $rules["float_{$b}_color"] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
-            $rules["float_{$b}_size"]  = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_SIZES)];
-            $rules["float_{$b}_pos"]   = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_POS)];
+            $rules["float_{$b}_label"]  = ['nullable', 'string', 'max:60'];
+            $rules["float_{$b}_color"]  = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
+            $rules["float_{$b}_size"]   = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_SIZES)];
+            $rules["float_{$b}_pos"]    = ['nullable', 'in:' . implode(',', SiteSections::FLOAT_POS)];
+            $rules["float_{$b}_bottom"] = ['nullable', 'integer', 'min:0', 'max:400'];
+            $rules["float_{$b}_side"]   = ['nullable', 'integer', 'min:0', 'max:400'];
         }
+        $rules['popup_text']    = ['nullable', 'string', 'max:300'];
+        $rules['popup_link']    = ['nullable', 'string', 'max:300'];
+        $rules['popup_img_url'] = ['nullable', 'string', 'max:300'];
+        $rules['popup_delay']   = ['nullable', 'integer', 'min:0', 'max:120'];
+        $rules['popup_freq']    = ['nullable', 'in:' . implode(',', SiteSections::POPUP_FREQS)];
+        $rules['popup_file']    = ['nullable', 'file', 'max:4096'];
 
         for ($i = 0; $i < SiteSections::HERO_SLIDES; $i++) {
             $rules["slide_file_{$i}"]  = ['nullable', 'file', 'max:4096'];
@@ -139,10 +169,30 @@ class SiteController extends Controller
             if ($b !== 'top') {
                 $new['float'][$b . '_label'] = $data["float_{$b}_label"] ?? '';
             }
-            $new['float'][$b . '_color'] = $data["float_{$b}_color"] ?? $old['float'][$b . '_color'];
-            $new['float'][$b . '_size']  = $data["float_{$b}_size"] ?? 'md';
-            $new['float'][$b . '_pos']   = $data["float_{$b}_pos"] ?? $old['float'][$b . '_pos'];
+            $new['float'][$b . '_color']  = $data["float_{$b}_color"] ?? $old['float'][$b . '_color'];
+            $new['float'][$b . '_size']   = $data["float_{$b}_size"] ?? 'md';
+            $new['float'][$b . '_pos']    = $data["float_{$b}_pos"] ?? $old['float'][$b . '_pos'];
+            $new['float'][$b . '_bottom'] = $data["float_{$b}_bottom"] ?? $old['float'][$b . '_bottom'];
+            $new['float'][$b . '_side']   = $data["float_{$b}_side"] ?? $old['float'][$b . '_side'];
         }
+
+        // Advertisement popup: keep old uploaded image unless replaced or cleared.
+        $ppImg = $old['popup']['img'] ?? '';
+        if ($request->boolean('popup_img_remove')) {
+            $ppImg = '';
+        }
+        if ($request->hasFile('popup_file')) {
+            $ppImg = $this->storePopupImage($request->file('popup_file'));
+        }
+        $new['popup'] = [
+            'on'      => $request->boolean('popup_on'),
+            'text'    => $data['popup_text'] ?? '',
+            'link'    => $data['popup_link'] ?? '',
+            'img'     => $ppImg,
+            'img_url' => $data['popup_img_url'] ?? '',
+            'delay'   => $data['popup_delay'] ?? $old['popup']['delay'],
+            'freq'    => $data['popup_freq'] ?? $old['popup']['freq'],
+        ];
 
         // Hero slider: keep old uploaded image unless a new file replaces it or admin clears it.
         $slides = [];

@@ -145,10 +145,63 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div>
+                                <label style="{{ $lbl }}">{{ __('issues.site_float_bottom') }}</label>
+                                <input type="number" name="float_{{ $b }}_bottom" value="{{ old('float_' . $b . '_bottom', $fl[$b . '_bottom'] ?? 16) }}" min="0" max="400" step="4" style="{{ $inp }}">
+                            </div>
+                            <div>
+                                <label style="{{ $lbl }}">{{ __('issues.site_float_side') }}</label>
+                                <input type="number" name="float_{{ $b }}_side" value="{{ old('float_' . $b . '_side', $fl[$b . '_side'] ?? 16) }}" min="0" max="400" step="4" style="{{ $inp }}">
+                            </div>
                         </div>
                     </div>
                 </div>
             @endforeach
+        </div>
+        {{-- ============ Advertisement popup ============ --}}
+        @php $pp = $s['popup'] ?? []; @endphp
+        <h2 style="margin-top:24px;font-size:16px;font-weight:800;color:#0f172a;">{{ __('issues.site_popup') }}</h2>
+        <div style="{{ $card }};margin-top:10px;" x-data="{ on: {{ ! empty($pp['on']) ? 'true' : 'false' }} }">
+            <label style="font-size:15px;font-weight:800;color:#0f172a;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" name="popup_on" value="1" x-model="on" @checked(! empty($pp['on']))> {{ __('issues.site_popup_on') }}
+            </label>
+            <p style="font-size:12px;color:#94a3b8;margin-top:2px;">{{ __('issues.site_popup_hint') }}</p>
+
+            <div x-show="on" x-cloak style="margin-top:12px;display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="{{ $lbl }}">{{ __('issues.site_popup_img') }}</label>
+                    @if (($pp['img'] ?? '') !== '')
+                        <img src="/{{ SiteSections::POPUP_DIR }}/{{ $pp['img'] }}" alt="" style="height:56px;width:auto;border-radius:8px;border:1px solid #e2e8f0;background:#fff;padding:2px;margin-bottom:6px;display:block;">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#b91c1c;margin-bottom:4px;"><input type="checkbox" name="popup_img_remove" value="1"> {{ __('issues.site_slide_img_remove') }}</label>
+                    @endif
+                    <input type="file" name="popup_file" accept=".png,.jpg,.jpeg,.webp" style="font-size:13px;">
+                    <p style="font-size:11px;color:#94a3b8;margin-top:4px;">{{ __('issues.site_popup_img_or') }}</p>
+                    <input name="popup_img_url" value="{{ old('popup_img_url', $pp['img_url'] ?? '') }}" maxlength="300" placeholder="https://…" style="{{ $inp }};margin-top:6px;">
+                </div>
+                <div>
+                    <label style="{{ $lbl }}">{{ __('issues.site_popup_text') }}</label>
+                    <textarea name="popup_text" rows="3" maxlength="300" placeholder="{{ __('issues.site_popup_text_ph') }}" style="{{ $inp }}">{{ old('popup_text', $pp['text'] ?? '') }}</textarea>
+                </div>
+                <div>
+                    <label style="{{ $lbl }}">{{ __('issues.site_popup_link') }}</label>
+                    <input name="popup_link" value="{{ old('popup_link', $pp['link'] ?? '') }}" maxlength="300" placeholder="https://…" style="{{ $inp }}">
+                    <p style="font-size:11px;color:#94a3b8;margin-top:4px;">{{ __('issues.site_popup_link_hint') }}</p>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div>
+                        <label style="{{ $lbl }}">{{ __('issues.site_popup_delay') }}</label>
+                        <input type="number" name="popup_delay" value="{{ old('popup_delay', $pp['delay'] ?? 3) }}" min="0" max="120" step="1" style="{{ $inp }}">
+                    </div>
+                    <div>
+                        <label style="{{ $lbl }}">{{ __('issues.site_popup_freq') }}</label>
+                        <select name="popup_freq" style="{{ $inp }}">
+                            @foreach (SiteSections::POPUP_FREQS as $fq)
+                                <option value="{{ $fq }}" @selected(($pp['freq'] ?? 'day') === $fq)>{{ __('issues.site_popup_freq_' . $fq) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
         </div>
 
 

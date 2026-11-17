@@ -6,10 +6,12 @@
     $__fl = \App\Support\SiteSections::all()['float'] ?? [];
     $__topOn    = $__fl['top_on'] ?? true;
     $__topColor = $__fl['top_color'] ?? '#334155';
+    $__tb = (int) ($__fl['top_bottom'] ?? 16);
+    $__ts = (int) ($__fl['top_side'] ?? 16);
     $__topPosCss = match ($__fl['top_pos'] ?? 'bl') {
-        'br' => 'right:16px;bottom:16px;',
-        'bc' => 'left:50%;bottom:16px;transform:translateX(-50%);',
-        default => 'left:16px;bottom:16px;',
+        'br' => "right:{$__ts}px;bottom:{$__tb}px;",
+        'bc' => "left:50%;bottom:{$__tb}px;transform:translateX(-50%);",
+        default => "left:{$__ts}px;bottom:{$__tb}px;",
     };
     [$__topBox, $__topIc] = match ($__fl['top_size'] ?? 'md') {
         'sm' => ['36px', '16px'],

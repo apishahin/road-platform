@@ -74,6 +74,24 @@ class FloatingButtonsTest extends TestCase
         $this->assertStringContainsString('data-rp-fab', $html);
     }
 
+    public function test_admin_can_move_buttons_freely_with_pixel_offsets(): void
+    {
+        $this->actingAs($this->admin())->post('/admin/site', [
+            'float_pill_on' => '1', 'float_pill_size' => 'md', 'float_pill_pos' => 'bc',
+            'float_pill_bottom' => '120',
+            'float_fab_on'  => '1', 'float_fab_size' => 'md', 'float_fab_pos' => 'br',
+            'float_fab_bottom' => '56', 'float_fab_side' => '40',
+            'float_top_on'  => '1', 'float_top_size' => 'md', 'float_top_pos' => 'br',
+            'float_top_bottom' => '200', 'float_top_side' => '8',
+        ])->assertRedirect(route('admin.site.index'));
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('left:50%;bottom:120px;transform:translateX(-50%);', $html); // pill raised
+        $this->assertStringContainsString('right:40px;bottom:56px;', $html);  // FAB custom corner offset
+        $this->assertStringContainsString('right:8px;bottom:200px;', $html);  // top button moved up
+    }
+
     public function test_guest_is_redirected_from_site_save(): void
     {
         $this->post('/admin/site', [])->assertRedirect('/login');

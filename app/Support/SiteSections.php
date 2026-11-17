@@ -34,6 +34,10 @@ class SiteSections
     public const FLOAT_SIZES = ['sm', 'md', 'lg'];
     public const FLOAT_POS   = ['bl', 'bc', 'br'];
 
+    /** Ad-popup re-show frequency options + upload dir (inside public/). */
+    public const POPUP_FREQS = ['always', 'session', 'day'];
+    public const POPUP_DIR   = 'uploads/popup';
+
     /** text fields editable per section */
     public const TEXT_FIELDS = [
         'hero'     => ['title', 'text', 'cta_label', 'cta_sub'],
@@ -82,10 +86,13 @@ class SiteSections
             // Floating buttons (install pill / report FAB / scroll-to-top):
             // on/off, label, colour, size, screen position — all admin-controlled.
             'float' => [
-                'pill_on' => true,  'pill_label' => '', 'pill_color' => '#059669', 'pill_size' => 'md', 'pill_pos' => 'bc',
-                'fab_on'  => true,  'fab_label'  => '', 'fab_color'  => '#059669', 'fab_size'  => 'md', 'fab_pos'  => 'br',
-                'top_on'  => true,  'top_color'  => '#334155', 'top_size' => 'md', 'top_pos' => 'bl',
+                'pill_on' => true,  'pill_label' => '', 'pill_color' => '#059669', 'pill_size' => 'md', 'pill_pos' => 'bc', 'pill_bottom' => 16, 'pill_side' => 16,
+                'fab_on'  => true,  'fab_label'  => '', 'fab_color'  => '#059669', 'fab_size'  => 'md', 'fab_pos'  => 'br', 'fab_bottom'  => 16, 'fab_side'  => 16,
+                'top_on'  => true,  'top_color'  => '#334155', 'top_size' => 'md', 'top_pos' => 'bl', 'top_bottom' => 16, 'top_side' => 16,
             ],
+            // Advertisement popup: text and/or image (upload or URL), clickable
+            // link, show-after delay and re-show frequency — all admin-controlled.
+            'popup' => ['on' => false, 'text' => '', 'link' => '', 'img' => '', 'img_url' => '', 'delay' => 3, 'freq' => 'day'],
         ];
     }
 
@@ -154,7 +161,7 @@ class SiteSections
         $navIn = is_array($in['nav'] ?? null) ? $in['nav'] : [];
         $ftrIn = is_array($in['footer'] ?? null) ? $in['footer'] : [];
 
-        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => [], 'theme' => [], 'float' => []];
+        $out = ['sections' => [], 'nav' => [], 'footer' => [], 'design' => [], 'hero_slider' => [], 'theme' => [], 'float' => [], 'popup' => []];
 
         foreach (self::SECTIONS as $s) {
             $base = $d['sections'][$s];
@@ -223,8 +230,28 @@ class SiteSections
             $fl[$b . '_size'] = in_array($sz, self::FLOAT_SIZES, true) ? $sz : $d['float'][$b . '_size'];
             $ps = $flIn[$b . '_pos'] ?? '';
             $fl[$b . '_pos'] = in_array($ps, self::FLOAT_POS, true) ? $ps : $d['float'][$b . '_pos'];
+            foreach (['bottom', 'side'] as $off) {
+                $v = $flIn[$b . '_' . $off] ?? $d['float'][$b . '_' . $off];
+                $fl[$b . '_' . $off] = is_numeric($v) ? max(0, min(400, (int) $v)) : $d['float'][$b . '_' . $off];
+            }
         }
         $out['float'] = $fl;
+
+        $ppIn = is_array($in['popup'] ?? null) ? $in['popup'] : [];
+        $ppImg = (string) ($ppIn['img'] ?? '');
+        if (! preg_match('/^popup-[a-z0-9]{16}\.(png|jpg|webp)$/', $ppImg)) {
+            $ppImg = '';
+        }
+        $ppDelay = $ppIn['delay'] ?? $d['popup']['delay'];
+        $out['popup'] = [
+            'on'      => array_key_exists('on', $ppIn) ? (bool) $ppIn['on'] : $d['popup']['on'],
+            'text'    => mb_substr(trim((string) ($ppIn['text'] ?? $d['popup']['text'])), 0, 300),
+            'link'    => self::cleanUrl($ppIn['link'] ?? $d['popup']['link']),
+            'img'     => $ppImg,
+            'img_url' => self::cleanUrl($ppIn['img_url'] ?? $d['popup']['img_url']),
+            'delay'   => is_numeric($ppDelay) ? max(0, min(120, (int) $ppDelay)) : $d['popup']['delay'],
+            'freq'    => in_array($ppIn['freq'] ?? '', self::POPUP_FREQS, true) ? $ppIn['freq'] : $d['popup']['freq'],
+        ];
 
         return $out;
     }

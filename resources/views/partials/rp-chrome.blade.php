@@ -63,11 +63,6 @@
 .rp-foot .socials a:hover{filter:brightness(1.15);}
 .rp-foot .footer-bottom{border-top:1px solid rgba(255,255,255,.2);margin-top:20px;padding-top:14px;text-align:center;color:#c8ded1;font-size:11px;}
 @media (min-width:900px){ .rp-foot .footer-bottom{margin-top:24px;padding-top:15px;font-size:12px;} }
-.rp-backtop{position:fixed;right:14px;bottom:14px;width:39px;height:39px;border:0;border-radius:50%;background:#16a65b;color:#fff;box-shadow:0 2px 8px rgba(16,43,32,.2);z-index:1000;display:grid;place-items:center;cursor:pointer;}
-.rp-backtop.hidden{display:none !important;}
-.rp-backtop.rp-show{display:grid !important;}
-.rp-backtop:hover{background:#148f4f;}
-@media (min-width:900px){ .rp-backtop{right:22px;bottom:20px;width:44px;height:44px;} }
 @if ($th['on'])
 .rp-h,.rp-foot{--green:{{ $th['green'] }};}
 .rp-foot{background:{{ $th['green_deep'] }};}

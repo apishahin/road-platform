@@ -178,28 +178,11 @@
     .rp-foot-light .footer-bottom{border-top-color:#e0eae4;color:#819087;}
     </style>
 
-    {{-- Back to top --}}
-    <button type="button" id="back-to-top" aria-label="{{ __('issues.back_to_top') }}"
-            class="rp-backtop hidden">
-        <svg style="width:19px;height:19px;display:inline;" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
-    </button>
-    <script>
-        (function () {
-            var b = document.getElementById('back-to-top');
-            if (! b) { return; }
-            window.addEventListener('scroll', function () {
-                var on = window.scrollY > 400;
-                b.classList.toggle('hidden', ! on);
-                b.classList.toggle('rp-show', on);
-            }, { passive: true });
-            b.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
-        })();
-    </script>
-
     @stack('scripts')
 @include('partials.pwa-install')
 @include('partials.report-fab')
 @include('partials.scroll-top')
+@include('partials.popup-ad')
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {

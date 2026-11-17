@@ -293,7 +293,8 @@ class SiteSectionsTest extends TestCase
 
     public function test_back_to_top_button_is_present(): void
     {
-        $this->get('/')->assertOk()->assertSee('id="back-to-top"', false);
+        // Admin-controlled floating back-to-top (replaces the old fixed one).
+        $this->get('/')->assertOk()->assertSee('data-rp-top', false);
     }
 
     public function test_admin_save_handles_new_fields(): void

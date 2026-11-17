@@ -27,10 +27,12 @@
         $__pillOn    = $__fl['pill_on'] ?? true;
         $__pillLabel = ($__fl['pill_label'] ?? '') !== '' ? $__fl['pill_label'] : __('pwa.pill');
         $__pillColor = $__fl['pill_color'] ?? '#059669';
+        $__pb = (int) ($__fl['pill_bottom'] ?? 16);
+        $__ps = (int) ($__fl['pill_side'] ?? 16);
         $__pillPosCss = match ($__fl['pill_pos'] ?? 'bc') {
-            'bl' => 'left:16px;bottom:16px;',
-            'br' => 'right:16px;bottom:16px;',
-            default => 'left:50%;bottom:16px;transform:translateX(-50%);',
+            'bl' => "left:{$__ps}px;bottom:{$__pb}px;",
+            'br' => "right:{$__ps}px;bottom:{$__pb}px;",
+            default => "left:50%;bottom:{$__pb}px;transform:translateX(-50%);",
         };
         [$__pillPad, $__pillFs, $__pillIc] = match ($__fl['pill_size'] ?? 'md') {
             'sm' => ['6px 12px 6px 10px', '12px', '14px'],
