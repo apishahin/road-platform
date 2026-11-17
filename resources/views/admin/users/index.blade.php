@@ -70,7 +70,7 @@
                         <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                             <span class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-bold text-slate-500">{{ __('adminusers.role_' . $u->role) }}</span>
                             @if($u->phone)
-                                <span class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-bold text-slate-500">***{{ substr($u->phone, -4) }}</span>
+                                <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText(this.dataset.n)" data-n="{{ $u->phone }}" title="{{ __('adminusers.copy_phone') }}" class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-slate-600 hover:bg-slate-200">{{ $u->phone }}</button>
                                 @if($u->phone_verified_at)
                                     <span class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 font-bold text-emerald-700 ring-1 ring-inset ring-emerald-200">✓ {{ __('adminusers.verified') }}</span>
                                 @else

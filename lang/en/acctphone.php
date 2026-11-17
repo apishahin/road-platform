@@ -22,13 +22,13 @@ return [
     'required_notice' => 'A verified mobile number is needed for this. Please verify your number below — it only takes a few seconds.',
 
     // Self-service account deletion (OTP-confirmed; personal data wiped, reports stay public).
-    'del_link'           => 'Delete my account',
+    'del_link'           => 'Privacy & account deletion',
     'nav_phone'          => 'My mobile number',
-    'del_title'          => 'Delete account',
-    'del_intro'          => 'This permanently removes your account. Please read what happens before you continue:',
+    'del_title'          => 'Privacy & account deletion',
+    'del_intro'          => 'Your reports help fix real roads — thank you. If you still want to leave, here is what happens:',
     'del_point_personal' => 'Your name, mobile number, email and Google link are removed from your account.',
     'del_point_reports'  => 'Reports and photos you published stay online for the public record, without your name.',
-    'del_point_undo'     => 'This cannot be undone. You can always register again with the same number.',
+    'del_point_undo'     => 'This cannot be undone — but you are always welcome back with the same number.',
     'del_send'           => 'Send the confirmation code',
     'del_confirm'        => 'Delete my account permanently',
     'del_staff'          => 'Staff accounts (admin or moderator) cannot be deleted from this page. Please contact another administrator.',
