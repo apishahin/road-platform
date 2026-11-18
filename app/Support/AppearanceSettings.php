@@ -185,7 +185,8 @@ class AppearanceSettings
         return match ($s['font']) {
             'hind_google'  => "'Hind Siliguri'," . $tail,
             'custom'       => "'RPCustom'," . $tail,
-            default        => "'Noto Sans Bengali'," . $tail, // system and noto_google
+            'noto_google'  => "'Noto Sans Bengali'," . $tail,
+            default        => $tail, // system: the visitor's own OS Bengali font
         };
     }
 
@@ -213,6 +214,7 @@ class AppearanceSettings
             $vars .= '--color-brand-700:' . self::mix($b, '#000000', 0.17) . ';';
         }
         $css .= ':root{' . $vars . '}';
+        $css .= 'body{font-family:var(--font-sans);}';
 
         if ($s['size'] !== 'normal') {
             $css .= 'html{font-size:' . self::SIZES[$s['size']] . ';}';
