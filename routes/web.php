@@ -15,6 +15,8 @@ Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index
 Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
 
 Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'sitemap'])->name('sitemap');
+
+\Illuminate\Support\Facades\Route::middleware('auth')->get('/admin/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('admin.analytics.index');
 Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots');
 Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
 
