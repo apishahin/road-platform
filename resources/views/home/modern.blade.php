@@ -95,8 +95,12 @@
 </section>
 @endif
 
-{{-- ═══ SECTION 04: Stats ribbon ═══ --}}
-@include('home._ribbon')
+{{-- ═══ SECTION 04: Stats dashboard panel ═══ --}}
+@if (\App\Support\SiteSections::on('ribbon'))
+<section class="rp-wrap rp-sec">
+    @include('partials.stats-panel')
+</section>
+@endif
 
 {{-- ═══ SECTION 05: How it works (4 numbered steps) ═══ --}}
 @if ($S::on('how'))

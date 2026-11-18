@@ -86,6 +86,9 @@ class SiteController extends Controller
             foreach (SiteSections::BOOL_FIELDS[$sec] ?? [] as $b) {
                 $rules["sec_{$sec}_{$b}"] = ['nullable', 'boolean'];
             }
+            foreach (SiteSections::SELECT_FIELDS[$sec] ?? [] as $f => $allowed) {
+                $rules["sec_{$sec}_{$f}"] = ['nullable', 'in:' . implode(',', $allowed)];
+            }
             if (in_array($sec, SiteSections::SIZE_FIELDS, true)) {
                 $rules["sec_{$sec}_size"] = ['nullable', 'in:normal,large,xlarge'];
             }
@@ -135,6 +138,12 @@ class SiteController extends Controller
             }
             foreach (SiteSections::BOOL_FIELDS[$sec] ?? [] as $b) {
                 $row[$b] = $request->boolean("sec_{$sec}_{$b}");
+            }
+            foreach (SiteSections::SELECT_FIELDS[$sec] ?? [] as $f => $allowed) {
+                $v = $data["sec_{$sec}_{$f}"] ?? '';
+                if (in_array($v, $allowed, true)) {
+                    $row[$f] = $v;
+                }
             }
             $new['sections'][$sec] = $row;
         }

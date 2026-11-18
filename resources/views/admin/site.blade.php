@@ -366,7 +366,7 @@
                             @endif
                         </div>
 
-                        @if (SiteSections::TEXT_FIELDS[$sec] || (SiteSections::BOOL_FIELDS[$sec] ?? []))
+                        @if (SiteSections::TEXT_FIELDS[$sec] || (SiteSections::BOOL_FIELDS[$sec] ?? []) || (SiteSections::SELECT_FIELDS[$sec] ?? []))
                             <div x-show="on" x-cloak style="margin-top:12px;display:grid;grid-template-columns:1fr;gap:10px;">
                                 @foreach (SiteSections::TEXT_FIELDS[$sec] as $f)
                                     <div>
@@ -380,6 +380,17 @@
                                     <label style="{{ $chk }}">
                                         <input type="checkbox" name="sec_{{ $sec }}_{{ $b }}" value="1" @checked($row[$b] ?? true)> {{ __('issues.site_f_' . $sec . '_' . $b) }}
                                     </label>
+                                @endforeach
+
+                                @foreach (SiteSections::SELECT_FIELDS[$sec] ?? [] as $f => $allowed)
+                                    <div>
+                                        <label style="{{ $lbl }}">{{ __('issues.site_f_' . $sec . '_' . $f) }}</label>
+                                        <select name="sec_{{ $sec }}_{{ $f }}" style="{{ $inp }};max-width:260px;">
+                                            @foreach ($allowed as $opt)
+                                                <option value="{{ $opt }}" @selected(($row[$f] ?? $allowed[0]) === $opt)>{{ __('issues.site_f_' . $sec . '_' . $f . '_' . $opt) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 @endforeach
                             </div>
                         @endif

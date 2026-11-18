@@ -62,7 +62,7 @@ class DistrictCountTest extends TestCase
         SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'm1' => false, 'm2' => false, 'm3' => false, 'm4' => true]]]);
         $html = $this->get('/')->assertOk()->getContent();
         $this->assertStringContainsString('data-stats-ribbon', $html);
-        $this->assertMatchesRegularExpression('/<strong>\s*' . \App\Support\IssuePresenter::num(1) . '\s*<\/strong>/u', $html);
+        $this->assertMatchesRegularExpression('/data-counter-num[^>]*>\s*' . \App\Support\IssuePresenter::num(1) . '\s*</u', $html);
 
         // admin override still takes precedence
         SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'm1' => false, 'm2' => false, 'm3' => false, 'm4' => true, 'district_n' => 'ZZ64']]]);

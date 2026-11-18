@@ -114,7 +114,13 @@
 </section>
 @endif
 
-<div class="rp-home">@include('home._ribbon')</div>
+@if (\App\Support\SiteSections::on('ribbon'))
+<section class="border-b border-slate-200 bg-slate-50">
+    <div class="mx-auto max-w-6xl px-4 py-5 sm:py-6">
+        @include('partials.stats-panel')
+    </div>
+</section>
+@endif
 
 {{-- How it works (4 steps) --}}
 @if ($S::on('how'))

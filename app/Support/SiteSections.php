@@ -54,7 +54,15 @@ class SiteSections
     /** per-section ON/OFF sub-toggles (metrics inside the section) */
     public const BOOL_FIELDS = [
         'fund'   => ['m_donors', 'm_projects', 'm_days'],
-        'ribbon' => ['m1', 'm2', 'm3', 'm4'],
+        'ribbon' => ['m1', 'm2', 'm3', 'm4', 'show_trend', 'show_districts', 'show_categories'],
+    ];
+
+    /** per-section choice fields: field => allowed values (first = default) */
+    public const SELECT_FIELDS = [
+        'ribbon' => [
+            'trend_style' => ['vbars', 'hbars'],
+            'cat_style'   => ['bars', 'donut'],
+        ],
     ];
 
     /** sections that have a heading size control */
@@ -67,7 +75,7 @@ class SiteSections
                 'hero'     => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => '', 'cta_label' => '', 'cta_sub' => ''],
                 'stats'    => ['on' => true],
                 'fund'     => ['on' => true,  'note' => '', 'm_donors' => true, 'm_projects' => true, 'm_days' => true],
-                'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true],
+                'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true, 'show_trend' => true, 'show_districts' => true, 'show_categories' => true, 'trend_style' => 'vbars', 'cat_style' => 'bars'],
                 'map'      => ['on' => true,  'size' => 'normal', 'title' => ''],
                 'how'      => ['on' => true,  'size' => 'normal', 's1t' => '', 's1x' => '', 's2t' => '', 's2x' => '', 's3t' => '', 's3x' => '', 's4t' => '', 's4x' => ''],
                 'repaired' => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => ''],
@@ -177,6 +185,10 @@ class SiteSections
             foreach (self::BOOL_FIELDS[$s] ?? [] as $b) {
                 $row[$b] = array_key_exists($b, $over) ? (bool) $over[$b] : $base[$b];
             }
+            foreach (self::SELECT_FIELDS[$s] ?? [] as $f => $allowed) {
+                $v       = $over[$f] ?? $base[$f];
+                $row[$f] = in_array($v, $allowed, true) ? $v : $base[$f];
+            }
             $out['sections'][$s] = $row;
         }
 
@@ -276,6 +288,12 @@ class SiteSections
     public static function boolOn(string $section, string $key): bool
     {
         return (bool) (self::all()['sections'][$section][$key] ?? true);
+    }
+
+    /** Choice field value (e.g. chart style). */
+    public static function sel(string $section, string $field): string
+    {
+        return (string) (self::all()['sections'][$section][$field] ?? '');
     }
 
     /** Nav item ON/OFF. Unknown item = on. */

@@ -61,6 +61,40 @@ class DashboardTest extends TestCase
         $this->assertStringContainsString('data-district-row', $html);
     }
 
+    public function test_admin_controls_home_stats_panel_and_chart_styles(): void
+    {
+        $dist = AdminArea::create(['parent_id' => null, 'level' => 'district', 'name_bn' => 'ক', 'name_en' => 'ZZD']);
+        $this->makeIssue($dist->id);
+
+        // panel ON with donut category chart + horizontal trend bars
+        SiteSections::save(['sections' => ['ribbon' => [
+            'on' => true, 'cat_style' => 'donut', 'trend_style' => 'hbars',
+        ]]]);
+        $this->get('/')->assertOk()
+            ->assertSee('data-stats-panel', false)
+            ->assertSee('data-catchart="donut"', false)
+            ->assertSee('data-trend="hbars"', false);
+
+        // trend and category panels can be switched off individually
+        SiteSections::save(['sections' => ['ribbon' => [
+            'on' => true, 'show_trend' => false, 'show_categories' => false,
+        ]]]);
+        $html = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString('data-stats-panel', $html);       // counters still there
+        $this->assertStringNotContainsString('data-trend=', $html);          // trend hidden
+        $this->assertStringNotContainsString('data-catchart=', $html);       // category hidden
+
+        // whole panel off
+        SiteSections::save(['sections' => ['ribbon' => ['on' => false]]]);
+        $this->get('/')->assertOk()->assertDontSee('data-stats-panel', false);
+
+        // invalid chart style is rejected by validation
+        $admin = User::unguarded(fn () => User::create([
+            'public_id' => (string) Str::ulid(), 'phone' => '0171' . random_int(1000000, 9999999), 'role' => 'admin',
+        ]));
+        $this->actingAs($admin)->post('/admin/site', ['sec_ribbon_cat_style' => 'pie'])->assertSessionHasErrors();
+    }
+
     public function test_dashboard_empty_state_and_nav_toggle(): void
     {
         // no data → friendly empty state, still 200
