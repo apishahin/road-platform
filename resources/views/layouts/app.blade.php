@@ -41,6 +41,9 @@
                 @if (\App\Support\SiteSections::navOn('issues'))
                     <a href="{{ route('issues.index') }}" class="{{ request()->routeIs('issues.*') || request()->is('issues*') ? 'active' : '' }}">{{ __('Issues') }}</a>
                 @endif
+                @if (\App\Support\SiteSections::navOn('dashboard'))
+                    <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">{{ __('issues.nav_dashboard') }}</a>
+                @endif
                 @foreach (\App\Models\Page::menuItems() as $menuPage)
                     <a href="{{ route('page.show', $menuPage->slug) }}" class="{{ request()->is('p/' . $menuPage->slug) ? 'active' : '' }}">{{ $menuPage->title() }}</a>
                 @endforeach
@@ -75,6 +78,9 @@
                 @endif
                 @if (\App\Support\SiteSections::navOn('issues'))
                     <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
+                @endif
+                @if (\App\Support\SiteSections::navOn('dashboard'))
+                    <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
                 @endif
                 @foreach (\App\Models\Page::menuItems() as $menuPage)
                     <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
@@ -136,6 +142,7 @@
                     <nav class="footer-links" aria-label="Footer">
                         <a href="{{ route('home') }}">{{ __('Home') }}</a>
                         <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
+                        <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
                         <a href="{{ url('/report') }}">{{ __('Report a problem') }}</a>
                         <a href="{{ route('fund.show') }}">{{ __('issues.site_nav_fund') }}</a>
                         @foreach (\App\Models\Page::menuItems() as $menuPage)

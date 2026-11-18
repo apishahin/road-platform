@@ -18,7 +18,7 @@ class SiteSections
 
     public const SECTIONS   = ['hero', 'stats', 'fund', 'ribbon', 'map', 'how', 'repaired', 'cta', 'privacy'];
     public const SIZES      = ['normal', 'large', 'xlarge'];
-    public const NAV_ITEMS  = ['home', 'issues', 'report', 'lang', 'fund'];
+    public const NAV_ITEMS  = ['home', 'issues', 'dashboard', 'report', 'lang', 'fund'];
     public const PAGES      = ['home', 'report'];
     public const DESIGNS    = ['classic', 'modern'];
 
@@ -74,7 +74,7 @@ class SiteSections
                 'cta'      => ['on' => false, 'size' => 'normal', 'title' => '', 'text' => '', 'btn' => '', 'url' => ''],
                 'privacy'  => ['on' => true,  'text' => ''],
             ],
-            'nav'    => ['home' => true, 'issues' => true, 'report' => true, 'lang' => true, 'fund' => false],
+            'nav'    => ['home' => true, 'issues' => true, 'dashboard' => true, 'report' => true, 'lang' => true, 'fund' => false],
             'footer' => ['text' => '', 'links_on' => true, 'dark' => false, 'facebook' => '', 'youtube' => '', 'x' => '', 'website' => ''],
             'design' => ['home' => 'classic', 'report' => 'classic'],
             'hero_slider' => ['on' => false, 'slides' => [self::emptySlide(), self::emptySlide(), self::emptySlide()]],
