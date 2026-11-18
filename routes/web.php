@@ -235,6 +235,18 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/donations/{donation}/void', [\App\Http\Controllers\Admin\FundingController::class, 'void'])->name('void');
     \Illuminate\Support\Facades\Route::post('/gateway', [\App\Http\Controllers\Admin\FundingController::class, 'saveGateway'])->name('gateway');
 });
+// ---- Admin: system info, cache, maintenance mode, backups, updates ----
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/system', [\App\Http\Controllers\Admin\SystemController::class, 'index'])->name('system.index');
+    \Illuminate\Support\Facades\Route::post('/system/cache', [\App\Http\Controllers\Admin\SystemController::class, 'cache'])->name('system.cache');
+    \Illuminate\Support\Facades\Route::post('/system/maintenance', [\App\Http\Controllers\Admin\SystemController::class, 'maintenance'])->name('system.maintenance');
+    \Illuminate\Support\Facades\Route::post('/system/migrate', [\App\Http\Controllers\Admin\SystemController::class, 'migrate'])->name('system.migrate');
+    \Illuminate\Support\Facades\Route::post('/system/backups', [\App\Http\Controllers\Admin\SystemController::class, 'backupCreate'])->name('system.backups.create');
+    \Illuminate\Support\Facades\Route::get('/system/backups/{file}', [\App\Http\Controllers\Admin\SystemController::class, 'backupDownload'])->where('file', '[A-Za-z0-9._-]+')->name('system.backups.download');
+    \Illuminate\Support\Facades\Route::post('/system/backups/{file}/delete', [\App\Http\Controllers\Admin\SystemController::class, 'backupDelete'])->where('file', '[A-Za-z0-9._-]+')->name('system.backups.delete');
+    \Illuminate\Support\Facades\Route::post('/system/backups/restore', [\App\Http\Controllers\Admin\SystemController::class, 'backupRestore'])->name('system.backups.restore');
+});
+
 require __DIR__.'/manifest.php';
 
 // ---- Funding: expenses and vouchers ----

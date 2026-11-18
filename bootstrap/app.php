@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->web(append: [
             \App\Http\Middleware\BlockBannedIps::class,
+            \App\Http\Middleware\SoftMaintenance::class,
         ]);
         // Payment gateways POST the donor back here; they carry no CSRF token by design.
         $middleware->validateCsrfTokens(except: [
