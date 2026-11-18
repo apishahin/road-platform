@@ -1,0 +1,24 @@
+const { chromium } = require('playwright');
+const { execSync } = require('child_process');
+const php = (c) => execSync(`php -r "require 'vendor/autoload.php'; \\$app = require 'bootstrap/app.php'; \\$k = \\$app->make(Illuminate\\Contracts\\Console\\Kernel::class); \\$k->bootstrap(); ${c}"`).toString().trim();
+(async () => {
+    const b = await chromium.launch();
+    const p = await b.newPage();
+    const B = 'http://127.0.0.1:8099';
+    await p.goto(B + '/login');
+    await p.fill('input[name=phone]', '01700999999');
+    await p.click('button[type=submit]');
+    await p.waitForLoadState('networkidle').catch(()=>{});
+    php(`Illuminate\\Support\\Facades\\DB::table('otp_codes')->insert(['phone'=>'+8801700999999','code_hash'=>hash_hmac('sha256','+8801700999999|424242',(string)config('app.key')),'attempts'=>0,'expires_at'=>now()->addMinutes(10),'used_at'=>null,'created_at'=>now(),'updated_at'=>now()]);`);
+    await p.fill('input[name=code]', '424242');
+    await p.click('button[type=submit]');
+    await p.waitForLoadState('networkidle').catch(()=>{});
+    console.log('url after verify submit:', p.url());
+    const r = await p.goto(B + '/admin/appearance');
+    await p.waitForLoadState('networkidle').catch(()=>{});
+    console.log('appearance url:', p.url(), 'status:', r.status());
+    const html = await p.content();
+    console.log('has name=font:', html.includes('name="font"'));
+    require('fs').writeFileSync('/tmp/ap2.html', html);
+    await b.close();
+})().catch(e => { console.error('ERR:', e.message); process.exit(1); });

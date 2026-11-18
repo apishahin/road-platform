@@ -43,6 +43,37 @@ class AppearanceFontTest extends TestCase
         $this->assertStringContainsString('body{font-family:var(--font-sans)', $html);
     }
 
+    public function test_default_font_is_noto_sans_bengali_self_hosted(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+
+        // default = Noto Sans Bengali, loaded from our own server (no CDN)
+        $this->assertStringContainsString('fonts/noto-sans-bengali.css', $html);
+        $this->assertStringContainsString("--font-sans:'Noto Sans Bengali'", $html);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $html);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $html);
+    }
+
+    public function test_hind_siliguri_is_served_from_local_stylesheet(): void
+    {
+        $this->setFont('hind_google');
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringContainsString('fonts/hind-siliguri.css', $html);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $html);
+    }
+
+    public function test_system_font_loads_no_webfont_stylesheet(): void
+    {
+        $this->setFont('system');
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('fonts/noto-sans-bengali.css', $html);
+        $this->assertStringNotContainsString('fonts/hind-siliguri.css', $html);
+    }
+
     public function test_system_font_means_real_system_stack(): void
     {
         $this->setFont('system');

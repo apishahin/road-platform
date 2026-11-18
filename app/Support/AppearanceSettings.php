@@ -23,7 +23,7 @@ class AppearanceSettings
     public static function defaults(): array
     {
         return [
-            'font'        => 'system',
+            'font'        => 'noto_google',
             'font_file'   => null,
             'size'        => 'normal',
             'brand'       => '#ea580c',
@@ -36,6 +36,12 @@ class AppearanceSettings
             'logo'        => null,
             'issue_view'  => 'simple',
         ];
+    }
+
+    /** Drop the per-request memo (used by tests and after saving). */
+    public static function flush(): void
+    {
+        self::$cache = null;
     }
 
     /** Current settings (defaults + saved values, all validated). */
@@ -171,11 +177,24 @@ class AppearanceSettings
         return app()->getLocale() === 'bn' ? $s['tagline_bn'] : $s['tagline_en'];
     }
 
-    public static function googleFontUrl(string $font): string
+    /**
+     * Local stylesheet that self-hosts the chosen webfont (no CDN needed —
+     * works offline, on localhost, and where Google Fonts is unreachable).
+     * Null for 'system'/'custom' (custom has its @font-face inline in css()).
+     */
+    public static function fontStylesheet(string $font): ?string
     {
-        $family = $font === 'hind_google' ? 'Hind+Siliguri' : 'Noto+Sans+Bengali';
+        $file = match ($font) {
+            'noto_google'  => 'fonts/noto-sans-bengali.css',
+            'hind_google'  => 'fonts/hind-siliguri.css',
+            default        => null,
+        };
+        if ($file === null) {
+            return null;
+        }
+        $path = public_path($file);
 
-        return 'https://fonts.googleapis.com/css2?family=' . $family . ':wght@400;500;600;700&display=swap';
+        return asset($file) . '?v=' . (is_file($path) ? filemtime($path) : '1');
     }
 
     private static function fontStack(array $s): string
