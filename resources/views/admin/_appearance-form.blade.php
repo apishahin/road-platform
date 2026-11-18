@@ -2,8 +2,8 @@
 @php
     $fontLabels = [
         'system'      => 'সিস্টেম ফন্ট (ডিফল্ট, বাইরের সার্ভার লাগে না)',
-        'noto_google' => 'Noto Sans Bengali (Google থেকে লোড হয়, দর্শকের IP Google-এ যায়)',
-        'hind_google' => 'Hind Siliguri (Google থেকে লোড হয়, দর্শকের IP Google-এ যায়)',
+        'noto_google' => 'Noto Sans Bengali (নিজস্ব সার্ভার থেকে লোড হয় — ইন্টারনেট ছাড়াও কাজ করে)',
+        'hind_google' => 'Hind Siliguri (নিজস্ব সার্ভার থেকে লোড হয় — ইন্টারনেট ছাড়াও কাজ করে)',
         'custom'      => 'নিজের আপলোড করা ফন্ট',
     ];
     $sizeLabels = ['normal' => 'স্বাভাবিক', 'large' => 'একটু বড়', 'xlarge' => 'বড়'];

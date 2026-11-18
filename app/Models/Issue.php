@@ -91,6 +91,36 @@ class Issue extends Model
 
     // ── Scopes ─────────────────────────────────────────
 
+    /**
+     * How many districts have at least one active issue.
+     * Issues can be pinned to any admin level, so each pinned area is
+     * walked up the tree until its district ancestor is found.
+     */
+    public static function activeDistrictCount(): int
+    {
+        $ids = static::active()->whereNotNull('admin_area_id')->distinct()->pluck('admin_area_id');
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        $levels  = AdminArea::query()->pluck('level', 'id');
+        $parents = AdminArea::query()->pluck('parent_id', 'id');
+
+        $districts = [];
+        foreach ($ids as $id) {
+            $cur = (int) $id;
+            for ($i = 0; $i < 8 && $cur > 0; $i++) {
+                if (($levels[$cur] ?? null) === 'district') {
+                    $districts[$cur] = true;
+                    break;
+                }
+                $cur = (int) ($parents[$cur] ?? 0);
+            }
+        }
+
+        return count($districts);
+    }
+
     public function scopeActive($query)
     {
         return $query->whereIn('disposition', ['active', 'reopened'])->whereNotNull('published_at');

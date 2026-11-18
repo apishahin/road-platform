@@ -368,6 +368,20 @@ class SiteSectionsTest extends TestCase
         $this->assertStringContainsString('#003d25', $html2);
     }
 
+    public function test_site_page_has_quick_nav_and_per_section_save_buttons(): void
+    {
+        $html = $this->actingAs($this->admin())->get(route('admin.site.index'))->assertOk()->getContent();
+
+        // sticky quick-nav with anchor links to every section
+        foreach (['#appearance', '#design', '#theme', '#float', '#popup', '#slider', '#sections', '#nav', '#footer'] as $anchor) {
+            $this->assertStringContainsString('href="' . $anchor . '"', $html);
+        }
+        // a save button per section, plus the big "save all" at the bottom
+        $this->assertGreaterThanOrEqual(8, substr_count($html, __('issues.site_save_section')));
+        $this->assertStringContainsString(__('issues.site_save_all'), $html);
+        $this->assertStringContainsString(__('issues.site_save_hint'), $html);
+    }
+
     public function test_appearance_editor_is_merged_into_site_page(): void
     {
         $admin = $this->admin();

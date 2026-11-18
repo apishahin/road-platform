@@ -23,7 +23,7 @@
             }
             if ($S::boolOn('ribbon', 'm4')) {
                 $override = trim($S::txt('ribbon', 'district_n', ''));
-                $count    = (int) \App\Models\AdminArea::where('level', 'district')->count();
+                $count    = \App\Models\Issue::activeDistrictCount(); // districts that actually have reports
                 if ($override !== '' || $count > 0) {
                     $ms[] = ['n' => $override !== '' ? $override : $N($count),
                              'l' => $S::txt('ribbon', 'l4', __('issues.ribbon_districts')),
