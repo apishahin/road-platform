@@ -60,9 +60,15 @@ class SiteSections
     /** per-section choice fields: field => allowed values (first = default) */
     public const SELECT_FIELDS = [
         'ribbon' => [
-            'trend_style' => ['vbars', 'hbars'],
-            'cat_style'   => ['bars', 'donut'],
+            'trend_style' => ['vbars', 'hbars', 'line'],
+            'dist_style'  => ['bars', 'donut'],
+            'cat_style'   => ['bars', 'donut', 'pie'],
         ],
+    ];
+
+    /** per-section colour fields (hex only) */
+    public const COLOR_FIELDS = [
+        'ribbon' => ['color1', 'color2'],
     ];
 
     /** sections that have a heading size control */
@@ -75,7 +81,7 @@ class SiteSections
                 'hero'     => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => '', 'cta_label' => '', 'cta_sub' => ''],
                 'stats'    => ['on' => true],
                 'fund'     => ['on' => true,  'note' => '', 'm_donors' => true, 'm_projects' => true, 'm_days' => true],
-                'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true, 'show_trend' => true, 'show_districts' => true, 'show_categories' => true, 'trend_style' => 'vbars', 'cat_style' => 'bars'],
+                'ribbon'   => ['on' => false, 'l1' => '', 'l2' => '', 'l3' => '', 'l4' => '', 'district_n' => '', 'm1' => true, 'm2' => true, 'm3' => true, 'm4' => true, 'show_trend' => true, 'show_districts' => true, 'show_categories' => true, 'trend_style' => 'vbars', 'dist_style' => 'bars', 'cat_style' => 'bars', 'color1' => '#22c55e', 'color2' => '#0ea5e9'],
                 'map'      => ['on' => true,  'size' => 'normal', 'title' => ''],
                 'how'      => ['on' => true,  'size' => 'normal', 's1t' => '', 's1x' => '', 's2t' => '', 's2x' => '', 's3t' => '', 's3x' => '', 's4t' => '', 's4x' => ''],
                 'repaired' => ['on' => true,  'size' => 'normal', 'title' => '', 'text' => ''],
@@ -188,6 +194,10 @@ class SiteSections
             foreach (self::SELECT_FIELDS[$s] ?? [] as $f => $allowed) {
                 $v       = $over[$f] ?? $base[$f];
                 $row[$f] = in_array($v, $allowed, true) ? $v : $base[$f];
+            }
+            foreach (self::COLOR_FIELDS[$s] ?? [] as $f) {
+                $v       = (string) ($over[$f] ?? $base[$f]);
+                $row[$f] = preg_match('/^#[0-9a-fA-F]{6}$/', $v) ? strtolower($v) : $base[$f];
             }
             $out['sections'][$s] = $row;
         }

@@ -92,7 +92,30 @@ class DashboardTest extends TestCase
         $admin = User::unguarded(fn () => User::create([
             'public_id' => (string) Str::ulid(), 'phone' => '0171' . random_int(1000000, 9999999), 'role' => 'admin',
         ]));
-        $this->actingAs($admin)->post('/admin/site', ['sec_ribbon_cat_style' => 'pie'])->assertSessionHasErrors();
+        $this->actingAs($admin)->post('/admin/site', ['sec_ribbon_cat_style' => 'piechart'])->assertSessionHasErrors();
+    }
+
+    public function test_line_trend_district_donut_and_custom_colours_render(): void
+    {
+        $dist = AdminArea::create(['parent_id' => null, 'level' => 'district', 'name_bn' => 'ক', 'name_en' => 'ZZD']);
+        $this->makeIssue($dist->id);
+
+        SiteSections::save(['sections' => ['ribbon' => [
+            'on' => true, 'trend_style' => 'line', 'dist_style' => 'donut',
+            'cat_style' => 'pie', 'color1' => '#a855f7', 'color2' => '#f59e0b',
+        ]]]);
+
+        $this->get('/')->assertOk()
+            ->assertSee('data-trend="line"', false)
+            ->assertSee('data-distchart="donut"', false)
+            ->assertSee('data-catchart="pie"', false)
+            ->assertSee('<polyline', false)          // line chart svg
+            ->assertSee('#a855f7', false);          // custom colour applied
+
+        // a bad colour is refused and falls back to the default
+        SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => 'red']]]);
+
+        $this->get('/')->assertOk()->assertSee('#22c55e', false);
     }
 
     public function test_dashboard_empty_state_and_nav_toggle(): void

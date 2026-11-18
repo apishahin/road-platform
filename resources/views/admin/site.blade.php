@@ -366,7 +366,7 @@
                             @endif
                         </div>
 
-                        @if (SiteSections::TEXT_FIELDS[$sec] || (SiteSections::BOOL_FIELDS[$sec] ?? []) || (SiteSections::SELECT_FIELDS[$sec] ?? []))
+                        @if (SiteSections::TEXT_FIELDS[$sec] || (SiteSections::BOOL_FIELDS[$sec] ?? []) || (SiteSections::SELECT_FIELDS[$sec] ?? []) || (SiteSections::COLOR_FIELDS[$sec] ?? []))
                             <div x-show="on" x-cloak style="margin-top:12px;display:grid;grid-template-columns:1fr;gap:10px;">
                                 @foreach (SiteSections::TEXT_FIELDS[$sec] as $f)
                                     <div>
@@ -390,6 +390,16 @@
                                                 <option value="{{ $opt }}" @selected(($row[$f] ?? $allowed[0]) === $opt)>{{ __('issues.site_f_' . $sec . '_' . $f . '_' . $opt) }}</option>
                                             @endforeach
                                         </select>
+                                    </div>
+                                @endforeach
+
+                                @foreach (SiteSections::COLOR_FIELDS[$sec] ?? [] as $f)
+                                    <div>
+                                        <label style="{{ $lbl }}">{{ __('issues.site_f_' . $sec . '_' . $f) }}</label>
+                                        <div style="display:flex;align-items:center;gap:8px;">
+                                            <input type="text" name="sec_{{ $sec }}_{{ $f }}" value="{{ old('sec_' . $sec . '_' . $f, $row[$f] ?? '') }}" pattern="^#[0-9a-fA-F]{6}$" maxlength="7" placeholder="#22c55e" style="{{ $inp }};max-width:110px;font-family:monospace;">
+                                            <span style="display:inline-block;width:30px;height:30px;border-radius:8px;border:1px solid #e2e8f0;background:{{ $row[$f] ?? '#fff' }};" aria-hidden="true"></span>
+                                        </div>
                                     </div>
                                 @endforeach
                             </div>

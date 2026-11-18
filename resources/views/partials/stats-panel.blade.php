@@ -1,8 +1,8 @@
 {{--
     Live statistics panel (counters + trend chart + district list + category chart).
-    Used by the home page (inside the old ribbon slot) and by /dashboard.
-    Admin controls: /admin/site → ribbon section (toggles, labels, chart styles).
-    Pass $forceAll = true to render every panel regardless of admin toggles.
+    Used by the home page (ribbon slot) and by /dashboard.
+    Admin controls: /admin/site → statistics panel section (toggles, labels,
+    chart styles, colours). Pass $forceAll = true to render every panel.
 --}}
 @php
     $S  = \App\Support\SiteSections::class;
@@ -13,12 +13,14 @@
 
     $dash = app(\App\Services\DashboardData::class)->build();
     $trendStyle = $S::sel('ribbon', 'trend_style') ?: 'vbars';
+    $distStyle  = $S::sel('ribbon', 'dist_style') ?: 'bars';
     $catStyle   = $S::sel('ribbon', 'cat_style') ?: 'bars';
+    $color1     = $rc['color1'] ?? '#22c55e';
+    $color2     = $rc['color2'] ?? '#0ea5e9';
 
     $card  = 'background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(15,23,42,.05);';
     $h2sty = 'font-size:16px;font-weight:800;color:#0f172a;margin:0;';
 
-    // counters (m1..m4 with label overrides + district override)
     $icons = [
         'm1' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4 4.5 8.5 12 13l7.5-4.5L12 4Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12 7.5 4.5L19.5 12M4.5 15.5 12 20l7.5-4.5"/>',
         'm2' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
@@ -57,16 +59,50 @@
     $maxMonth = max(1, ...array_map(fn ($m) => $m['n'], $months));
     $maxDist  = max(1, ...array_map(fn ($d) => $d['total'], $districts ?: [['total' => 1]]));
     $maxCat   = max(1, ...array_map(fn ($c) => $c['n'], $categories ?: [['n' => 1]]));
-    $palette  = ['#22c55e', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#64748b'];
+    $palette  = [$color1, $color2, '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#64748b'];
     $catTotal = max(1, array_sum(array_map(fn ($c) => $c['n'], $categories)));
+
+    // donut rows are capped at 7 slices + "others"
+    $cap = function (array $rows, callable $getN, callable $getName) use ($catTotal) {
+        if (count($rows) <= 7) {
+            return $rows;
+        }
+        $top = array_slice($rows, 0, 7);
+        $rest = array_slice($rows, 7);
+        $top[] = ['name' => __('issues.dash_others'), 'n' => array_sum(array_map($getN, $rest)), 'total' => array_sum(array_map($getN, $rest))];
+
+        return $top;
+    };
+    $distRows = array_map(fn ($d) => ['name' => $d['name'], 'n' => $d['total']], $districts);
+    $distRows = $cap($distRows, fn ($r) => $r['n'], fn ($r) => $r['name']);
+    $distTotal = max(1, array_sum(array_map(fn ($r) => $r['n'], $distRows)));
+    $catRows  = $cap($categories, fn ($c) => $c['n'], fn ($c) => $c['name']);
+
+    // line-chart points (viewBox 600x160)
+    $pts = [];
+    foreach (array_values($months) as $i => $m) {
+        $x = 20 + $i * (560 / 11);
+        $y = 145 - ($m['n'] / $maxMonth * 125);
+        $pts[] = round($x, 1) . ',' . round($y, 1);
+    }
+    $linePts = implode(' ', $pts);
+    $areaPts = '20,150 ' . $linePts . ' 580,150';
 @endphp
 
 <style>
     .rp-dash-row{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;align-items:center;gap:10px;}
     .rp-dash-wrap2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .rp-vbars{display:flex;align-items:flex-end;gap:4px;padding-bottom:4px;min-height:150px;}
+    .rp-vbars > div{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .rp-vbars .vb{width:100%;max-width:38px;border-radius:6px 6px 0 0;}
+    .rp-vbars .bl{font-size:11px;color:#64748b;white-space:nowrap;}
+    .rp-vbars .bv{font-size:11px;font-weight:700;color:#475569;}
     @media (max-width:640px){
         .rp-dash-row{grid-template-columns:1fr;gap:4px;padding-bottom:6px;border-bottom:1px dashed #f1f5f9;}
         .rp-dash-wrap2{grid-template-columns:1fr;}
+        .rp-vbars{gap:2px;min-height:120px;}
+        .rp-vbars .bl{font-size:9px;letter-spacing:-.02em;}
+        .rp-vbars .bv{font-size:9px;}
     }
 </style>
 
@@ -97,20 +133,38 @@
                         <div class="rp-dash-row" style="grid-template-columns:52px 1fr auto;">
                             <div style="font-size:12px;font-weight:700;color:#475569;">{{ trans('issues.dash_m' . $m['label']) }}</div>
                             <div style="background:#f1f5f9;border-radius:999px;height:14px;overflow:hidden;">
-                                <div style="height:100%;width:{{ (int) round($m['n'] / $maxMonth * 100) }}%;background:linear-gradient(90deg,#86efac,#22c55e);border-radius:999px;"></div>
+                                <div style="height:100%;width:{{ (int) round($m['n'] / $maxMonth * 100) }}%;background:linear-gradient(90deg,{{ $color2 }},{{ $color1 }});border-radius:999px;"></div>
                             </div>
                             <div style="font-size:12.5px;font-weight:700;color:#0f172a;min-width:24px;text-align:right;">{{ $m['n'] > 0 ? $N($m['n']) : '—' }}</div>
                         </div>
                     @endforeach
                 </div>
+            @elseif ($trendStyle === 'line')
+                <div style="margin-top:12px;">
+                    <svg viewBox="0 0 600 170" style="width:100%;height:auto;display:block;" role="img" aria-label="{{ __('issues.dash_trend') }}">
+                        <line x1="20" y1="150" x2="580" y2="150" stroke="#e2e8f0" stroke-width="1"/>
+                        <polygon points="{{ $areaPts }}" fill="{{ $color1 }}" opacity="0.15"/>
+                        <polyline points="{{ $linePts }}" fill="none" stroke="{{ $color1 }}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        @foreach (array_values($months) as $i => $m)
+                            @if ($m['n'] > 0)
+                                @php $x = 20 + $i * (560 / 11); $y = 145 - ($m['n'] / $maxMonth * 125); @endphp
+                                <circle cx="{{ round($x, 1) }}" cy="{{ round($y, 1) }}" r="3.5" fill="{{ $color1 }}"/>
+                                <text x="{{ round($x, 1) }}" y="{{ round($y - 8, 1) }}" text-anchor="middle" style="font-size:11px;font-weight:700;fill:#475569;">{{ $N($m['n']) }}</text>
+                            @endif
+                        @endforeach
+                        @foreach (array_values($months) as $i => $m)
+                            <text x="{{ round(20 + $i * (560 / 11), 1) }}" y="165" text-anchor="middle" style="font-size:10px;fill:#64748b;">{{ trans('issues.dash_m' . $m['label']) }}</text>
+                        @endforeach
+                    </svg>
+                </div>
             @else
-                <div style="margin-top:14px;display:flex;align-items:flex-end;gap:6px;overflow-x:auto;padding-bottom:4px;min-height:150px;">
+                <div class="rp-vbars" style="margin-top:14px;">
                     @foreach ($months as $m)
                         @php $h = (int) round($m['n'] / $maxMonth * 110); @endphp
-                        <div style="flex:1;min-width:44px;display:flex;flex-direction:column;align-items:center;gap:4px;" title="{{ $m['n'] }}">
-                            <span style="font-size:11px;font-weight:700;color:#475569;">{{ $m['n'] > 0 ? $N($m['n']) : '' }}</span>
-                            <div style="width:100%;max-width:38px;height:{{ max(4, $h) }}px;border-radius:6px 6px 0 0;background:{{ $m['n'] > 0 ? '#22c55e' : '#e2e8f0' }};"></div>
-                            <span style="font-size:11px;color:#64748b;">{{ trans('issues.dash_m' . $m['label']) }}</span>
+                        <div title="{{ $m['n'] }}">
+                            <span class="bv">{{ $m['n'] > 0 ? $N($m['n']) : '' }}</span>
+                            <div class="vb" style="height:{{ max(4, $h) }}px;background:{{ $m['n'] > 0 ? $color1 : '#e2e8f0' }};"></div>
+                            <span class="bl">{{ trans('issues.dash_m' . $m['label']) }}</span>
                         </div>
                     @endforeach
                 </div>
@@ -122,23 +176,27 @@
     @if ($show('show_districts') || $show('show_categories'))
         <div class="rp-dash-wrap2">
             @if ($show('show_districts') && count($districts) > 0)
-                <div style="{{ $card }}">
+                <div style="{{ $card }}" data-distchart="{{ $distStyle }}">
                     <h2 style="{{ $h2sty }}">{{ __('issues.dash_by_district') }}</h2>
-                    <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
-                        @foreach ($districts as $d)
-                            <div class="rp-dash-row" data-district-row>
-                                <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $d['name'] }}</div>
-                                <div style="background:#f1f5f9;border-radius:999px;height:16px;overflow:hidden;">
-                                    <div style="height:100%;width:{{ (int) round($d['total'] / $maxDist * 100) }}%;background:linear-gradient(90deg,#86efac,#22c55e);border-radius:999px;"></div>
+                    @if ($distStyle === 'donut')
+                        @include('partials._donut', ['rows' => $distRows, 'palette' => $palette, 'total' => $distTotal, 'thick' => 7, 'size' => 42])
+                    @else
+                        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                            @foreach ($districts as $d)
+                                <div class="rp-dash-row" data-district-row>
+                                    <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $d['name'] }}</div>
+                                    <div style="background:#f1f5f9;border-radius:999px;height:16px;overflow:hidden;">
+                                        <div style="height:100%;width:{{ (int) round($d['total'] / $maxDist * 100) }}%;background:linear-gradient(90deg,{{ $color2 }},{{ $color1 }});border-radius:999px;"></div>
+                                    </div>
+                                    <div style="font-size:12.5px;color:#475569;white-space:nowrap;">
+                                        <strong style="color:#0f172a;">{{ $N($d['total']) }}</strong>
+                                        · {{ __('issues.dash_solved_short') }} <span style="color:#059669;font-weight:700;">{{ $N($d['repaired']) }}</span>
+                                        ({{ $N($d['pct']) }}%)
+                                    </div>
                                 </div>
-                                <div style="font-size:12.5px;color:#475569;white-space:nowrap;">
-                                    <strong style="color:#0f172a;">{{ $N($d['total']) }}</strong>
-                                    · {{ __('issues.dash_solved_short') }} <span style="color:#059669;font-weight:700;">{{ $N($d['repaired']) }}</span>
-                                    ({{ $N($d['pct']) }}%)
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             @endif
 
@@ -146,36 +204,16 @@
                 <div style="{{ $card }}" data-catchart="{{ $catStyle }}">
                     <h2 style="{{ $h2sty }}">{{ __('issues.dash_by_category') }}</h2>
                     @if ($catStyle === 'donut')
-                        <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                            <svg viewBox="0 0 42 42" style="width:150px;height:150px;flex-shrink:0;" role="img" aria-label="{{ __('issues.dash_by_category') }}">
-                                <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#f1f5f9" stroke-width="7"></circle>
-                                @php $off = 25; @endphp
-                                @foreach ($categories as $ci => $c)
-                                    @php $pct = $c['n'] / $catTotal * 100; @endphp
-                                    <circle cx="21" cy="21" r="15.9155" fill="none"
-                                            stroke="{{ $palette[$ci % count($palette)] }}" stroke-width="7"
-                                            stroke-dasharray="{{ $pct }} {{ 100 - $pct }}" stroke-dashoffset="{{ $off }}"></circle>
-                                    @php $off -= $pct; @endphp
-                                @endforeach
-                                <text x="21" y="21" text-anchor="middle" dominant-baseline="central" style="font-size:7px;font-weight:800;fill:#0f172a;">{{ $N($catTotal) }}</text>
-                            </svg>
-                            <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:6px;">
-                                @foreach ($categories as $ci => $c)
-                                    <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
-                                        <span style="width:10px;height:10px;border-radius:3px;background:{{ $palette[$ci % count($palette)] }};flex-shrink:0;"></span>
-                                        <span style="color:#334155;font-weight:600;flex:1;">{{ $c['name'] }}</span>
-                                        <strong style="color:#0f172a;">{{ $N($c['n']) }}</strong>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
+                        @include('partials._donut', ['rows' => $catRows, 'palette' => $palette, 'total' => $catTotal, 'thick' => 7, 'size' => 42])
+                    @elseif ($catStyle === 'pie')
+                        @include('partials._donut', ['rows' => $catRows, 'palette' => $palette, 'total' => $catTotal, 'thick' => 31.8, 'size' => 64])
                     @else
                         <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
                             @foreach ($categories as $c)
                                 <div class="rp-dash-row">
                                     <div style="font-size:13.5px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $c['name'] }}</div>
                                     <div style="background:#f1f5f9;border-radius:999px;height:16px;overflow:hidden;">
-                                        <div style="height:100%;width:{{ (int) round($c['n'] / $maxCat * 100) }}%;background:linear-gradient(90deg,#7dd3fc,#0ea5e9);border-radius:999px;"></div>
+                                        <div style="height:100%;width:{{ (int) round($c['n'] / $maxCat * 100) }}%;background:linear-gradient(90deg,{{ $color2 }},{{ $color1 }});border-radius:999px;"></div>
                                     </div>
                                     <div style="font-size:13px;font-weight:700;color:#0f172a;">{{ $N($c['n']) }}</div>
                                 </div>

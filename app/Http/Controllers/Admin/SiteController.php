@@ -89,6 +89,9 @@ class SiteController extends Controller
             foreach (SiteSections::SELECT_FIELDS[$sec] ?? [] as $f => $allowed) {
                 $rules["sec_{$sec}_{$f}"] = ['nullable', 'in:' . implode(',', $allowed)];
             }
+            foreach (SiteSections::COLOR_FIELDS[$sec] ?? [] as $f) {
+                $rules["sec_{$sec}_{$f}"] = ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'];
+            }
             if (in_array($sec, SiteSections::SIZE_FIELDS, true)) {
                 $rules["sec_{$sec}_size"] = ['nullable', 'in:normal,large,xlarge'];
             }
@@ -144,6 +147,9 @@ class SiteController extends Controller
                 if (in_array($v, $allowed, true)) {
                     $row[$f] = $v;
                 }
+            }
+            foreach (SiteSections::COLOR_FIELDS[$sec] ?? [] as $f) {
+                $row[$f] = $data["sec_{$sec}_{$f}"] ?? '';
             }
             $new['sections'][$sec] = $row;
         }
