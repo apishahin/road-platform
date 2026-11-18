@@ -2,6 +2,9 @@
 
 @section('title', $issue->title)
 @section('description', $explanation)
+@if ($photos->isNotEmpty())
+@section('og_image', url($photos->first()->url()))
+@endif
 
 @push('head')
     <meta property="og:url" content="{{ url()->current() }}">

@@ -26,6 +26,7 @@
             <noscript><button type="submit" style="padding:6px 16px;border-radius:8px;background:#0f172a;color:#fff;border:0;">{{ __('issuefilter.apply') }}</button></noscript>
             @if($areaId || $noArea)
                 <a href="{{ route('admin.issues.index', ['tab' => $tab]) }}" style="color:#b91c1c;font-size:13px;">{{ __('issuefilter.clear') }}</a>
+                <a href="{{ route('admin.issues.export', array_filter(['tab' => $tab, 'area' => $areaId ?: null, 'noarea' => $noArea ? 1 : null])) }}" style="padding:6px 14px;border-radius:8px;background:#059669;color:#fff;font-size:13px;font-weight:600;text-decoration:none;">{{ __('issues.export_csv') }}</a>
             @endif
         </div>
     </form>

@@ -13,6 +13,9 @@ Route::view('/offline', 'offline')->name('offline');
 
 Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index');
 Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
+
+Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'sitemap'])->name('sitemap');
+Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots');
 Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
 
 // Report flow (login required)
@@ -114,6 +117,7 @@ Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenControlle
 // Published issues: unpublish, publish again, edit (admin / moderator)
 Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/issues', [\App\Http\Controllers\Admin\IssueAdminController::class, 'index'])->name('admin.issues.index');
+    Route::get('/issues-export.csv', [\App\Http\Controllers\Admin\IssueAdminController::class, 'export'])->name('admin.issues.export');
     Route::get('/issues/{issue:id}/edit', [\App\Http\Controllers\Admin\IssueAdminController::class, 'edit'])->name('admin.issues.edit');
     Route::post('/issues/{issue:id}/update', [\App\Http\Controllers\Admin\IssueAdminController::class, 'update'])->name('admin.issues.update');
     Route::post('/issues/{issue:id}/unpublish', [\App\Http\Controllers\Admin\IssueAdminController::class, 'unpublish'])->name('admin.issues.unpublish');

@@ -386,6 +386,7 @@ return [
     'site_footer_text' => 'ফুটারের লেখা',
     'nav_site' => 'হোমপেজ ও সাইট',
     'nav_system' => 'সিস্টেম',
+    'export_csv' => 'CSV এক্সপোর্ট',
 
     // Admin → System panel
     'sys_title'   => 'সিস্টেম তথ্য ও রক্ষণাবেষণ',

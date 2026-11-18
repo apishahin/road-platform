@@ -75,6 +75,64 @@ class IssueAdminController extends Controller
         ]);
     }
 
+    /** CSV download of the current filtered list (UTF-8 BOM so Excel reads Bangla). */
+    public function export(Request $request)
+    {
+        $this->guard($request);
+
+        $tab = $request->query('tab') === 'unpublished' ? 'unpublished' : 'published';
+        $q = Issue::query()->with(['category', 'adminArea.parent']);
+
+        $areaId = (int) $request->query('area', 0);
+        if ($request->boolean('noarea')) {
+            $q->whereNull('admin_area_id');
+        } elseif ($areaId > 0) {
+            $areaModel = \App\Models\AdminArea::with('parent.parent.parent')->find($areaId);
+            if ($areaModel) {
+                $q->whereIn('admin_area_id', $this->areaTreeIds($areaModel));
+            }
+        }
+        if ($tab === 'published') {
+            $q->whereNotNull('published_at')->orderByDesc('published_at');
+        } else {
+            $q->whereNull('published_at')->whereNotNull('unpublished_at')->orderByDesc('unpublished_at');
+        }
+
+        $filename = 'issues-'.$tab.'-'.now()->format('Ymd-His').'.csv';
+
+        return response()->streamDownload(function () use ($q) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                'id', 'public_id', 'title', 'category_bn', 'category_en',
+                'area', 'parent_area', 'status', 'verification', 'reports_count',
+                'lat', 'lng', 'published_at', 'created_at', 'url',
+            ]);
+            $q->chunk(500, function ($rows) use ($out) {
+                foreach ($rows as $i) {
+                    fputcsv($out, [
+                        $i->id,
+                        $i->public_id,
+                        $i->title,
+                        $i->category?->name_bn,
+                        $i->category?->name_en,
+                        $i->adminArea?->name_bn,
+                        $i->adminArea?->parent?->name_bn,
+                        $i->progress_status,
+                        $i->verification_status,
+                        $i->reports_count,
+                        $i->lat,
+                        $i->lng,
+                        $i->published_at,
+                        $i->created_at,
+                        route('issues.show', $i->public_id),
+                    ]);
+                }
+            });
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function unpublish(Request $request, Issue $issue)
     {
         $this->guard($request);

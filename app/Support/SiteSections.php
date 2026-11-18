@@ -352,6 +352,21 @@ class SiteSections
         return asset(self::HERO_DIR . '/' . $file);
     }
 
+    /** Default social-share image: first hero slide, else the PWA icon. */
+    public static function ogImage(): string
+    {
+        foreach (self::all()['sections']['hero_slider']['slides'] ?? [] as $s) {
+            if (($s['img'] ?? '') !== '') {
+                return self::heroImgUrl($s['img']);
+            }
+            if (($s['url'] ?? '') !== '') {
+                return $s['url'];
+            }
+        }
+
+        return asset('icons/icon-512.png');
+    }
+
     /** Theme config; 'on' = admin overrides active, else spec defaults still returned. */
     public static function theme(): array
     {

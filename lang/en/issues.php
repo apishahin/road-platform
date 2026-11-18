@@ -386,6 +386,7 @@ return [
     'site_footer_text' => 'Footer text',
     'nav_site' => 'Homepage & site',
     'nav_system' => 'System',
+    'export_csv' => 'Export CSV',
 
     // Admin → System panel
     'sys_title'   => 'System information & maintenance',

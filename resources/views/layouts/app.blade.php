@@ -18,6 +18,14 @@
     <meta property="og:title" content="@yield('title', __('Road Platform'))">
     <meta property="og:description" content="@yield('description', __('A community-powered road repair platform for Bangladesh.'))">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="@yield('canonical', url()->current())">
+    <meta property="og:image" content="@yield('og_image', \App\Support\SiteSections::ogImage())">
+    <meta property="og:locale" content="{{ app()->getLocale() === 'bn' ? 'bn_BD' : 'en_US' }}">
+    <link rel="canonical" href="@yield('canonical', url()->current())">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('title', __('Road Platform'))">
+    <meta name="twitter:description" content="@yield('description', __('A community-powered road repair platform for Bangladesh.'))">
+    <meta name="twitter:image" content="@yield('og_image', \App\Support\SiteSections::ogImage())">
 
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
