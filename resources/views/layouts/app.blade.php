@@ -159,16 +159,20 @@
                     @include('partials.site-brand')
                 </a>
                 @if ($__ftr['links_on'])
+                    @php $__fl = \App\Support\FooterLinks::builtin(); @endphp
                     <nav class="footer-links" aria-label="Footer">
-                        <a href="{{ route('home') }}">{{ __('Home') }}</a>
-                        <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
-                        <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
-                        <a href="{{ url('/report') }}">{{ __('Report a problem') }}</a>
-                        <a href="{{ route('fund.show') }}">{{ __('issues.site_nav_fund') }}</a>
-                        <a href="{{ route('impact') }}">{{ __('issues.impact_nav') }}</a>
-                        <a href="{{ route('leaderboard') }}">{{ __('issues.lb_nav') }}</a>
-                        @foreach (\App\Models\Page::menuItems() as $menuPage)
-                            <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
+                        @foreach (\App\Support\FooterLinks::BUILTIN as $__k => [$__r, $__lbl])
+                            @if (! ($__fl[$__k] ?? true)) @continue @endif
+                            @if ($__k === 'pages')
+                                @foreach (\App\Models\Page::menuItems() as $menuPage)
+                                    <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
+                                @endforeach
+                            @else
+                                <a href="{{ str_starts_with($__r, 'url:') ? url(substr($__r, 4)) : route($__r) }}">{{ __($__lbl) }}</a>
+                            @endif
+                        @endforeach
+                        @foreach (\App\Support\FooterLinks::custom() as $__cl)
+                            <a href="{{ $__cl['url'] }}" @if (str_starts_with($__cl['url'], 'http')) target="_blank" rel="noopener" @endif>{{ $__cl['label'] }}</a>
                         @endforeach
                     </nav>
                 @else

@@ -275,6 +275,10 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/sponsors/save', [\App\Http\Controllers\Admin\SponsorController::class, 'save'])->name('sponsors.save');
     \Illuminate\Support\Facades\Route::post('/sponsors/add', [\App\Http\Controllers\Admin\SponsorController::class, 'add'])->name('sponsors.add');
     \Illuminate\Support\Facades\Route::post('/sponsors/delete', [\App\Http\Controllers\Admin\SponsorController::class, 'delete'])->name('sponsors.delete');
+    \Illuminate\Support\Facades\Route::get('/footer-links', [\App\Http\Controllers\Admin\FooterLinksController::class, 'index'])->name('footer.index');
+    \Illuminate\Support\Facades\Route::post('/footer-links/save', [\App\Http\Controllers\Admin\FooterLinksController::class, 'save'])->name('footer.save');
+    \Illuminate\Support\Facades\Route::post('/footer-links/add', [\App\Http\Controllers\Admin\FooterLinksController::class, 'add'])->name('footer.add');
+    \Illuminate\Support\Facades\Route::post('/footer-links/delete', [\App\Http\Controllers\Admin\FooterLinksController::class, 'delete'])->name('footer.delete');
 });
 
 require __DIR__.'/manifest.php';
