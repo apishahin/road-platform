@@ -90,6 +90,27 @@
                         <dd class="font-medium text-slate-900">{{ $lastAt }}</dd>
                     </div>
                 </dl>
+
+                {{-- Follow this issue --}}
+                <div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4" data-follow-box>
+                    @auth
+                        <form method="POST" action="{{ route('issues.follow', $issue->public_id) }}">
+                            @csrf
+                            <button type="submit"
+                                    style="display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;{{ $isFollowing ? 'background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;' : 'background:#16a34a;color:#fff;border:1px solid #16a34a;' }}">
+                                <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 18a2.5 2.5 0 0 1-5 0m9.2-2.6H5.3a1.2 1.2 0 0 1-1-1.9l1.4-1.8V8.4a6.3 6.3 0 0 1 12.6 0v3.1l1.4 1.8a1.2 1.2 0 0 1-1 1.9Z"/></svg>
+                                {{ $isFollowing ? __('issues.follow_following') : __('issues.follow_btn') }}
+                            </button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}"
+                           style="display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;background:#16a34a;color:#fff;">
+                            <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 18a2.5 2.5 0 0 1-5 0m9.2-2.6H5.3a1.2 1.2 0 0 1-1-1.9l1.4-1.8V8.4a6.3 6.3 0 0 1 12.6 0v3.1l1.4 1.8a1.2 1.2 0 0 1-1 1.9Z"/></svg>
+                            {{ __('issues.follow_btn') }}
+                        </a>
+                    @endauth
+                    <span style="font-size:12px;color:#94a3b8;">{{ __('issues.follow_hint', ['n' => \App\Support\IssuePresenter::num($followersCount)]) }}</span>
+                </div>
             </section>
 
             @if (($issueView ?? 'simple') === 'simple' && isset($glance))

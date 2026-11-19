@@ -71,6 +71,15 @@
                     <a href="{{ route('login') }}" class="rp-pill rp-login">{{ __('Login') }}</a>
                 @endguest
 
+                @auth
+                    @php $__unread = \App\Models\UserNotification::unreadCount(auth()->id()); @endphp
+                    <a href="{{ route('notifications.index') }}" class="rp-pill icon-btn" style="position:relative;" aria-label="{{ __('issues.notif_title') }}">
+                        <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 18a2.5 2.5 0 0 1-5 0m9.2-2.6H5.3a1.2 1.2 0 0 1-1-1.9l1.4-1.8V8.4a6.3 6.3 0 0 1 12.6 0v3.1l1.4 1.8a1.2 1.2 0 0 1-1 1.9Z"/></svg>
+                        @if ($__unread > 0)
+                            <span data-notif-badge style="position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;">{{ $__unread > 99 ? '99+' : \App\Support\IssuePresenter::num($__unread) }}</span>
+                        @endif
+                    </a>
+                @endauth
                 @include('partials.nav-staff', ['mobile' => false])
                 @include('partials.nav-user')
                 <button type="button" class="rp-pill icon-btn hamburger" @click="open = !open" aria-label="Menu">
@@ -101,6 +110,7 @@
                     <a href="{{ route('login') }}">{{ __('Login') }}</a>
                 @endguest
                 @auth
+                    <a href="{{ route('notifications.index') }}">{{ __('issues.notif_title') }}</a>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                         <a href="{{ route('account.password') }}" class="block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctpw.title') }}</a>
                         <a href="{{ route('account.phone') }}" class="mt-1.5 block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctphone.nav_phone') }}</a>
@@ -155,6 +165,7 @@
                         <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
                         <a href="{{ url('/report') }}">{{ __('Report a problem') }}</a>
                         <a href="{{ route('fund.show') }}">{{ __('issues.site_nav_fund') }}</a>
+                        <a href="{{ route('impact') }}">{{ __('issues.impact_nav') }}</a>
                         @foreach (\App\Models\Page::menuItems() as $menuPage)
                             <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
                         @endforeach

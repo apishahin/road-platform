@@ -41,6 +41,7 @@
                 [route('admin.system.index'), __('issues.nav_system'), 0, 'system'],
                 [route('admin.ads.index'), __('issues.nav_ads'), 0, 'ad'],
                 [route('admin.auditlog.index'), __('issues.nav_audit'), 0, 'audit'],
+                [route('admin.sponsors.index'), __('issues.nav_sponsors'), 0, 'sponsor'],
             ]];
         }
     }
@@ -62,6 +63,7 @@
         'storage'   => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7.5" ry="2.8"/><path d="M4.5 6.5v11c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8v-11"/><path d="M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></svg>',
         'fund'      => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="11" rx="2"/><circle cx="12" cy="12.5" r="2.6"/><path stroke-linecap="round" d="M6.5 12.5h.01M17.5 12.5h.01"/></svg>',
         'layout'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M3.5 9h17M9.5 9v11.5"/></svg>',
+        'sponsor'   => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8.5 21 12l-9 3.5L3 12l9-3.5Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m6 13.5-3 1.5 9 3.5 9-3.5-3-1.5"/></svg>',
         'audit'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path stroke-linecap="round" d="m16 16 4.5 4.5M8.5 11l1.8 1.8 3.2-3.6"/></svg>',
         'ad'        => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1Z"/><path stroke-linecap="round" d="M14 8.5a5 5 0 0 1 0 7M17 6a8.5 8.5 0 0 1 0 12"/></svg>',
         'chart'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 20V4M4 20h16"/><path stroke-linecap="round" d="M8 16v-5M12 16V8M16 16v-8"/></svg>',

@@ -181,6 +181,8 @@
 
 {{-- ═══ SECTION 07: Community CTA band ═══ --}}
 @if ($S::on('cta'))
+    @include('partials.sponsors')
+
     @include('home._cta')
 @endif
 

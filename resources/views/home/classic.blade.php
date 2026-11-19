@@ -171,6 +171,8 @@
     </section>
 @endif
 
+@include('partials.sponsors')
+
 @if ($S::on('cta'))
     <div class="rp-home">@include('home._cta')</div>
 @endif

@@ -67,7 +67,14 @@ class IssueController extends Controller
 
         $extra = $this->glance($issue);
 
+        $__u = auth()->user();
+        $isFollowing = $__u
+            ? \App\Models\IssueFollow::where('issue_id', $issue->id)->where('user_id', $__u->id)->exists()
+            : false;
+
         return view('issues.show', $extra + [
+            'isFollowing'    => $isFollowing,
+            'followersCount' => \App\Models\IssueFollow::where('issue_id', $issue->id)->count(),
             'notified'      => $notified,
             'issue'        => $issue,
             'status'       => IssuePresenter::display($issue),

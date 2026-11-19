@@ -33,6 +33,9 @@ Route::get('/ads.txt', function () {
     \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
 });
 Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
+Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
+Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
+Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
 
 // Report flow (login required)
 Route::middleware('auth')->group(function () {
@@ -267,6 +270,10 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/system/backups/restore', [\App\Http\Controllers\Admin\SystemController::class, 'backupRestore'])->name('system.backups.restore');
     \Illuminate\Support\Facades\Route::post('/system/auto-backup', [\App\Http\Controllers\Admin\SystemController::class, 'autoBackup'])->name('system.autobackup');
     \Illuminate\Support\Facades\Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('auditlog.index');
+    \Illuminate\Support\Facades\Route::get('/sponsors', [\App\Http\Controllers\Admin\SponsorController::class, 'index'])->name('sponsors.index');
+    \Illuminate\Support\Facades\Route::post('/sponsors/save', [\App\Http\Controllers\Admin\SponsorController::class, 'save'])->name('sponsors.save');
+    \Illuminate\Support\Facades\Route::post('/sponsors/add', [\App\Http\Controllers\Admin\SponsorController::class, 'add'])->name('sponsors.add');
+    \Illuminate\Support\Facades\Route::post('/sponsors/delete', [\App\Http\Controllers\Admin\SponsorController::class, 'delete'])->name('sponsors.delete');
 });
 
 require __DIR__.'/manifest.php';

@@ -111,6 +111,9 @@ class IssueStatusService
                 'last_activity_at' => now(),
             ]);
 
+            // In-app notifications for followers (best-effort, never throws)
+            \App\Services\FollowNotifier::dispatch($issue, $event, (int) $actor->id);
+
             return $event;
         });
     }
