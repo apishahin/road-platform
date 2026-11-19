@@ -57,9 +57,10 @@ class ImpactController extends Controller
                 'fixed'    => 0,
             ];
         }
+        $ym = self::yearMonthExpr('first_reported_at');
         $rep = (clone $base)
             ->where('first_reported_at', '>=', now()->subMonths(5)->startOfMonth())
-            ->selectRaw("strftime('%Y-%m', first_reported_at) as ym, COUNT(*) as c")
+            ->selectRaw($ym . " as ym, COUNT(*) as c")
             ->groupBy('ym')->pluck('c', 'ym');
         foreach ($months as $mYm => &$mRow) {
             $mRow['reported'] = (int) ($rep[$mYm] ?? 0);
@@ -72,7 +73,7 @@ class ImpactController extends Controller
             ->where('status_events.to_value', 'repaired')
             ->whereNotNull('issues.published_at')
             ->where('status_events.created_at', '>=', now()->subMonths(5)->startOfMonth())
-            ->selectRaw("strftime('%Y-%m', status_events.created_at) as ym, COUNT(*) as c")
+            ->selectRaw(self::yearMonthExpr('status_events.created_at') . " as ym, COUNT(*) as c")
             ->groupBy('ym')->pluck('c', 'ym');
         foreach ($months as $mYm => &$mRow) {
             $mRow['fixed'] = (int) ($fix[$mYm] ?? 0);
@@ -99,5 +100,15 @@ class ImpactController extends Controller
             'topCats'   => $topCats,
             'catNames'  => $catNames,
         ]);
+    }
+
+    /** Year-month expression that works on both MySQL and SQLite. */
+    private static function yearMonthExpr(string $column): string
+    {
+        $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+
+        return $driver === 'sqlite'
+            ? "strftime('%Y-%m', " . $column . ")"
+            : "DATE_FORMAT(" . $column . ", '%Y-%m')";
     }
 }
