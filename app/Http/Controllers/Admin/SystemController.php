@@ -32,7 +32,8 @@ class SystemController extends Controller
         return view('admin.system', [
             'info'    => $this->systemInfo($request),
             'checks'  => $this->healthChecks($request),
-            'backups' => $this->backupList(),
+            'backups' => app(\App\Services\BackupService::class)->list(),
+            'autoBackup' => \App\Support\SystemState::autoBackupOn(),
             'maint'   => SystemState::maintenance(),
         ]);
     }
@@ -102,60 +103,10 @@ class SystemController extends Controller
     public function backupCreate(Request $request)
     {
         $this->guard($request);
-        @set_time_limit(300);
-
-        $withUploads = $request->boolean('uploads');
-        $dir = storage_path('app/'.self::BACKUP_DIR);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        $name = 'backup-'.now()->format('Ymd-His').'-'.Str::lower(Str::random(4)).'.zip';
-        $path = $dir.'/'.$name;
-
-        $zip = new ZipArchive;
-        if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return back()->withErrors(['backup' => __('issues.sys_backup_failed')]);
-        }
 
         try {
-            $zip->addFromString('database.sql', $this->dumpSql());
-
-            // Raw sqlite file too — handy for manual recovery.
-            $dbPath = (string) config('database.connections.sqlite.database');
-            if (config('database.default') === 'sqlite' && $dbPath !== '' && $dbPath !== ':memory:' && is_file($dbPath)) {
-                $zip->addFile($dbPath, 'database.sqlite');
-            }
-
-            $env = base_path('.env');
-            if (is_file($env)) {
-                $zip->addFile($env, 'env.txt');
-            }
-
-            if ($withUploads && is_dir(public_path('uploads'))) {
-                $it = new \RecursiveIteratorIterator(
-                    new \RecursiveDirectoryIterator(public_path('uploads'), \FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($it as $f) {
-                    if ($f->isFile()) {
-                        $zip->addFile($f->getPathname(), 'uploads/'.$it->getSubPathName());
-                    }
-                }
-            }
-
-            $zip->addFromString('backup.json', json_encode([
-                'created_at'  => now()->toIso8601String(),
-                'app_version' => config('app.version'),
-                'laravel'     => app()->version(),
-                'db_driver'   => DB::connection()->getDriverName(),
-                'uploads'     => $withUploads,
-            ], JSON_PRETTY_PRINT));
-
-            $zip->close();
+            $name = app(\App\Services\BackupService::class)->create($request->boolean('uploads'));
         } catch (\Throwable $e) {
-            $zip->close();
-            @unlink($path);
-
             return back()->withErrors(['backup' => $e->getMessage()]);
         }
 
@@ -165,16 +116,29 @@ class SystemController extends Controller
     public function backupDownload(Request $request, string $file)
     {
         $this->guard($request);
+        $path = app(\App\Services\BackupService::class)->path($file);
+        abort_if($path === null, 404);
 
-        return response()->download($this->backupPath($file), $file);
+        return response()->download($path, $file);
     }
 
     public function backupDelete(Request $request, string $file)
     {
         $this->guard($request);
-        @unlink($this->backupPath($file));
+        $path = app(\App\Services\BackupService::class)->path($file);
+        abort_if($path === null, 404);
+        @unlink($path);
 
         return back()->with('status', __('issues.sys_backup_deleted'));
+    }
+
+    public function autoBackup(Request $request)
+    {
+        $this->guard($request);
+
+        \App\Support\SystemState::saveAutoBackup($request->boolean('on'));
+
+        return back()->with('status', __('issues.sys_auto_backup_saved'));
     }
 
     public function backupRestore(Request $request)
@@ -213,7 +177,7 @@ class SystemController extends Controller
             } else {
                 DB::unprepared('SET FOREIGN_KEY_CHECKS=0');
             }
-            foreach ($this->splitSql($sql) as $stmt) {
+            foreach (app(\App\Services\BackupService::class)->splitSql($sql) as $stmt) {
                 DB::unprepared($stmt);
             }
             if ($driver === 'sqlite') {
@@ -230,83 +194,6 @@ class SystemController extends Controller
 
     // ----------------------------------------------------------- helpers
 
-    private function backupPath(string $file): string
-    {
-        abort_unless(preg_match('/^[A-Za-z0-9._-]+\.zip$/', $file) === 1 && $file === basename($file), 404);
-        $path = storage_path('app/'.self::BACKUP_DIR.'/'.$file);
-        abort_unless(is_file($path), 404);
-
-        return $path;
-    }
-
-    /** @return array<int, array{name: string, size: string, date: string}> */
-    private function backupList(): array
-    {
-        $dir  = storage_path('app/'.self::BACKUP_DIR);
-        $rows = [];
-        foreach (is_dir($dir) ? glob($dir.'/*.zip') ?: [] : [] as $p) {
-            $rows[] = [
-                'name'  => basename($p),
-                'size'  => $this->human((int) @filesize($p)),
-                'date'  => date('Y-m-d H:i', (int) @filemtime($p)),
-                'mtime' => (int) @filemtime($p),
-            ];
-        }
-        usort($rows, fn ($a, $b) => $b['mtime'] <=> $a['mtime']);
-
-        return $rows;
-    }
-
-    /** Pure-PHP SQL dump — works for sqlite and mysql without shell tools. */
-    private function dumpSql(): string
-    {
-        $conn   = DB::connection();
-        $driver = $conn->getDriverName();
-        $pdo    = $conn->getPdo();
-
-        $tables = $driver === 'sqlite'
-            ? array_column($conn->select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"), 'name')
-            : array_map(fn ($r) => array_values((array) $r)[0], $conn->select('SHOW TABLES'));
-
-        $quote  = function ($v) use ($pdo) {
-            if ($v === null) {
-                return 'NULL';
-            }
-            if (is_bool($v)) {
-                return $v ? '1' : '0';
-            }
-
-            return $pdo->quote((string) $v);
-        };
-
-        $out = "-- Road Platform backup\n-- ".now()->toDateTimeString()."\n";
-        foreach ($tables as $t) {
-            $qt = $driver === 'sqlite' ? '"'.$t.'"' : '`'.$t.'`';
-            $create = $driver === 'sqlite'
-                ? ($conn->selectOne("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$t])->sql ?? null)
-                : ($conn->selectOne("SHOW CREATE TABLE `$t`")->{'Create Table'} ?? null);
-            if (! $create) {
-                continue;
-            }
-
-            $out .= "\nDROP TABLE IF EXISTS $qt;\n$create;\n";
-            $conn->table($t)->orderByRaw('1')->chunk(500, function ($rows) use (&$out, $qt, $quote, $driver) {
-                $rows = $rows->map(fn ($r) => (array) $r);
-                if ($rows->isEmpty()) {
-                    return;
-                }
-                $qc = implode(',', array_map(fn ($c) => $driver === 'sqlite' ? '"'.$c.'"' : '`'.$c.'`', array_keys($rows->first())));
-                $vals = [];
-                foreach ($rows as $r) {
-                    $vals[] = '('.implode(',', array_map($quote, array_values($r))).')';
-                }
-                $out .= "INSERT INTO $qt ($qc) VALUES\n".implode(",\n", $vals).";\n";
-            });
-        }
-
-        return $out;
-    }
-
     /**
      * Split a dump into statements: a semicolon ends a statement only when
      * it sits outside single-quoted / back-quoted text (handles '' and \'
@@ -314,55 +201,6 @@ class SystemController extends Controller
      *
      * @return array<int, string>
      */
-    private function splitSql(string $sql): array
-    {
-        $stmts = [];
-        $buf   = '';
-        $q     = null;
-        $len   = strlen($sql);
-
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $sql[$i];
-            if ($q !== null) {
-                $buf .= $ch;
-                if ($ch === '\\' && $q === "'" && $i + 1 < $len) {
-                    $buf .= $sql[++$i];
-
-                    continue;
-                }
-                if ($ch === $q) {
-                    if ($q === "'" && $i + 1 < $len && $sql[$i + 1] === "'") {
-                        $buf .= "'";
-                        $i++;
-
-                        continue;
-                    }
-                    $q = null;
-                }
-
-                continue;
-            }
-            if ($ch === "'" || $ch === '`') {
-                $q = $ch;
-                $buf .= $ch;
-
-                continue;
-            }
-            if ($ch === ';') {
-                $stmts[] = $buf;
-                $buf     = '';
-
-                continue;
-            }
-            $buf .= $ch;
-        }
-        if (trim($buf) !== '') {
-            $stmts[] = $buf;
-        }
-
-        return array_values(array_filter(array_map('trim', $stmts), fn ($s) => $s !== ''));
-    }
-
     // ------------------------------------------------------------ info
 
     private function systemInfo(Request $request): array
@@ -386,7 +224,7 @@ class SystemController extends Controller
             __('issues.sys_info_db') => [
                 __('issues.sys_db_driver')     => DB::connection()->getDriverName(),
                 __('issues.sys_db_size')       => $this->dbSize(),
-                __('issues.sys_backups_count') => (string) count($this->backupList()),
+                __('issues.sys_backups_count') => (string) count(app(\App\Services\BackupService::class)->list()),
             ],
             __('issues.sys_info_php') => [
                 'memory_limit'        => (string) ini_get('memory_limit'),
@@ -437,7 +275,7 @@ class SystemController extends Controller
         $log      = $this->logSize();
         $checks[] = ['ok' => $log < 50 * 1024 * 1024, 'label' => __('issues.hc_log'), 'hint' => $this->human($log)];
 
-        $n        = count($this->backupList());
+        $n        = count(app(\App\Services\BackupService::class)->list());
         $checks[] = ['ok' => $n > 0, 'label' => __('issues.hc_backup'), 'hint' => (string) $n];
 
         $m        = SystemState::maintenance();

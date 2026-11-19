@@ -9,13 +9,9 @@ use Illuminate\Support\Facades\DB;
 /** Admin → Analytics: privacy-friendly visitor stats (see TrackVisit). */
 class AnalyticsController extends Controller
 {
-    public function index(Request $request)
+    /** Validated ?from&to range; defaults to the last 30 days. */
+    private function range(Request $request): array
     {
-        abort_unless($request->user()?->role === 'admin', 403);
-
-        $today = now()->toDateString();
-
-        // Date range (?from=YYYY-MM-DD&to=YYYY-MM-DD), default = last 30 days.
         $from = now()->subDays(29)->startOfDay();
         $to   = now()->startOfDay();
         $fIn  = (string) $request->query('from', '');
@@ -32,9 +28,16 @@ class AnalyticsController extends Controller
                 // bad calendar date (e.g. 2026-02-30) — fall back to default range
             }
         }
-        $fromStr = $from->toDateString();
-        $toStr   = $to->toDateString();
-        $numDays = (int) $from->diffInDays($to) + 1;
+
+        return [$from, $to, $from->toDateString(), $to->toDateString(), (int) $from->diffInDays($to) + 1];
+    }
+
+    public function index(Request $request)
+    {
+        abort_unless($request->user()?->role === 'admin', 403);
+
+        $today = now()->toDateString();
+        [$from, $to, $fromStr, $toStr, $numDays] = $this->range($request);
 
         $todayViews   = DB::table('page_views')->where('date', $today)->count();
         $todayUniques = DB::table('page_views')->where('date', $today)->distinct()->count('vhash');
@@ -74,5 +77,35 @@ class AnalyticsController extends Controller
             'topPages'     => $topPages,
             'topRefs'      => $topRefs,
         ]);
+    }
+
+    /** The visible range as an Excel-friendly CSV (date, views, uniques). */
+    public function csv(Request $request)
+    {
+        abort_unless($request->user()?->role === 'admin', 403);
+
+        [$from, $to, $fromStr, $toStr, $numDays] = $this->range($request);
+
+        $rows = DB::table('page_views')
+            ->whereBetween('date', [$fromStr, $toStr])
+            ->selectRaw('date, COUNT(*) as views, COUNT(DISTINCT vhash) as uniques')
+            ->groupBy('date')->orderBy('date')->pluck('views', 'date');
+        $uniq = DB::table('page_views')
+            ->whereBetween('date', [$fromStr, $toStr])
+            ->selectRaw('date, COUNT(DISTINCT vhash) as u')
+            ->groupBy('date')->pluck('u', 'date');
+
+        $filename = 'analytics-'.$fromStr.'-to-'.$toStr.'.csv';
+
+        return response()->streamDownload(function () use ($from, $numDays, $rows, $uniq) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['date', 'views', 'unique_visitors']);
+            for ($i = 0; $i < $numDays; $i++) {
+                $d = $from->copy()->addDays($i)->toDateString();
+                fputcsv($out, [$d, (int) ($rows[$d] ?? 0), (int) ($uniq[$d] ?? 0)]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

@@ -118,6 +118,15 @@
             <button class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700">{{ __('issues.sys_backup_create') }}</button>
         </form>
 
+        <form method="POST" action="{{ route('admin.system.autobackup') }}" class="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 px-3 py-2">
+            @csrf
+            <label class="flex items-center gap-2 text-sm font-medium">
+                <input type="checkbox" name="on" value="1" @checked($autoBackup) onchange="this.form.submit()" class="size-4">
+                {{ __('issues.sys_auto_backup') }}
+            </label>
+            <span class="text-xs text-slate-500">{{ __('issues.sys_auto_backup_hint') }}</span>
+        </form>
+
         <div class="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
             @forelse ($backups as $b)
                 <div class="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">

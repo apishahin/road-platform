@@ -17,6 +17,7 @@ Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'ind
 Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'sitemap'])->name('sitemap');
 
 \Illuminate\Support\Facades\Route::middleware('auth')->get('/admin/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('admin.analytics.index');
+\Illuminate\Support\Facades\Route::middleware('auth')->get('/admin/analytics.csv', [\App\Http\Controllers\Admin\AnalyticsController::class, 'csv'])->name('admin.analytics.csv');
 Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots');
 
 // ads.txt — the ad networks' verification file (served only when configured)
@@ -264,6 +265,8 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::get('/system/backups/{file}', [\App\Http\Controllers\Admin\SystemController::class, 'backupDownload'])->where('file', '[A-Za-z0-9._-]+')->name('system.backups.download');
     \Illuminate\Support\Facades\Route::post('/system/backups/{file}/delete', [\App\Http\Controllers\Admin\SystemController::class, 'backupDelete'])->where('file', '[A-Za-z0-9._-]+')->name('system.backups.delete');
     \Illuminate\Support\Facades\Route::post('/system/backups/restore', [\App\Http\Controllers\Admin\SystemController::class, 'backupRestore'])->name('system.backups.restore');
+    \Illuminate\Support\Facades\Route::post('/system/auto-backup', [\App\Http\Controllers\Admin\SystemController::class, 'autoBackup'])->name('system.autobackup');
+    \Illuminate\Support\Facades\Route::get('/audit-log', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('auditlog.index');
 });
 
 require __DIR__.'/manifest.php';

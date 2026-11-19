@@ -11,6 +11,7 @@
         <span class="text-sm text-slate-500">→</span>
         <input type="date" name="to" value="{{ $toStr }}" max="{{ now()->toDateString() }}" class="rounded-lg border-slate-300 text-sm">
         <button class="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700">{{ __('issues.an_apply') }}</button>
+        <a href="{{ route('admin.analytics.csv', ['from' => $fromStr, 'to' => $toStr]) }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">{{ __('issues.export_csv') }}</a>
         <div class="ms-auto flex flex-wrap gap-1.5 text-xs">
             @foreach ([
                 __('issues.an_preset_today')     => [now()->toDateString(), now()->toDateString()],

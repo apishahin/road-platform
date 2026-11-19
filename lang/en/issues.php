@@ -681,4 +681,12 @@ return [
     'site_appearance_merged_hint' => 'Everything about the site\'s look is now on this one page — remember to press each form\'s own save button.',
     'appearance_moved'            => 'The appearance settings have moved to the "Homepage & site" page.',
     'appearance_moved_link'       => 'Go there',
+    'nav_audit' => 'Audit Log',
+    'audit_title' => 'Audit Log',
+    'audit_sub' => 'History of admin actions (newest first).',
+    'audit_none' => 'No records yet.',
+    'audit_details' => 'Details',
+    'audit_system_actor' => 'System',
+    'sys_auto_backup' => 'Automatic daily backup',
+    'sys_auto_backup_hint' => 'A backup is created every night at 3:00 AM (latest 10 kept). Server cron must call schedule:run.',
 ];
