@@ -21,4 +21,6 @@
         </div>
     @endif
 </div>
+
+@include('partials.ad-slot', ['slot' => 'dashboard_bottom'])
 @endsection

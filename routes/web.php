@@ -18,6 +18,19 @@ Route::get('/sitemap.xml', [\App\Http\Controllers\SitemapController::class, 'sit
 
 \Illuminate\Support\Facades\Route::middleware('auth')->get('/admin/analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('admin.analytics.index');
 Route::get('/robots.txt', [\App\Http\Controllers\SitemapController::class, 'robots'])->name('robots');
+
+// ads.txt — the ad networks' verification file (served only when configured)
+Route::get('/ads.txt', function () {
+    $c = \App\Support\AdSettings::adsTxt();
+    abort_if($c === '', 404);
+
+    return response($c, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->name('ads.txt');
+
+\Illuminate\Support\Facades\Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    \Illuminate\Support\Facades\Route::get('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'index'])->name('ads.index');
+    \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
+});
 Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
 
 // Report flow (login required)

@@ -16,6 +16,8 @@
     @include('home._slider', ['heroSlides' => $S::heroSlider()['on'] ? $S::heroSlider()['slides'] : []])
 @endif
 
+@include('partials.ad-slot', ['slot' => 'home_after_hero'])
+
 {{-- ═══ SECTION 02: Fund strip overlapping the hero ═══ --}}
 @if ($S::on('fund'))
     <div class="{{ $S::on('hero') ? '' : 'fund-nohero' }}" style="{{ $S::on('hero') ? '' : 'padding-top:22px;' }}">

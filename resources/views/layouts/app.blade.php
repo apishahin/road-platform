@@ -13,6 +13,7 @@
 
     <title>@yield('title', __('Road Platform')) — {{ \App\Support\AppearanceSettings::siteName() }}</title>
     <meta name="description" content="@yield('description', __('A community-powered road repair platform for Bangladesh.'))">
+    @include('partials.ads-head')
 
     <meta property="og:site_name" content="{{ \App\Support\AppearanceSettings::siteName() }}">
     <meta property="og:title" content="@yield('title', __('Road Platform'))">
@@ -140,6 +141,7 @@
         }
         $__socBg = ['facebook' => '#1765c1', 'youtube' => '#e32222', 'x' => '#0f1419', 'website' => '#347edb'];
     @endphp
+    @include('partials.ad-slot', ['slot' => 'above_footer'])
     <footer class="{{ $__fCls }}" @if ($__dark) data-footer-dark @endif>
         <div style="max-width:1320px;margin-inline:auto;padding-inline:16px;">
             <div class="footer-main">

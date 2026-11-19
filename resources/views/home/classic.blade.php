@@ -55,6 +55,8 @@
 @endif
 @endif
 
+@include('partials.ad-slot', ['slot' => 'home_after_hero'])
+
 @if ($S::on('fund'))
     @include('fund._home-box')
 @endif

@@ -180,6 +180,9 @@
         <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($issues as $issue)
                 <x-issue-card :issue="$issue" />
+                @if ($loop->iteration === 3)
+                    <div class="sm:col-span-2 lg:col-span-3">@include('partials.ad-slot', ['slot' => 'issues_inline'])</div>
+                @endif
             @endforeach
         </div>
 

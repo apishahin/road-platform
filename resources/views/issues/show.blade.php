@@ -413,6 +413,8 @@
         </aside>
     </div>
 </div>
+@include('partials.ad-slot', ['slot' => 'issue_bottom'])
+
 @push('scripts')
 <script>
 (function () {
