@@ -36,6 +36,7 @@ Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name(
 Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
 Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
 Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
+Route::get('/leaderboard', [\App\Http\Controllers\LeaderboardController::class, 'index'])->name('leaderboard');
 
 // Report flow (login required)
 Route::middleware('auth')->group(function () {

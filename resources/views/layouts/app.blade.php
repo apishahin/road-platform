@@ -166,6 +166,7 @@
                         <a href="{{ url('/report') }}">{{ __('Report a problem') }}</a>
                         <a href="{{ route('fund.show') }}">{{ __('issues.site_nav_fund') }}</a>
                         <a href="{{ route('impact') }}">{{ __('issues.impact_nav') }}</a>
+                        <a href="{{ route('leaderboard') }}">{{ __('issues.lb_nav') }}</a>
                         @foreach (\App\Models\Page::menuItems() as $menuPage)
                             <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
                         @endforeach

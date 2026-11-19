@@ -436,6 +436,7 @@
 </div>
 @include('partials.ad-slot', ['slot' => 'issue_bottom'])
 
+@include('partials.photo-compress')
 @push('scripts')
 <script>
 (function () {

@@ -148,4 +148,5 @@ function reportWizard() {
     };
 }
 </script>
+@include('partials.photo-compress')
 @endsection

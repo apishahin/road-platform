@@ -164,9 +164,16 @@
                 <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700">
                     <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V5m0 0-4 4m4-4 4 4"/><path stroke-linecap="round" d="M4 19h16"/></svg>
                     <span>{{ __('report.photos_choose') }}</span>
-                    <input type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only"
+                    <input id="photos-main" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only"
+                           data-compress data-compress-max="3"
                            @change="names = Array.from($event.target.files).map(f => f.name)">
                 </label>
+                <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700">
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h2.2l1.6-2.4A1.5 1.5 0 0 1 9 5h6a1.5 1.5 0 0 1 1.2.6L17.8 8H20a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 18V9.5A1.5 1.5 0 0 1 4 8Z"/><circle cx="12" cy="13.2" r="3.4"/></svg>
+                    <span>{{ __('report.photos_camera') }}</span>
+                    <input type="file" accept="image/*" capture="environment" data-camera-for="photos-main" class="sr-only">
+                </label>
+                <p class="mt-1 text-center text-[11px] text-slate-400">{{ __('report.photos_compress_note') }}</p>
                 <p x-show="names.length === 0" class="mt-1.5 text-center text-xs text-slate-400">{{ __('report.photos_none') }}</p>
                 <ul x-show="names.length > 0" class="mt-2 space-y-1 text-xs text-slate-600">
                     <template x-for="n in names" :key="n">

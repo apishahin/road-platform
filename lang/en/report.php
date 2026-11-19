@@ -57,4 +57,6 @@ return [
     'mod_hidden_msg'       => 'Report hidden.',
     'photos_choose' => 'Choose photos',
     'photos_none' => 'No photo selected yet',
+    'photos_camera' => '📷 Take a photo',
+    'photos_compress_note' => 'Photos are automatically compressed before upload — saves your data and our storage.',
 ];
