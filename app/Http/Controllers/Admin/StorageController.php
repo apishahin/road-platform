@@ -21,6 +21,7 @@ class StorageController extends Controller
 
         return view('admin.storage', [
             'choice'  => StorageSettings::choice(),
+            'keepOrig' => StorageSettings::keepOriginals(),
             'r2Ready' => StorageSettings::r2Configured(),
             'private' => StorageSettings::privateDisk(),
             'public'  => StorageSettings::publicDisk(),
@@ -42,6 +43,19 @@ class StorageController extends Controller
         }
 
         return redirect()->route('admin.storage.index')->with('checks', $results);
+    }
+
+    /** Admin only: keep or discard the untouched original upload. */
+    public function keepOriginals(Request $request, AuditService $audit)
+    {
+        $this->guard();
+
+        $data = $request->validate(['keep' => ['required', 'in:0,1']]);
+        $on = $data['keep'] === '1';
+        StorageSettings::setKeepOriginals($on);
+        $audit->log($request->user(), 'storage.keep_originals', 'setting', 'keep_originals', ['keep' => $on]);
+
+        return back()->with('status', $on ? 'অরিজিনাল ছবি এখন থেকে সংরক্ষিত হবে।' : 'অরিজিনাল ছবি আর রাখা হবে না — শুধু ছোট কপি থাকবে।');
     }
 
     public function update(Request $request, AuditService $audit)

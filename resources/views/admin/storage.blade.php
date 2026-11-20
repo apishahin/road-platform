@@ -76,6 +76,25 @@
     </div>
 
     @php $__upOn = \App\Support\UpdatePhotos::enabled(); @endphp
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5" data-keep-originals>
+        <div class="font-semibold">অরিজিনাল ছবি সংরক্ষণ</div>
+        <p class="mt-1 text-sm text-slate-600">
+            চালু থাকলে আপলোডকৃত ছবির মূল কপিও রাখা হয় (বড় ফাইল)। বন্ধ করলে শুধু স্বয়ংক্রিয়ভাবে ছোট করা কপি (সর্বোচ্চ 1600px) থাকবে —
+            স্টোরেজ প্রায় অর্ধেকে নেমে যাবে। মূল কপি মুখ ঝাপসা করার আগে পর্যন্ত দরকার হতে পারে; ঝাপসা করলে মূল কপি নিজে থেকেই মুছে যায়।
+        </p>
+        <p class="mt-2 text-sm">এখন: <strong style="color:{{ $keepOrig ? '#166534' : '#b91c1c' }}">{{ $keepOrig ? 'চালু (মূল কপি রাখা হচ্ছে)' : 'বন্ধ (শুধু ছোট কপি)' }}</strong></p>
+        <form method="POST" action="{{ route('admin.storage.keep-originals') }}" class="mt-3">
+            @csrf
+            <input type="hidden" name="keep" value="{{ $keepOrig ? 0 : 1 }}">
+            <button type="submit" style="background:{{ $keepOrig ? '#b91c1c' : '#16a34a' }};color:#fff;font-weight:600;border:0;border-radius:8px;padding:8px 16px">{{ $keepOrig ? 'অরিজিনাল রাখা বন্ধ করুন' : 'অরিজিনাল রাখা চালু করুন' }}</button>
+        </form>
+        <p class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+            💾 আগের জমে থাকা বড় ছবিগুলো ছোট করতে সার্ভারে একবার চালান:
+            <code style="background:#e2e8f0;padding:1px 6px;border-radius:4px;">php artisan photos:shrink</code>
+            (আগে <code style="background:#e2e8f0;padding:1px 6px;border-radius:4px;">--dry-run</code> দিয়ে দেখে নিতে পারেন কতটা সাশ্রয় হবে।)
+        </p>
+    </div>
+
     <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <div class="font-semibold">আপডেটের ছবি (ঠিক হয়েছে / এখনো আছে / সরেজমিনে যাচাই)</div>
         <p class="mt-1 text-sm text-slate-600">চালু থাকলে নাগরিক ও স্বেচ্ছাসেবক আপডেটের সঙ্গে ছবি দিতে পারবেন। অনুমোদনের আগে কেউ ছবি দেখবে না। বন্ধ করলে নতুন ছবি নেওয়া হবে না; আগে অনুমোদিত ছবি দেখা যাবে।</p>

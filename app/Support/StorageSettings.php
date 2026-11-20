@@ -52,6 +52,30 @@ class StorageSettings
         return str_starts_with((string) config('filesystems.evidence.private'), 'r2') ? 'r2' : 'local';
     }
 
+    /**
+     * Whether the untouched original upload is also kept (private disk).
+     * Default ON = today's behaviour. Turning it OFF roughly halves storage
+     * for new photos: only the compressed 1600px copy is kept.
+     */
+    public static function keepOriginals(): bool
+    {
+        try {
+            $v = DB::table('settings')->where('key', 'keep_originals')->value('value');
+
+            return $v === null ? true : $v === '1';
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    public static function setKeepOriginals(bool $on): void
+    {
+        DB::table('settings')->updateOrInsert(
+            ['key' => 'keep_originals'],
+            ['value' => $on ? '1' : '0', 'updated_at' => now()]
+        );
+    }
+
     public static function privateDisk(): string
     {
         $stored = self::stored();

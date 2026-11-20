@@ -58,8 +58,11 @@ class EvidenceService
         $base        = (string) Str::uuid();
         $privatePath = 'evidence/originals/' . $base . '.' . self::EXT[$mime];
         $pendingPath = 'evidence/pending/' . $base . '.jpg';
+        $keepOrig    = \App\Support\StorageSettings::keepOriginals();
 
-        Storage::disk($disk)->put($privatePath, file_get_contents($file->getRealPath()));
+        if ($keepOrig) {
+            Storage::disk($disk)->put($privatePath, file_get_contents($file->getRealPath()));
+        }
         Storage::disk($disk)->put($pendingPath, $encoded);
 
         try {
@@ -68,12 +71,12 @@ class EvidenceService
                 'status_event_id' => $statusEventId,
                 'uploader_id'     => $uploaderId,
                 'public_path'     => $pendingPath, // lives on the private disk until approved
-                'private_path'    => $privatePath,
+                'private_path'    => $keepOrig ? $privatePath : null,
                 'taken_at'        => $this->takenAt($file->getRealPath()) ?? now(),
                 'moderation'      => 'pending',
             ]);
         } catch (\Throwable $e) {
-            Storage::disk($disk)->delete([$privatePath, $pendingPath]);
+            Storage::disk($disk)->delete(array_filter([$keepOrig ? $privatePath : null, $pendingPath]));
             throw $e;
         }
     }
