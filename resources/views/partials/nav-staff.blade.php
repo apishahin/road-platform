@@ -12,7 +12,8 @@
             }
         }
         if ($u->canModerate()) {
-            $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), 0, 'shield'];
+            $pendingReports = \App\Models\Report::where('moderation', 'pending')->count();
+            $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), $pendingReports, 'shield'];
             $review[] = [route('verify.queue'), __('issues.nav_verify'), 0, 'verify'];
             $review[] = [route('photoreview.index'), __('issues.nav_photos'), 0, 'photo'];
         }

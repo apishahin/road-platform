@@ -9,7 +9,7 @@
 
     <div class="mt-6 space-y-4">
         @forelse ($reports as $r)
-            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div data-mod-card class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <p class="font-semibold text-slate-900">{{ $r->issue->title }}</p>
@@ -328,8 +328,8 @@
     </template>
 </select>
                         @endif
-                        <button class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">{{ __('report.mod_approve') }}</button>
-        <button form="hide-{{ $r->id }}" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{{ __('report.mod_hide') }}</button>
+                        <button data-mod-approve class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">{{ __('report.mod_approve') }}</button>
+        <button data-mod-hide form="hide-{{ $r->id }}" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{{ __('report.mod_hide') }}</button>
                     </form>
                     <form id="hide-{{ $r->id }}" method="POST" action="{{ route('admin.moderation.hide', $r) }}" class="hidden">
     @csrf
@@ -503,4 +503,37 @@ Alpine.data('areaPicker', (areas, locale, seed = {}) => ({
 })();
 </script>
 @endpush
+
+{{-- Keyboard shortcuts: J/K = previous/next report, A = approve, H = hide --}}
+<p class="mt-4 text-center text-xs text-slate-400" data-mod-kb-hint>{{ __('issues.mod_kb_hint') }}</p>
+<script data-mod-kb>
+(function () {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('[data-mod-card]'));
+    if (!cards.length) return;
+    var i = 0;
+
+    function focusCard(n) {
+        i = Math.max(0, Math.min(cards.length - 1, n));
+        cards.forEach(function (c, k) {
+            c.style.outline = k === i ? '3px solid #16a34a' : '';
+            c.style.outlineOffset = k === i ? '2px' : '';
+        });
+        cards[i].scrollIntoView({ block: 'nearest' });
+    }
+    focusCard(0);
+
+    document.addEventListener('keydown', function (e) {
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        var k = e.key.toLowerCase();
+        if (k === 'j') { focusCard(i + 1); }
+        else if (k === 'k') { focusCard(i - 1); }
+        else if (k === 'a' || k === 'h') {
+            var btn = cards[i].querySelector(k === 'a' ? '[data-mod-approve]' : '[data-mod-hide]');
+            if (btn) { e.preventDefault(); btn.click(); focusCard(i); }
+        }
+    });
+})();
+</script>
 @endsection

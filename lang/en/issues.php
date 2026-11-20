@@ -793,4 +793,5 @@ return [
     'hc_cron_never' => 'Never ran — set up cron on the server',
     'hc_mail' => 'Outgoing mail configured',
     'hc_backup_fresh' => 'Recent backup (within 7 days)',
+    'mod_kb_hint' => '⌨️ Shortcuts: J = next · K = previous · A = approve · H = hide',
 ];
