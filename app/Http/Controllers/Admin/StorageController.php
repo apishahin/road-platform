@@ -22,6 +22,7 @@ class StorageController extends Controller
         return view('admin.storage', [
             'choice'  => StorageSettings::choice(),
             'keepOrig' => StorageSettings::keepOriginals(),
+            'encode'   => \App\Support\PhotoEncodeSettings::all(),
             'r2Ready' => StorageSettings::r2Configured(),
             'private' => StorageSettings::privateDisk(),
             'public'  => StorageSettings::publicDisk(),
@@ -56,6 +57,23 @@ class StorageController extends Controller
         $audit->log($request->user(), 'storage.keep_originals', 'setting', 'keep_originals', ['keep' => $on]);
 
         return back()->with('status', $on ? 'অরিজিনাল ছবি এখন থেকে সংরক্ষিত হবে।' : 'অরিজিনাল ছবি আর রাখা হবে না — শুধু ছোট কপি থাকবে।');
+    }
+
+    /** Admin only: processed-photo size / format / quality. */
+    public function saveEncode(Request $request, AuditService $audit)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            'max'     => ['required', 'integer', 'in:' . implode(',', \App\Support\PhotoEncodeSettings::SIZES)],
+            'format'  => ['required', 'in:jpeg,webp'],
+            'quality' => ['required', 'integer', 'min:50', 'max:92'],
+        ]);
+
+        \App\Support\PhotoEncodeSettings::save((int) $data['max'], $data['format'], (int) $data['quality']);
+        $audit->log($request->user(), 'storage.encode', 'setting', 'photo_encode', $data);
+
+        return back()->with('status', 'ফটো সেটিং সংরক্ষণ হয়েছে — এখন থেকে নতুন আপলোডে কার্যকর হবে।');
     }
 
     public function update(Request $request, AuditService $audit)

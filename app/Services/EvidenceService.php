@@ -44,12 +44,17 @@ class EvidenceService
             throw new RuntimeException('Image is invalid or too large.');
         }
 
+        $enc = \App\Support\PhotoEncodeSettings::all();
+
         try {
             $manager = new ImageManager(new GdDriver()); $image = method_exists($manager, 'decode') ? $manager->decode($file->getRealPath()) : $manager->read($file->getRealPath());
-            if ($image->width() > 1600 || $image->height() > 1600) {
-                $image->orient(); $image->scaleDown(width: 1600, height: 1600);
+            if ($image->width() > $enc['max'] || $image->height() > $enc['max']) {
+                $image->orient(); $image->scaleDown(width: $enc['max'], height: $enc['max']);
             }
-            $encoded = (string) $image->encode(new \Intervention\Image\Encoders\JpegEncoder(quality: 80)); // re-encoding drops EXIF
+            $encoder = $enc['format'] === 'webp'
+                ? new \Intervention\Image\Encoders\WebpEncoder(quality: $enc['quality'])
+                : new \Intervention\Image\Encoders\JpegEncoder(quality: $enc['quality']);
+            $encoded = (string) $image->encode($encoder); // re-encoding drops EXIF
         } catch (\Throwable $e) {
             report($e); throw new RuntimeException('Image could not be processed.');
         }
@@ -57,7 +62,7 @@ class EvidenceService
         $disk        = \App\Support\StorageSettings::privateDisk();
         $base        = (string) Str::uuid();
         $privatePath = 'evidence/originals/' . $base . '.' . self::EXT[$mime];
-        $pendingPath = 'evidence/pending/' . $base . '.jpg';
+        $pendingPath = 'evidence/pending/' . $base . '.' . \App\Support\PhotoEncodeSettings::ext();
         $keepOrig    = \App\Support\StorageSettings::keepOriginals();
 
         if ($keepOrig) {

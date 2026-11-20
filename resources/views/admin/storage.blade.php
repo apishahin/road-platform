@@ -76,6 +76,42 @@
     </div>
 
     @php $__upOn = \App\Support\UpdatePhotos::enabled(); @endphp
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5" data-encode-settings>
+        <div class="font-semibold">আপলোড ফটোর সাইজ ও ফরম্যাট</div>
+        <p class="mt-1 text-sm text-slate-600">
+            নতুন আপলোড স্বয়ংক্রিয়ভাবে এই নিয়মে ছোট ও কমপ্রেস হয়। WebP ফরম্যাট JPEG-এর চেয়ে গড়ে ২৫–৩৫% ছোট ফাইল দেয়।
+            কোয়ালিটি কমালে ফাইল ছোট হয়, ছবি কিছুটা নরমাল দেখায় (৭৫–৮০ ভারসাম্যপূর্ণ)।
+        </p>
+        <form method="POST" action="{{ route('admin.storage.encode') }}" class="mt-3 grid gap-3 sm:grid-cols-3">
+            @csrf
+            <div>
+                <label class="text-xs font-medium text-slate-600">সর্বোচ্চ সাইজ (লম্বা দিক)</label>
+                <select name="max" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    @foreach (\App\Support\PhotoEncodeSettings::SIZES as $px)
+                        <option value="{{ $px }}" @selected($encode['max'] === $px)>{{ $px }} px</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-medium text-slate-600">ফরম্যাট</label>
+                <select name="format" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <option value="jpeg" @selected($encode['format'] === 'jpeg')>JPEG (সব ব্রাউজারে নিরাপদ)</option>
+                    <option value="webp" @selected($encode['format'] === 'webp')>WebP (সবচেয়ে ছোট ফাইল)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-medium text-slate-600">কোয়ালিটি (৫০–৯২)</label>
+                <input type="number" name="quality" value="{{ $encode['quality'] }}" min="50" max="92" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
+            <div class="sm:col-span-3">
+                <button type="submit" style="background:#16a34a;color:#fff;font-weight:600;border:0;border-radius:8px;padding:8px 16px">সংরক্ষণ করুন</button>
+            </div>
+        </form>
+        @if ($encode['format'] === 'webp' && ! function_exists('imagewebp'))
+            <p class="mt-2 text-sm text-rose-600">⚠️ এই সার্ভারে WebP সাপোর্ট (GD webp) নেই — JPEG রাখুন।</p>
+        @endif
+    </div>
+
     <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5" data-keep-originals>
         <div class="font-semibold">অরিজিনাল ছবি সংরক্ষণ</div>
         <p class="mt-1 text-sm text-slate-600">

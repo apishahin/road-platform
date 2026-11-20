@@ -53,7 +53,11 @@ class EvidenceBlurService
             }
 
             ob_start();
-            imagejpeg($im, null, 88);
+            if (str_ends_with((string) $ev->public_path, '.webp') && function_exists('imagewebp')) {
+                imagewebp($im, null, 88);
+            } else {
+                imagejpeg($im, null, 88);
+            }
             $out = ob_get_clean();
             imagedestroy($im);
 
