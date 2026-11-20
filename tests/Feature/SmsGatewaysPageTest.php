@@ -62,6 +62,50 @@ class SmsGatewaysPageTest extends TestCase
             ->assertOk()->assertSee('bulksmsbd.net/api/smsapi', false);
     }
 
+    public function test_one9_preset_opens_with_its_documented_post_form_values(): void
+    {
+        $a = $this->admin();
+        $this->actingAs($a)->get('/admin/sms-gateways?preset=one9')
+            ->assertRedirect(route('admin.loginsettings.index', ['preset' => 'one9']) . '#gateways');
+        $this->actingAs($a)->get('/admin/login-settings?preset=one9')
+            ->assertOk()
+            ->assertSee('https://sms.one9.one/sms/api', false)
+            ->assertSee('value="POST"', false)
+            ->assertSee('&quot;from&quot;:&quot;{sender_id}&quot;', false)
+            ->assertSee('value="sms"', false);
+    }
+
+    public function test_one9_template_sends_the_documented_post_fields(): void
+    {
+        Http::fake(['https://sms.one9.one/*' => Http::response('{"ok":true}', 200)]);
+        $a = $this->admin();
+        $payload = $this->payload([
+            'name' => 'One9 SMS',
+            'method' => 'POST',
+            'url' => 'https://sms.one9.one/sms/api',
+            'body_type' => 'form',
+            'params' => '{"api_key":"{api_key}","to":"{to}","from":"{sender_id}","sms":"{message}"}',
+            'headers' => '{"Accept":"application/json"}',
+            'sender_id' => 'sms',
+            'success_marker' => '',
+        ]);
+        $this->actingAs($a)->post('/admin/sms-gateways', $payload)->assertSessionHasNoErrors();
+        $g = SmsGateway::firstOrFail();
+
+        $this->actingAs($a)->post('/admin/sms-gateways/' . $g->id . '/test', ['phone' => '01712345678'])
+            ->assertSessionHas('gw_ok');
+
+        Http::assertSent(function ($request) {
+            return $request->method() === 'POST'
+                && $request->url() === 'https://sms.one9.one/sms/api'
+                && $request['api_key'] === 'SECRETKEY9'
+                && $request['to'] === '8801712345678'
+                && $request['from'] === 'sms'
+                && $request['sms'] === 'Road Platform test message.'
+                && $request->hasHeader('Accept', 'application/json');
+        });
+    }
+
     public function test_save_stores_encrypted_key_and_stays_off(): void
     {
         $a = $this->admin();

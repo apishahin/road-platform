@@ -30,7 +30,11 @@ class LoginSettingsController extends Controller
         if ($edit) {
             $form = $edit->only(['id', 'name', 'channel', 'method', 'url', 'body_type', 'params', 'headers', 'sender_id', 'success_marker', 'priority', 'enabled']);
         } else {
-            $form = array_merge(SmsGatewaysController::BLANK, $request->query('preset') === 'bulksmsbd' ? SmsGatewaysController::BULKSMSBD : []);
+            $presets = [
+                'bulksmsbd' => SmsGatewaysController::BULKSMSBD,
+                'one9' => SmsGatewaysController::ONE9SMS,
+            ];
+            $form = array_merge(SmsGatewaysController::BLANK, $presets[$request->query('preset')] ?? []);
             $form['id'] = null;
         }
 

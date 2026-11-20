@@ -27,6 +27,20 @@ class SmsGatewaysController extends Controller
         'success_marker' => '202',
     ];
 
+    /** One9 SMS Primary SMS Sending API, documented at sms.one9.one. */
+    public const ONE9SMS = [
+        'name' => 'One9 SMS', 'channel' => 'sms', 'method' => 'POST',
+        'url' => 'https://sms.one9.one/sms/api', 'body_type' => 'form',
+        'params' => '{"api_key":"{api_key}","to":"{to}","from":"{sender_id}","sms":"{message}"}',
+        'headers' => '{"Accept":"application/json"}',
+        // One9's example uses `sms` as the default sender. It can be changed
+        // to an approved Sender ID by the admin when the gateway is saved.
+        'sender_id' => 'sms',
+        // Any successful HTTP 2xx response is accepted; do not depend on a
+        // provider response string that could change.
+        'success_marker' => '',
+    ];
+
     private function guard(Request $request): User
     {
         $u = $request->user();

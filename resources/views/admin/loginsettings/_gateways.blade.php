@@ -80,7 +80,10 @@
     <div class="mt-10 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-lg font-semibold text-slate-900">{{ $editing ? __('smsgw.form_edit') : __('smsgw.form_add') }}</h2>
         @unless ($editing)
-            <a href="{{ route('admin.loginsettings.index', ['preset' => 'bulksmsbd']) }}" class="mt-1 inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset') }}</a>
+            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                <a href="{{ route('admin.loginsettings.index', ['preset' => 'bulksmsbd']) }}" class="inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset_bulksmsbd') }}</a>
+                <a href="{{ route('admin.loginsettings.index', ['preset' => 'one9']) }}" class="inline-block text-sm text-blue-600 underline">{{ __('smsgw.preset_one9') }}</a>
+            </div>
         @endunless
 
         <form method="POST" action="{{ route('admin.smsgateways.save') }}" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
