@@ -43,6 +43,7 @@
                 [route('admin.ads.index'), __('issues.nav_ads'), 0, 'ad'],
                 [route('admin.auditlog.index'), __('issues.nav_audit'), 0, 'audit'],
                 [route('admin.sponsors.index'), __('issues.nav_sponsors'), 0, 'sponsor'],
+                [route('admin.api.index'), __('issues.api_menu'), 0, 'key'],
                 [route('admin.footer.index'), __('issues.nav_footer'), 0, 'flink'],
                 [route('admin.integrations.index'), __('issues.nav_integrations'), 0, 'integ'],
             ]];

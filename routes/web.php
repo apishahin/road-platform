@@ -36,6 +36,7 @@ Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name(
 Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
 Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
 Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
+Route::view('/developers', 'developers')->name('developers');
 Route::get('/leaderboard', [\App\Http\Controllers\LeaderboardController::class, 'index'])->name('leaderboard');
 Route::post('/push/token', [\App\Http\Controllers\PushTokenController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('push.token');
 Route::delete('/push/token', [\App\Http\Controllers\PushTokenController::class, 'destroy'])->middleware('auth')->name('push.token.delete');
@@ -99,6 +100,14 @@ Route::get('/lang/{locale}', function (string $locale) {
     return back();
 })->name('lang');
 Route::middleware('auth')->prefix('admin')->group(function () { Route::get('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'index'])->name('admin.storage.index'); Route::post('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'update'])->name('admin.storage.update'); Route::post('/storage/check', [\App\Http\Controllers\Admin\StorageController::class, 'check'])->name('admin.storage.check'); Route::post('/storage/keep-originals', [\App\Http\Controllers\Admin\StorageController::class, 'keepOriginals'])->name('admin.storage.keep-originals'); Route::post('/storage/encode', [\App\Http\Controllers\Admin\StorageController::class, 'saveEncode'])->name('admin.storage.encode'); });
+
+Route::middleware('auth')->prefix('admin')->group(function () {
+    $c = \App\Http\Controllers\Admin\ApiAccessController::class;
+    Route::get('/api-access', [$c, 'index'])->name('admin.api.index');
+    Route::post('/api-access/toggle', [$c, 'toggle'])->name('admin.api.toggle');
+    Route::post('/api-access/keys', [$c, 'createKey'])->name('admin.api.keys.store');
+    Route::delete('/api-access/keys/{id}', [$c, 'revoke'])->name('admin.api.keys.destroy');
+});
 
 // Appearance settings (admin only; checked inside the controller)
 Route::middleware('auth')->prefix('admin')->group(function () {
