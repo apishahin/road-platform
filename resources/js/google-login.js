@@ -14,12 +14,17 @@ if (root) {
     };
 
     let auth = null;
-    try {
-        auth = getAuth(initializeApp({ apiKey: d.apiKey, authDomain: d.authDomain, projectId: d.projectId }));
-        auth.languageCode = document.documentElement.lang || 'en';
-    } catch (e) {
-        say('textError', true);
+    if (!d.apiKey || !d.authDomain || !d.projectId) {
+        say('textNotReady', true);
         btn.disabled = true;
+    } else {
+        try {
+            auth = getAuth(initializeApp({ apiKey: d.apiKey, authDomain: d.authDomain, projectId: d.projectId }));
+            auth.languageCode = document.documentElement.lang || 'en';
+        } catch (e) {
+            say('textError', true);
+            btn.disabled = true;
+        }
     }
 
     btn.addEventListener('click', async () => {
@@ -54,7 +59,7 @@ if (root) {
             say(err === 'closed' ? 'textClosed' : err === 'banned' ? 'textBanned' : err === 'too_many' ? 'textTooMany' : 'textError', true);
         } catch (e) {
             if (e && e.code === 'auth/popup-closed-by-user') {
-                say('textError', false);
+                say('textClosed');
             } else {
                 say('textError', true);
             }

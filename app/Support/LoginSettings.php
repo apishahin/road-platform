@@ -24,7 +24,9 @@ class LoginSettings
             'password_for_staff' => false,
             'require_verified_phone' => false,
             'otp_provider'       => 'log',
-            'google_phone'       => 'required',
+            // Google is a direct, one-tap path by default. Admins may still
+            // require a mobile number after Google sign-in in Login settings.
+            'google_phone'       => 'optional',
             'firebase_api_key' => '',
             'firebase_auth_domain' => '',
             'firebase_project_id' => '',

@@ -19,7 +19,10 @@ class AuthController extends Controller
 
     public function showLogin()
     {
-        return view('auth.login', ['s' => LoginSettings::all()]);
+        return view('auth.login', [
+            's'  => LoginSettings::all(),
+            'fb' => LoginSettings::firebaseConfig(),
+        ]);
     }
 
     public function sendCode(Request $request)

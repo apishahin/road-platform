@@ -2,6 +2,9 @@
 
 return [
     'title'        => 'Login',
+    'start_intro'  => 'Sign in quickly and securely to continue.',
+    'phone_method' => 'Continue with mobile number',
+    'phone_hint'   => 'We will send a 6-digit security code to your number.',
     'intro'        => 'Enter your mobile number. We will send you a 6-digit code.',
     'phone'        => 'Mobile number',
     'send_code'    => 'Send code',

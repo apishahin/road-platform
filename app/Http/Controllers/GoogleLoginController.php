@@ -15,11 +15,15 @@ class GoogleLoginController extends Controller
     // Google identity parked in the session until the mobile number is given.
     private const PENDING_KEY = 'google_pending';
 
+    /**
+     * Kept for old bookmarks. Google sign-in now opens directly on /login,
+     * so visitors never need to press the same Google button twice.
+     */
     public function start(Request $request)
     {
         abort_unless(LoginSettings::googleEnabled(), 404);
 
-        return view('auth.google', ['fb' => LoginSettings::firebaseConfig()]);
+        return redirect()->route('login');
     }
 
     public function verify(Request $request)
@@ -39,16 +43,24 @@ class GoogleLoginController extends Controller
         $user = $this->findGoogleUser($info);
 
         if (! $user) {
-            // No usable account: park the verified Google identity in the
-            // session and ask for the user's mobile number next.
             if (! LoginSettings::registrationOpen()) {
                 return response()->json(['ok' => false, 'err' => 'closed'], 403);
             }
+
+            // Keep the verified identity briefly only when a phone step is wanted.
             $request->session()->put(self::PENDING_KEY, [
                 'id'    => $info['id'],
                 'email' => $info['email'],
                 'name'  => $info['name'],
             ]);
+
+            // The default is genuinely one-tap: a phone number is optional and
+            // can be added/verified later. An admin may make it required.
+            if (LoginSettings::googlePhoneMode() === 'optional') {
+                $this->complete($request, null, null);
+
+                return response()->json(['ok' => true, 'next' => $this->intended($request)]);
+            }
 
             return response()->json(['ok' => true, 'next' => route('login.google.phone')]);
         }
@@ -116,8 +128,16 @@ class GoogleLoginController extends Controller
         return $this->finish($request, null, null);
     }
 
-    /** Create/link the account, then log in. */
+    /** Create/link the account, then redirect after logging in. */
     private function finish(Request $request, ?string $phone, ?User $existing)
+    {
+        $this->complete($request, $phone, $existing);
+
+        return redirect($this->intended($request));
+    }
+
+    /** Create/link the account and establish the authenticated session. */
+    private function complete(Request $request, ?string $phone, ?User $existing): void
     {
         $p = $request->session()->get(self::PENDING_KEY);
         abort_unless(is_array($p), 404);
@@ -140,17 +160,14 @@ class GoogleLoginController extends Controller
                 'google_id'     => $p['id'],
                 'display_name'  => $p['name'] ?: null,
                 'role'          => 'citizen',
-                // No OTP - the number is stored as contact info only.
+                // No OTP - a Google account proves identity, not phone ownership.
                 'phone_verified_at' => null,
             ]);
         }
 
         $request->session()->forget(self::PENDING_KEY);
-
         Auth::login($user, remember: true);
         $request->session()->regenerate();
-
-        return redirect($this->intended($request));
     }
 
     private function findGoogleUser(array $info): ?User

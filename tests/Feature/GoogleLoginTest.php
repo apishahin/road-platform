@@ -22,14 +22,14 @@ class GoogleLoginTest extends TestCase
         ], $over)));
     }
 
-    private function enableGoogle(): void
+    private function enableGoogle(array $over = []): void
     {
-        LoginSettings::save([
+        LoginSettings::save(array_merge([
             'google_enabled' => true,
             'firebase_api_key' => 'AIza-test-key',
             'firebase_auth_domain' => 'x.firebaseapp.com',
             'firebase_project_id' => 'project-x',
-        ]);
+        ], $over));
     }
 
     private function token(array $over = []): string
@@ -54,10 +54,19 @@ class GoogleLoginTest extends TestCase
         $this->postJson('/login/google/verify', ['id_token' => 'x'])->assertNotFound();
     }
 
-    public function test_google_start_page_renders_when_on(): void
+    public function test_old_google_start_url_redirects_to_the_single_login_page(): void
     {
         $this->enableGoogle();
-        $this->get('/login/google')->assertOk()->assertSee('google-login');
+        $this->get('/login/google')->assertRedirect(route('login'));
+    }
+
+    public function test_login_page_has_google_button_and_its_verification_endpoint(): void
+    {
+        $this->enableGoogle();
+        $this->get('/login')->assertOk()
+            ->assertSee('id="google-login"', false)
+            ->assertSee('id="gl-btn"', false)
+            ->assertSee(route('login.google.verify'), false);
     }
 
     public function test_existing_google_user_is_logged_in_with_remember(): void
@@ -67,26 +76,38 @@ class GoogleLoginTest extends TestCase
         $this->fakeLookup(['users' => [['localId' => 'gid-1', 'email' => 'a@b.c', 'displayName' => 'A']]]);
 
         $resp = $this->postJson('/login/google/verify', ['id_token' => $this->token()]);
-        $resp->assertOk()->assertJson(['ok' => true]);
+        $resp->assertOk()->assertJson(['ok' => true, 'next' => route('home')]);
         $this->assertAuthenticatedAs($user);
         $this->assertNotNull($user->fresh()->remember_token);
     }
 
-    public function test_new_user_goes_to_phone_step(): void
+    public function test_new_google_user_is_logged_in_in_one_tap_by_default(): void
     {
         $this->enableGoogle();
         $this->fakeLookup(['users' => [['localId' => 'gid-new', 'email' => 'n@b.c', 'displayName' => 'New']]]);
 
         $resp = $this->postJson('/login/google/verify', ['id_token' => $this->token()]);
-        $resp->assertOk()->assertJson(['ok' => true]);
-        $resp->assertJson(['next' => route('login.google.phone')]);
+        $resp->assertOk()->assertJson(['ok' => true, 'next' => route('home')]);
+        $this->assertAuthenticated();
+        $user = User::where('google_id', 'gid-new')->first();
+        $this->assertNotNull($user);
+        $this->assertNull($user->phone);
+        $this->assertNull(session('google_pending'));
+    }
+
+    public function test_new_google_user_goes_to_phone_step_when_admin_requires_it(): void
+    {
+        $this->enableGoogle(['google_phone' => 'required']);
+        $this->fakeLookup(['users' => [['localId' => 'gid-required', 'email' => 'r@b.c', 'displayName' => 'Required']]]);
+
+        $resp = $this->postJson('/login/google/verify', ['id_token' => $this->token()]);
+        $resp->assertOk()->assertJson(['ok' => true, 'next' => route('login.google.phone')]);
         $this->assertGuest();
     }
 
     public function test_phone_is_saved_without_otp_and_user_is_logged_in(): void
     {
         $this->enableGoogle();
-
         $pending = ['google_pending' => ['id' => 'gid-2', 'email' => 'p@b.c', 'name' => 'P']];
 
         // Invalid number refused.
@@ -111,16 +132,16 @@ class GoogleLoginTest extends TestCase
 
     public function test_phone_step_404_without_pending_and_skip_follows_mode(): void
     {
-        $this->enableGoogle();
+        $this->enableGoogle(['google_phone' => 'required']);
         $this->get('/login/google/phone')->assertNotFound();
 
         $pending = ['google_pending' => ['id' => 'gid-3', 'email' => 's@b.c', 'name' => 'S']];
 
-        // Default mode "required": skip is not allowed.
+        // Required mode does not allow skipping.
         $this->withSession($pending)->post('/login/google/phone/skip')->assertNotFound();
         $this->assertGuest();
 
-        // Optional mode: phone form shows the skip button and skipping works.
+        // Optional mode shows the skip button and skipping works.
         LoginSettings::save(['google_phone' => 'optional']);
         $this->withSession($pending)->get('/login/google/phone')
             ->assertOk()->assertSee(route('login.google.phone.skip'), false);
@@ -142,11 +163,5 @@ class GoogleLoginTest extends TestCase
             ->post('/login/google/phone', ['phone' => '01700000023'])
             ->assertSessionHasErrors('phone');
         $this->assertGuest();
-    }
-
-    public function test_google_login_button_on_login_page(): void
-    {
-        LoginSettings::save(['google_enabled' => true]);
-        $this->get('/login')->assertOk()->assertSee(route('login.google'), false);
     }
 }
