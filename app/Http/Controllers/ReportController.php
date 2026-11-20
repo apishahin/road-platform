@@ -56,7 +56,7 @@ class ReportController extends Controller
         ]);
 
         try {
-            $this->reports->submit(
+            $report = $this->reports->submit(
                 user: $user,
                 lat: (float) $data['lat'],
                 lng: (float) $data['lng'],
@@ -71,6 +71,18 @@ class ReportController extends Controller
             );
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['photos' => $e->getMessage()]);
+        }
+
+        // Auto-follow the issue so the reporter gets status notifications
+        try {
+            if (isset($report) && $report->issue_id) {
+                \App\Models\IssueFollow::firstOrCreate(
+                    ['issue_id' => $report->issue_id, 'user_id' => $user->id],
+                    ['created_at' => now()]
+                );
+            }
+        } catch (\Throwable) {
+            // follow is best-effort
         }
 
         RateLimiter::hit($key, 3600);

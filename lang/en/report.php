@@ -59,4 +59,5 @@ return [
     'photos_none' => 'No photo selected yet',
     'photos_camera' => '📷 Take a photo',
     'photos_compress_note' => 'Photos are automatically compressed before upload — saves your data and our storage.',
+    'autofollow_notice' => '🔔 You are now following this issue — you will be notified when its status changes.',
 ];

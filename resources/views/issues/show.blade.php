@@ -343,6 +343,22 @@
                         x-on:click="navigator.share ? navigator.share({ title: title, url: url }) : navigator.clipboard.writeText(url).then(() => copied = true)">
                     {{ __('issue.page.share') }}
                 </button>
+                <div class="mt-2 grid grid-cols-3 gap-2" data-share-links>
+                    <a :href="'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url)" target="_blank" rel="noopener"
+                       style="display:flex;align-items:center;justify-content:center;gap:5px;border-radius:8px;background:#1877f2;color:#fff;padding:8px 4px;font-size:12px;font-weight:700;text-decoration:none;">
+                        <svg style="width:13px;height:13px;" fill="currentColor" viewBox="0 0 24 24"><path d="M13.5 21v-7.7h2.6l.4-3h-3V8.2c0-.87.24-1.47 1.49-1.47h1.6V4.08A21 21 0 0 0 14.36 4c-2.3 0-3.86 1.4-3.86 3.97v2.33H7.9v3h2.6V21h3Z"/></svg>
+                        Facebook
+                    </a>
+                    <a :href="'https://wa.me/?text=' + encodeURIComponent(title + ' ' + url)" target="_blank" rel="noopener"
+                       style="display:flex;align-items:center;justify-content:center;gap:5px;border-radius:8px;background:#25d366;color:#fff;padding:8px 4px;font-size:12px;font-weight:700;text-decoration:none;">
+                        <svg style="width:13px;height:13px;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.3 14.2c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.2-.7-2.7-1.1-4.4-3.8-4.6-4-.1-.2-1.1-1.4-1.1-2.7s.7-1.9 1-2.2c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.4l.8 2c.1.1.1.3 0 .5l-.4.5c-.2.2-.4.4-.2.7.2.3.9 1.5 2 2.4 1.4 1.2 2.5 1.6 2.9 1.7.3.2.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2 .9c.3.2.5.3.6.4 0 .2.1.7-.1 1.3Z"/></svg>
+                        WhatsApp
+                    </a>
+                    <button type="button" x-on:click="navigator.clipboard.writeText(url).then(() => copied = true)"
+                            style="border-radius:8px;background:#475569;color:#fff;padding:8px 4px;font-size:12px;font-weight:700;">
+                        {{ __('issues.share_copy') }}
+                    </button>
+                </div>
                 <p x-show="copied" x-cloak class="mt-2 text-xs text-green-700">{{ __('issue.page.copied') }}</p>
             </section>
 
