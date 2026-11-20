@@ -281,6 +281,28 @@ class SystemController extends Controller
         $m        = SystemState::maintenance();
         $checks[] = ['ok' => ! $m['on'], 'label' => __('issues.hc_maint'), 'hint' => $m['on'] ? 'ON' : 'OFF'];
 
+        // Cron/scheduler heartbeat (written every minute when cron runs schedule:run)
+        $beat = cache()->get('scheduler_heartbeat');
+        $beatAt = null;
+        if (is_string($beat)) {
+            try { $beatAt = \Carbon\Carbon::parse($beat); } catch (\Throwable) { $beatAt = null; }
+        }
+        $cronOk = $beatAt !== null && $beatAt->gt(now()->subMinutes(10));
+        $checks[] = [
+            'ok'    => $cronOk,
+            'label' => __('issues.hc_cron'),
+            'hint'  => $beatAt ? $beatAt->diffForHumans() : __('issues.hc_cron_never'),
+        ];
+
+        // Outgoing mail configured (anything other than log driver)
+        $mailMode = (string) \App\Support\MailSettings::all()['mode'];
+        $checks[] = ['ok' => $mailMode !== 'log', 'label' => __('issues.hc_mail'), 'hint' => $mailMode];
+
+        // Newest backup is fresh (≤ 7 days)
+        $bk = app(\App\Services\BackupService::class)->list();
+        $fresh = $bk !== [] && $bk[0]['mtime'] >= now()->subDays(7)->timestamp;
+        $checks[] = ['ok' => $fresh, 'label' => __('issues.hc_backup_fresh'), 'hint' => $bk !== [] ? $bk[0]['date'] : '—'];
+
         return $checks;
     }
 

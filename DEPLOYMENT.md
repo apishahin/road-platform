@@ -101,3 +101,45 @@ GitHub Actions এখন প্রতিটি `push` ও pull request-এ প�
 - **Backups:** create + download one at least weekly and before every big
   change; keep it private (it contains the database and `.env`). Restore from
   the same System page; you may need to log in again afterwards.
+
+
+---
+
+## ৫) সাবডোমেইনে লাইভ করা · Going live on a subdomain
+
+আপাতত `road.your-domain.com`-এর মতো সাবডোমেইনে চালানোর ধাপ:
+
+1. **cPanel → Subdomains** থেকে সাবডোমেইন বানান; Document Root দিন
+   প্রজেক্টের `public` ফোল্ডারে (যেমন: `/home/user/road/public`)।
+   ⚠️ Document Root কখনোই প্রজেক্টের মূল ফোল্ডার নয় — তাহলে `.env` সহ
+   সব ফাইল পাবলিক হয়ে যাবে!
+2. **SSL চালু করুন:** cPanel → SSL/TLS Status → *Run AutoSSL* (ফ্রি)।
+   HTTPS ছাড়া পুশ নোটিফিকেশন ও লগইন-নিরাপত্তা কাজ করবে না।
+3. `.env`-এ ঠিক করুন:
+   ```
+   APP_ENV=production
+   APP_DEBUG=false
+   APP_URL=https://road.your-domain.com
+   ```
+4. প্রথমবার ডিপ্লয়ে টার্মিনালে:
+   `php artisan migrate --force` → `php artisan storage:link` →
+   `php artisan config:cache`
+5. **Cron যোগ করুন** (cPanel → Cron Jobs, প্রতি মিনিটে):
+   `* * * * * cd /home/user/road && php artisan schedule:run >> /dev/null 2>&1`
+   — এটা চালু হলে অটো-ব্যাকআপ ও সাপ্তাহিক ডাইজেস্ট কাজ করবে।
+6. **যাচাই:** অ্যাডমিন → সিস্টেম পেজে সব হেলথ-চেক ✓ হবে — বিশেষ করে
+   "ক্রন/শিডিউলার চলছে" (cron সেট হলে ১০ মিনিটের মধ্যে সবুজ হবে)।
+7. **পরে আসল ডোমেইন কিনলে:** ডোমেইনটি একই `public` ফোল্ডারে পয়েন্ট করান,
+   `.env`-এ `APP_URL` বদলে `php artisan config:cache` চালান — ব্যাস।
+   সব ডেটা, ইউজার, সেটিং অপরিবর্তিত থাকবে। সাবডোমেইন থেকে পুরনো ভিজিটরদের
+   নতুন ডোমেইনে পাঠাতে চাইলে হোস্টিং-এ redirect বসান।
+
+### English — subdomain quick steps
+
+Create the subdomain with its **document root at the project's `public/`
+folder** (never the project root), enable free AutoSSL, set
+`APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://sub.example.com`,
+run `migrate --force`, `storage:link`, `config:cache`, add the
+`* * * * * php artisan schedule:run` cron, then confirm every health check
+on **Admin → System** turns green. Moving to a full domain later only
+requires pointing the domain at the same folder and updating `APP_URL`.

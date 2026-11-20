@@ -789,4 +789,8 @@ return [
     'digest_pending' => 'Reports awaiting moderation: :n',
     'digest_new_users' => 'New users (7 days): :n',
     'digest_open' => 'Total open issues: :n',
+    'hc_cron' => 'Cron / scheduler is running',
+    'hc_cron_never' => 'Never ran — set up cron on the server',
+    'hc_mail' => 'Outgoing mail configured',
+    'hc_backup_fresh' => 'Recent backup (within 7 days)',
 ];
