@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\SiteSections;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -20,6 +21,23 @@ class SystemPanelTest extends TestCase
             'phone'     => '0171' . random_int(1000000, 9999999),
             'role'      => 'admin',
         ]));
+    }
+
+    /** Make a deliberately named archive so a test can emulate an older backup left on disk. */
+    private function archive(string $name, string $driver, string $sql): string
+    {
+        $dir = storage_path('app/backups');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $path = $dir . '/' . $name;
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true);
+        $zip->addFromString('database.sql', $sql);
+        $zip->addFromString('backup.json', json_encode(['db_driver' => $driver]));
+        $zip->close();
+
+        return $path;
     }
 
     public function test_guests_and_non_admins_cannot_open_the_system_panel(): void
@@ -115,26 +133,84 @@ class SystemPanelTest extends TestCase
         $this->assertFileDoesNotExist($files[0]);
     }
 
-    public function test_restore_from_backup_brings_back_old_data(): void
+    public function test_restore_from_backup_brings_back_old_data_even_when_an_old_backup_is_already_on_disk(): void
     {
         $admin = $this->admin();
+        // This mirrors the old local-test failure: a stale MySQL archive was
+        // selected by glob()[0] instead of the archive made by this test.
+        $stale = $this->archive('backup-20000101-000000-stale-mysql.zip', 'mysql',
+            "-- Road Platform backup\nCREATE TABLE `old_table` (`id` bigint unsigned NOT NULL) ENGINE=InnoDB;");
+        $before = glob(storage_path('app/backups/*.zip')) ?: [];
 
-        // known state, then back it up
-        SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => '#111111']]]);
-        $this->actingAs($admin)->post('/admin/system/backups')->assertSessionHas('status');
-        $path = glob(storage_path('app/backups/*.zip'))[0];
+        try {
+            // known state, then back it up
+            SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => '#111111']]]);
+            $this->actingAs($admin)->post('/admin/system/backups')->assertSessionHas('status');
+            $created = array_values(array_diff(glob(storage_path('app/backups/*.zip')) ?: [], $before));
+            $this->assertCount(1, $created);
+            $path = $created[0];
 
-        // state changes after the backup
-        SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => '#222222']]]);
-        $this->assertSame('#222222', SiteSections::sel('ribbon', 'color1'));
+            // state changes after the backup
+            SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => '#222222']]]);
+            $this->assertSame('#222222', SiteSections::sel('ribbon', 'color1'));
 
-        // restore the uploaded backup (with the required confirmation)
-        $upload = new UploadedFile($path, 'backup.zip', 'application/zip', null, true);
-        $this->actingAs($admin)->post('/admin/system/backups/restore', [
-            'backup' => $upload, 'confirm' => '1',
-        ])->assertSessionHasNoErrors()->assertSessionHas('status');
+            // restore the archive just made above (with confirmation)
+            $upload = new UploadedFile($path, 'backup.zip', 'application/zip', null, true);
+            $this->actingAs($admin)->post('/admin/system/backups/restore', [
+                'backup' => $upload, 'confirm' => '1',
+            ])->assertSessionHasNoErrors()->assertSessionHas('status');
 
-        $this->assertSame('#111111', SiteSections::sel('ribbon', 'color1'));
+            $this->assertSame('#111111', SiteSections::sel('ribbon', 'color1'));
+        } finally {
+            @unlink($stale);
+            foreach (array_diff(glob(storage_path('app/backups/*.zip')) ?: [], $before) as $file) {
+                @unlink($file);
+            }
+        }
+    }
+
+    public function test_restore_rejects_a_backup_from_another_database_engine_before_changing_data(): void
+    {
+        $admin = $this->admin();
+        $current = DB::connection()->getDriverName();
+        $other = $current === 'sqlite' ? 'mysql' : 'sqlite';
+        $path = $this->archive('backup-20000101-000001-other-engine.zip', $other,
+            "-- Road Platform backup\nDROP TABLE IF EXISTS settings;");
+
+        try {
+            SiteSections::save(['sections' => ['ribbon' => ['on' => true, 'color1' => '#333333']]]);
+            $upload = new UploadedFile($path, 'backup.zip', 'application/zip', null, true);
+            $this->actingAs($admin)->post('/admin/system/backups/restore', [
+                'backup' => $upload, 'confirm' => '1',
+            ])->assertSessionHasErrors('backup');
+
+            $this->assertSame('#333333', SiteSections::sel('ribbon', 'color1'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_failed_sql_restore_reenables_sqlite_foreign_key_checks(): void
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('This assertion applies to SQLite foreign-key pragmas only.');
+        }
+
+        DB::unprepared('PRAGMA foreign_keys=ON');
+        $path = $this->archive('backup-20000101-000002-bad-sql.zip', 'sqlite',
+            "-- Road Platform backup\nTHIS IS NOT VALID SQL;");
+
+        try {
+            $upload = new UploadedFile($path, 'backup.zip', 'application/zip', null, true);
+            $this->actingAs($this->admin())->post('/admin/system/backups/restore', [
+                'backup' => $upload, 'confirm' => '1',
+            ])->assertSessionHasErrors('backup');
+
+            $foreignKeys = DB::selectOne('PRAGMA foreign_keys')->foreign_keys ?? 0;
+            $this->assertSame(1, (int) $foreignKeys);
+        } finally {
+            @unlink($path);
+        }
     }
 
     public function test_restore_needs_confirmation_and_a_valid_backup(): void

@@ -502,6 +502,7 @@ return [
     'sys_backup_confirm'       => 'I understand — current data will be replaced',
     'sys_backup_restore_btn'   => 'Start restore',
     'sys_backup_bad'           => 'This is not a valid backup file of this site.',
+    'sys_backup_driver_mismatch' => 'This backup was made from :source, but this site uses :target. Use a backup made for the same database type.',
     'sys_backup_restored'      => 'Data restored from backup.',
     'sys_backup_restore_failed' => 'Restore failed',
     'hc_env'      => 'Production mode (APP_ENV)',

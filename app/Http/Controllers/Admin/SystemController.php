@@ -161,6 +161,7 @@ class SystemController extends Controller
             throw ValidationException::withMessages(['backup' => __('issues.sys_backup_bad')]);
         }
         $sql = $zip->getFromName('database.sql');
+        $manifest = $zip->getFromName('backup.json');
         $zip->close();
 
         if ($sql === false || ! str_contains($sql, '-- Road Platform backup')) {
@@ -168,9 +169,29 @@ class SystemController extends Controller
         }
 
         $driver = DB::connection()->getDriverName();
+        // A MySQL schema cannot safely be executed on SQLite (or vice versa).
+        // Refuse the archive before dropping even one live table. Archives from
+        // before backup.json existed stay supported for backwards compatibility.
+        if ($manifest !== false) {
+            $meta = json_decode($manifest, true);
+            $sourceDriver = is_array($meta) && is_string($meta['db_driver'] ?? null)
+                ? strtolower($meta['db_driver']) : '';
+            if (! in_array($sourceDriver, ['mysql', 'sqlite'], true)) {
+                throw ValidationException::withMessages(['backup' => __('issues.sys_backup_bad')]);
+            }
+            if ($sourceDriver !== $driver) {
+                throw ValidationException::withMessages(['backup' => __('issues.sys_backup_driver_mismatch', [
+                    'source' => $sourceDriver, 'target' => $driver,
+                ])]);
+            }
+        }
+
+        $foreignKeysTouched = false;
+        $restoreError = null;
         try {
             // FK checks must not block drops/re-creates. defer_foreign_keys
             // also works inside the test-suite's wrapping transaction.
+            $foreignKeysTouched = true;
             if ($driver === 'sqlite') {
                 DB::unprepared('PRAGMA foreign_keys=OFF');
                 DB::unprepared('PRAGMA defer_foreign_keys=ON');
@@ -180,13 +201,28 @@ class SystemController extends Controller
             foreach (app(\App\Services\BackupService::class)->splitSql($sql) as $stmt) {
                 DB::unprepared($stmt);
             }
-            if ($driver === 'sqlite') {
-                DB::unprepared('PRAGMA foreign_keys=ON');
-            } else {
-                DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
-            }
         } catch (\Throwable $e) {
-            return back()->withErrors(['backup' => __('issues.sys_backup_restore_failed').': '.$e->getMessage()]);
+            $restoreError = $e;
+        } finally {
+            // Never leave this request's connection with constraints disabled,
+            // including after a malformed or interrupted SQL restore.
+            if ($foreignKeysTouched) {
+                try {
+                    if ($driver === 'sqlite') {
+                        DB::unprepared('PRAGMA defer_foreign_keys=OFF');
+                        DB::unprepared('PRAGMA foreign_keys=ON');
+                    } else {
+                        DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+                    }
+                } catch (\Throwable) {
+                    // The original restore error, if any, is more useful to
+                    // the administrator; a new request gets a fresh connection.
+                }
+            }
+        }
+
+        if ($restoreError !== null) {
+            return back()->withErrors(['backup' => __('issues.sys_backup_restore_failed').': '.$restoreError->getMessage()]);
         }
 
         return back()->with('status', __('issues.sys_backup_restored'));
