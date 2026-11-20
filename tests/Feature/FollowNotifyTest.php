@@ -12,7 +12,7 @@ class FollowNotifyTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(string $role = 'user'): User
+    private function user(string $role = 'citizen'): User
     {
         return User::unguarded(fn () => User::create([
             'public_id' => (string) Str::ulid(),

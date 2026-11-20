@@ -7,6 +7,8 @@
     <h1 class="text-2xl font-bold">{{ __('issues.notif_title') }}</h1>
     <p class="mt-1 text-sm text-slate-600">{{ __('issues.notif_sub') }}</p>
 
+    @include('partials.push-subscribe')
+
     <div class="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white">
         @forelse ($items as $n)
             @php $unread = $n->read_at === null; @endphp

@@ -12,7 +12,7 @@ class CameraCompressLeaderboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function user(string $role = 'user', ?string $name = null): User
+    private function user(string $role = 'citizen', ?string $name = null): User
     {
         return User::unguarded(fn () => User::create([
             'public_id'    => (string) Str::ulid(),
@@ -66,8 +66,8 @@ class CameraCompressLeaderboardTest extends TestCase
     {
         $issue = $this->makeIssue();
 
-        $alice = $this->user('user', 'Alice Rahman');
-        $bob   = $this->user('user', 'Bob Karim');
+        $alice = $this->user('citizen', 'Alice Rahman');
+        $bob   = $this->user('citizen', 'Bob Karim');
 
         // Alice: 2 approved reports (6 pts); Bob: 1 observation (1 pt)
         foreach (range(1, 2) as $i) {
@@ -96,7 +96,7 @@ class CameraCompressLeaderboardTest extends TestCase
     public function test_leaderboard_shows_my_standing_when_logged_in(): void
     {
         $issue = $this->makeIssue();
-        $me    = $this->user('user', 'Me Myself');
+        $me    = $this->user('citizen', 'Me Myself');
         Observation::unguarded(fn () => Observation::create([
             'issue_id' => $issue->id, 'user_id' => $me->id, 'type' => 'fixed',
         ]));

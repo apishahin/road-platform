@@ -34,6 +34,10 @@ class FollowNotifier
                 ];
             }
             UserNotification::insert($rows);
+
+            // Web push to the same users (fail-soft, no-op unless enabled)
+            $label = \App\Support\StatusLabel::forEvent($event);
+            \App\Services\PushService::sendToUsers($userIds, (string) $issue->title, $label, $url);
         } catch (\Throwable) {
             // fail soft: notifications are best-effort
         }

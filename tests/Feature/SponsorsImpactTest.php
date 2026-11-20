@@ -53,7 +53,7 @@ class SponsorsImpactTest extends TestCase
         $user = User::unguarded(fn () => User::create([
             'public_id' => (string) Str::ulid(),
             'phone'     => '0181' . random_int(1000000, 9999999),
-            'role'      => 'user',
+            'role'      => 'citizen',
         ]));
         $this->actingAs($user)->get(route('admin.sponsors.index'))->assertForbidden();
 

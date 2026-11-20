@@ -22,12 +22,12 @@ class SystemBackupAuditTest extends TestCase
         ]));
     }
 
-    private function staff(): User
+    private function citizen(): User
     {
         return User::unguarded(fn () => User::create([
             'public_id' => (string) \Illuminate\Support\Str::ulid(),
             'phone'     => '0181'.random_int(1000000, 9999999),
-            'role'      => 'staff',
+            'role'      => 'citizen',
         ]));
     }
 
@@ -106,7 +106,7 @@ class SystemBackupAuditTest extends TestCase
 
         $this->get(route('admin.auditlog.index'))->assertRedirect();
 
-        $user = $this->staff();
+        $user = $this->citizen();
         $this->actingAs($user)->get(route('admin.auditlog.index'))->assertForbidden();
 
         $this->actingAs($this->admin())->get(route('admin.auditlog.index'))
@@ -133,7 +133,7 @@ class SystemBackupAuditTest extends TestCase
         $this->assertStringContainsString('date,views,unique_visitors', $body);
         $this->assertStringContainsString(now()->toDateString(), $body);
 
-        $staff = $this->staff();
+        $staff = $this->citizen();
         $this->actingAs($staff)->get(route('admin.analytics.csv'))->assertForbidden();
     }
 }

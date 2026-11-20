@@ -37,6 +37,20 @@ Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFoll
 Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
 Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
 Route::get('/leaderboard', [\App\Http\Controllers\LeaderboardController::class, 'index'])->name('leaderboard');
+Route::post('/push/token', [\App\Http\Controllers\PushTokenController::class, 'store'])->middleware(['auth', 'throttle:20,1'])->name('push.token');
+Route::delete('/push/token', [\App\Http\Controllers\PushTokenController::class, 'destroy'])->middleware('auth')->name('push.token.delete');
+// Service worker for web push (must be served from the root with config baked in)
+Route::get('/firebase-messaging-sw.js', function () {
+    $cfg = \App\Support\PushSettings::webConfig();
+    $js = "importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');\n"
+        . "importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');\n"
+        . 'firebase.initializeApp(' . json_encode($cfg) . ');' . "\n"
+        . "const m = firebase.messaging();\n"
+        . "m.onBackgroundMessage((p) => { const n = (p && p.notification) || {}; self.registration.showNotification(n.title || '', { body: n.body || '', data: { url: (p.data && p.data.url) || '/' } }); });\n"
+        . "self.addEventListener('notificationclick', (e) => { e.notification.close(); e.waitUntil(clients.openWindow((e.notification.data && e.notification.data.url) || '/')); });\n";
+
+    return response($js, 200, ['Content-Type' => 'application/javascript; charset=UTF-8', 'Cache-Control' => 'no-store']);
+})->name('push.sw');
 
 // Report flow (login required)
 Route::middleware('auth')->group(function () {
@@ -279,6 +293,10 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/footer-links/save', [\App\Http\Controllers\Admin\FooterLinksController::class, 'save'])->name('footer.save');
     \Illuminate\Support\Facades\Route::post('/footer-links/add', [\App\Http\Controllers\Admin\FooterLinksController::class, 'add'])->name('footer.add');
     \Illuminate\Support\Facades\Route::post('/footer-links/delete', [\App\Http\Controllers\Admin\FooterLinksController::class, 'delete'])->name('footer.delete');
+    \Illuminate\Support\Facades\Route::get('/integrations', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('integrations.index');
+    \Illuminate\Support\Facades\Route::post('/integrations/push', [\App\Http\Controllers\Admin\IntegrationController::class, 'savePush'])->name('integrations.push');
+    \Illuminate\Support\Facades\Route::post('/integrations/share', [\App\Http\Controllers\Admin\IntegrationController::class, 'saveShare'])->name('integrations.share');
+    \Illuminate\Support\Facades\Route::post('/integrations/digest', [\App\Http\Controllers\Admin\IntegrationController::class, 'saveDigest'])->name('integrations.digest');
 });
 
 require __DIR__.'/manifest.php';

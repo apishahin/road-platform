@@ -114,6 +114,9 @@ class IssueStatusService
             // In-app notifications for followers (best-effort, never throws)
             \App\Services\FollowNotifier::dispatch($issue, $event, (int) $actor->id);
 
+            // Facebook auto-share when an issue is repaired (fail-soft)
+            \App\Services\SocialPoster::afterStatusChange($issue, $event);
+
             return $event;
         });
     }
