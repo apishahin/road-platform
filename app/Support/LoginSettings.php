@@ -12,6 +12,7 @@ class LoginSettings
 {
     public const KEY = 'login_settings';
     public const PROVIDERS = ['log', 'gateway', 'firebase', 'telegram'];
+    public const DESIGNS = ['soft', 'split', 'minimal'];
     public const BOOLS = ['otp_enabled', 'password_enabled', 'google_enabled', 'registration_open', 'password_for_staff', 'require_verified_phone'];
 
     public static function defaults(): array
@@ -24,6 +25,8 @@ class LoginSettings
             'password_for_staff' => false,
             'require_verified_phone' => false,
             'otp_provider'       => 'log',
+            // The public login screen can be changed by an admin without code.
+            'login_design'       => 'soft',
             // Google is a direct, one-tap path by default. Admins may still
             // require a mobile number after Google sign-in in Login settings.
             'google_phone'       => 'optional',
@@ -66,6 +69,9 @@ class LoginSettings
         }
         if (isset($in['google_phone']) && in_array($in['google_phone'], ['required', 'optional'], true)) {
             $out['google_phone'] = $in['google_phone'];
+        }
+        if (isset($in['login_design']) && in_array($in['login_design'], self::DESIGNS, true)) {
+            $out['login_design'] = $in['login_design'];
         }
 
         return $out;
@@ -116,4 +122,7 @@ class LoginSettings
 
     /** Whether Google sign-in must be followed by a mobile number ('required'|'optional'). */
     public static function googlePhoneMode(): string { return (string) self::all()['google_phone']; }
+
+    /** Admin-selected public login screen design. */
+    public static function design(): string { return (string) self::all()['login_design']; }
 }

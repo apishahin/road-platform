@@ -50,6 +50,7 @@ class LoginSettingsController extends Controller
         $request->validate([
             'otp_provider' => 'required|in:' . implode(',', LoginSettings::PROVIDERS),
             'google_phone' => 'sometimes|in:required,optional',
+            'login_design' => 'sometimes|in:' . implode(',', LoginSettings::DESIGNS),
         ]);
 
         $new = [];
@@ -69,6 +70,9 @@ class LoginSettingsController extends Controller
         // Older forms may not send it; keep the current mode then.
         if ($request->filled('google_phone')) {
             $new['google_phone'] = (string) $request->input('google_phone');
+        }
+        if ($request->filled('login_design')) {
+            $new['login_design'] = (string) $request->input('login_design');
         }
         $new['firebase_api_key'] = trim((string) $request->input('firebase_api_key', ''));
         $new['firebase_auth_domain'] = trim((string) $request->input('firebase_auth_domain', ''));

@@ -3,6 +3,11 @@
 return [
     'title'        => 'Login',
     'start_intro'  => 'Sign in quickly and securely to continue.',
+    'split_title'  => 'Your report can improve the road',
+    'split_copy'   => 'Report a problem, see its progress, and help improve your area.',
+    'split_point_one' => 'Report a problem in a minute',
+    'split_point_two' => 'Receive progress updates',
+    'split_point_three' => 'Strengthen the public voice',
     'phone_method' => 'Continue with mobile number',
     'phone_hint'   => 'We will send a 6-digit security code to your number.',
     'intro'        => 'Enter your mobile number. We will send you a 6-digit code.',

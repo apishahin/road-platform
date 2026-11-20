@@ -45,6 +45,40 @@
         </section>
 
         <section class="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900">{{ __('loginsettings.design_title') }}</h2>
+            <p class="mt-1 text-sm text-slate-600">{{ __('loginsettings.design_hint') }}</p>
+            <div class="mt-4 grid gap-3 md:grid-cols-3">
+                @foreach (\App\Support\LoginSettings::DESIGNS as $design)
+                    @php $chosen = old('login_design', $s['login_design'] ?? 'soft') === $design; @endphp
+                    <label class="relative cursor-pointer overflow-hidden rounded-xl border-2 p-3 transition {{ $chosen ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300' }}">
+                        <input class="sr-only" type="radio" name="login_design" value="{{ $design }}" @checked($chosen)>
+                        <span class="flex items-start justify-between gap-2">
+                            <span class="text-sm font-bold text-slate-900">{{ __('loginsettings.design_' . $design) }}</span>
+                            @if ($chosen)<span class="rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white">{{ __('loginsettings.selected') }}</span>@endif
+                        </span>
+                        <span class="mt-1.5 block text-xs leading-5 text-slate-600">{{ __('loginsettings.design_' . $design . '_hint') }}</span>
+                        <span class="mt-3 block h-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-2" aria-hidden="true">
+                            @if ($design === 'soft')
+                                <span class="mx-auto block h-3 w-3 rounded-full bg-emerald-700"></span>
+                                <span class="mx-auto mt-1 block h-1.5 w-16 rounded bg-slate-300"></span>
+                                <span class="mx-auto mt-2 block h-3 w-full rounded border border-slate-300 bg-white"></span>
+                            @elseif ($design === 'split')
+                                <span class="flex h-full overflow-hidden rounded">
+                                    <span class="w-2/5 bg-emerald-800 p-2"><span class="block h-2 w-2 rounded bg-white/80"></span><span class="mt-2 block h-1 w-full rounded bg-emerald-500"></span></span>
+                                    <span class="flex-1 bg-white p-2"><span class="block h-2 w-12 rounded bg-slate-300"></span><span class="mt-3 block h-3 w-full rounded border border-slate-300"></span></span>
+                                </span>
+                            @else
+                                <span class="flex items-center gap-2"><span class="block h-5 w-5 rounded-md bg-slate-900"></span><span class="block h-2 w-16 rounded bg-slate-300"></span></span>
+                                <span class="mx-auto mt-3 block h-3 w-full rounded bg-slate-900"></span>
+                            @endif
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            <p class="mt-3 text-xs leading-5 text-slate-500">{{ __('loginsettings.design_logo_note') }}</p>
+        </section>
+
+        <section class="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 class="text-lg font-bold text-slate-900">{{ __('loginsettings.otp_title') }}</h2>
             <p class="mt-1 text-sm text-slate-600">{{ __('loginsettings.otp_section_hint') }}</p>
 

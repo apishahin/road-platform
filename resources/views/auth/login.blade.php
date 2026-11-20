@@ -2,139 +2,99 @@
 
 @section('title', __('login.title'))
 
+@php
+    $loginDesign = \App\Support\LoginSettings::design();
+    $loginLogo = \App\Support\AppearanceSettings::logoUrl();
+    $loginSiteName = \App\Support\AppearanceSettings::siteName();
+    $loginTagline = \App\Support\AppearanceSettings::tagline();
+    $loginMark = mb_substr($loginSiteName, 0, 1);
+@endphp
+
+@push('head')
+<style>
+/* Public login only: three admin-selectable layouts, responsive without any external asset. */
+.login-stage{min-height:calc(100vh - 145px);display:grid;place-items:center;padding:36px 16px 52px;background:radial-gradient(circle at 15% 10%,#d9f9e9 0,transparent 27%),radial-gradient(circle at 88% 92%,#e0f2fe 0,transparent 24%),#f8fafc;}
+.login-shell{width:min(100%,860px);}
+.login-card{overflow:hidden;border:1px solid #dbe7e1;background:#fff;box-shadow:0 20px 55px rgba(16,50,36,.10);}
+.login-card-header{padding:26px 28px 22px;text-align:center;border-bottom:1px solid #d1fae5;background:linear-gradient(135deg,#ecfdf5,#f8fffb 58%,#fff);}
+.login-brand{display:flex;align-items:center;justify-content:center;gap:11px;}
+.login-brand-logo{display:block;max-height:52px;width:auto;max-width:210px;object-fit:contain;}
+.login-brand-mark{display:grid;place-items:center;width:50px;height:50px;border-radius:16px;background:#047857;color:#fff;font-size:22px;font-weight:800;box-shadow:0 7px 14px rgba(4,120,87,.20);}
+.login-brand-name{font-size:16px;font-weight:800;line-height:1.25;color:#102b20;}
+.login-brand-tagline{margin-top:2px;font-size:12px;line-height:1.45;color:#527062;}
+.login-card-header h1{margin:15px 0 0;font-size:25px;font-weight:800;line-height:1.2;color:#0f172a;}
+.login-card-header>p{margin:6px auto 0;max-width:360px;font-size:14px;line-height:1.65;color:#526478;}
+.login-methods{padding:24px 28px 26px;}
+.login-design-soft .login-card{max-width:460px;margin:auto;border-radius:20px;}
+.login-design-soft .login-card-header .login-brand-name,.login-design-soft .login-card-header .login-brand-tagline{display:none;}
+.login-design-split .login-shell{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(400px,1fr);border-radius:24px;overflow:hidden;box-shadow:0 20px 55px rgba(16,50,36,.13);}
+.login-design-split .login-card{border:0;border-radius:0;box-shadow:none;}
+.login-aside{display:flex;flex-direction:column;justify-content:center;min-height:570px;padding:42px;background:linear-gradient(150deg,#064e3b,#047857 58%,#0f766e);color:#fff;}
+.login-aside .login-brand{justify-content:flex-start;}
+.login-aside .login-brand-mark{background:#fff;color:#047857;box-shadow:none;}
+.login-aside .login-brand-name{color:#fff;font-size:22px;}
+.login-aside .login-brand-tagline{color:#d1fae5;}
+.login-aside-title{margin-top:48px;font-size:28px;font-weight:800;line-height:1.35;}
+.login-aside-copy{margin-top:12px;font-size:14px;line-height:1.75;color:#d1fae5;}
+.login-aside-points{display:grid;gap:11px;margin:30px 0 0;padding:0;list-style:none;font-size:13px;font-weight:600;color:#ecfdf5;}
+.login-aside-points li{display:flex;gap:9px;align-items:center;}.login-aside-points b{display:grid;place-items:center;width:20px;height:20px;border-radius:99px;background:rgba(255,255,255,.18);font-size:12px;}
+.login-design-split .login-card-header .login-brand{display:none;}
+.login-design-split .login-card-header{text-align:left;background:#fff;border-bottom:0;padding-bottom:10px;}
+.login-design-split .login-card-header>p{margin-left:0;}
+.login-design-minimal{background:#fff;align-items:start;padding-top:48px;}.login-design-minimal .login-shell{max-width:480px;}.login-design-minimal .login-card{border-radius:14px;box-shadow:0 8px 28px rgba(15,23,42,.08);}.login-design-minimal .login-card-header{padding:24px 28px 0;text-align:left;border:0;background:#fff;}.login-design-minimal .login-card-header .login-brand{justify-content:flex-start;}.login-design-minimal .login-brand-logo{max-height:40px;max-width:170px;}.login-design-minimal .login-brand-mark{width:40px;height:40px;border-radius:11px;font-size:18px;background:#0f172a;}.login-design-minimal .login-card-header h1{font-size:23px;margin-top:24px;}.login-design-minimal .login-card-header>p{margin-left:0;}.login-design-minimal .login-methods{padding-top:20px;}
+@media (max-width:720px){.login-stage{min-height:0;padding:22px 14px 34px;}.login-card-header,.login-methods{padding-left:20px;padding-right:20px;}.login-design-split .login-shell{display:block;border-radius:18px;box-shadow:0 12px 32px rgba(16,50,36,.10);}.login-design-split .login-aside{display:none;}.login-design-split .login-card{border-radius:18px;}.login-design-split .login-card-header .login-brand{display:flex;}.login-design-split .login-card-header{text-align:center;padding-bottom:20px;border-bottom:1px solid #d1fae5;background:linear-gradient(135deg,#ecfdf5,#fff);}.login-design-split .login-card-header>p{margin-left:auto;}.login-design-minimal{padding-top:22px;}.login-design-minimal .login-card-header{padding-left:20px;padding-right:20px;}}
+</style>
+@endpush
+
 @section('content')
-<div class="mx-auto max-w-md px-4 py-8 sm:py-12">
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-emerald-100 bg-gradient-to-br from-emerald-50 to-white px-6 pb-5 pt-6 text-center">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-700 text-xl font-bold text-white shadow-sm" aria-hidden="true">র</div>
-            <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-900">{{ __('login.title') }}</h1>
-            <p class="mt-1 text-sm leading-6 text-slate-600">{{ __('login.start_intro') }}</p>
-        </div>
-
-        <div class="p-6">
-            @if (! $s['otp_enabled'] && ! $s['password_enabled'] && ! $s['google_enabled'])
-                <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ __('loginpw.none') }}</p>
-            @endif
-
-            @if ($s['google_enabled'])
-                {{-- Kept on this page: one tap opens Google's sign-in directly. --}}
-                <div id="google-login" class="space-y-2"
-                     data-api-key="{{ $fb['apiKey'] }}"
-                     data-auth-domain="{{ $fb['authDomain'] }}"
-                     data-project-id="{{ $fb['projectId'] }}"
-                     data-verify-url="{{ route('login.google.verify') }}"
-                     data-csrf="{{ csrf_token() }}"
-                     data-text-signing="{{ __('glogin.status_signing') }}"
-                     data-text-checking="{{ __('glogin.status_checking') }}"
-                     data-text-error="{{ __('glogin.error') }}"
-                     data-text-closed="{{ __('glogin.closed') }}"
-                     data-text-banned="{{ __('glogin.banned') }}"
-                     data-text-too-many="{{ __('glogin.too_many') }}"
-                     data-text-not-ready="{{ __('glogin.not_ready') }}">
-                    <button type="button" id="gl-btn"
-                            class="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
-                        <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1 .67-2.28 1.07-3.71 1.07-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.67-.35-1.39-.35-2.09s.14-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                        {{ __('glogin.button') }}
-                    </button>
-                    <p id="gl-status" class="min-h-5 text-center text-sm" aria-live="polite"></p>
+<div class="login-stage login-design-{{ $loginDesign }}" data-login-design="{{ $loginDesign }}">
+    <div class="login-shell">
+        @if ($loginDesign === 'split')
+            <aside class="login-aside">
+                <div class="login-brand">
+                    @if ($loginLogo)
+                        <img src="{{ $loginLogo }}" class="login-brand-logo" alt="{{ $loginSiteName }}">
+                    @else
+                        <span class="login-brand-mark" aria-hidden="true">{{ $loginMark }}</span>
+                    @endif
+                    <div>
+                        <div class="login-brand-name">{{ $loginSiteName }}</div>
+                        @if ($loginTagline !== '')<div class="login-brand-tagline">{{ $loginTagline }}</div>@endif
+                    </div>
                 </div>
-            @endif
+                <h2 class="login-aside-title">{{ __('login.split_title') }}</h2>
+                <p class="login-aside-copy">{{ __('login.split_copy') }}</p>
+                <ul class="login-aside-points" aria-hidden="true">
+                    <li><b>✓</b>{{ __('login.split_point_one') }}</li>
+                    <li><b>✓</b>{{ __('login.split_point_two') }}</li>
+                    <li><b>✓</b>{{ __('login.split_point_three') }}</li>
+                </ul>
+            </aside>
+        @endif
 
-            @if ($s['google_enabled'] && ($s['otp_enabled'] || $s['password_enabled']))
-                <div class="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-slate-400">
-                    <span class="h-px flex-1 bg-slate-200"></span>
-                    <span>{{ __('glogin.or') }}</span>
-                    <span class="h-px flex-1 bg-slate-200"></span>
+        <section class="login-card">
+            <header class="login-card-header">
+                <div class="login-brand">
+                    @if ($loginLogo)
+                        <img src="{{ $loginLogo }}" class="login-brand-logo" alt="{{ $loginSiteName }}">
+                    @else
+                        <span class="login-brand-mark login-brand-fallback" aria-label="{{ $loginSiteName }}">{{ $loginMark }}</span>
+                    @endif
+                    @if ($loginDesign === 'minimal')
+                        <div>
+                            <div class="login-brand-name">{{ $loginSiteName }}</div>
+                            @if ($loginTagline !== '')<div class="login-brand-tagline">{{ $loginTagline }}</div>@endif
+                        </div>
+                    @endif
                 </div>
-            @endif
+                <h1>{{ __('login.title') }}</h1>
+                <p>{{ __('login.start_intro') }}</p>
+            </header>
 
-            @if ($s['otp_enabled'])
-                <section>
-                    <h2 class="text-base font-bold text-slate-900">{{ __('login.phone_method') }}</h2>
-                    <p class="mt-1 text-sm text-slate-600">{{ __('login.phone_hint') }}</p>
-
-                    <form method="POST" action="{{ url('/login') }}" class="mt-4 space-y-3">
-                        @csrf
-                        <div>
-                            <label for="phone" class="text-sm font-semibold text-slate-700">{{ __('login.phone') }}</label>
-                            <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"
-                                   value="{{ old('phone') }}" placeholder="01XXXXXXXXX" required maxlength="30"
-                                   class="mt-1.5 block w-full rounded-xl border border-slate-300 px-3 py-3 text-base shadow-sm outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100">
-                            @error('phone')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <button type="submit"
-                                class="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">
-                            {{ __('login.send_code') }}
-                        </button>
-                    </form>
-                </section>
-            @endif
-
-            @if ($s['password_enabled'])
-                <details class="{{ $s['otp_enabled'] ? 'mt-5 border-t border-slate-200 pt-5' : 'mt-1' }} group">
-                    <summary class="flex cursor-pointer list-none items-center justify-between rounded-xl bg-slate-50 px-3 py-3 text-sm font-bold text-slate-800 hover:bg-slate-100">
-                        <span>{{ __('loginpw.or_password') }}</span>
-                        <svg class="h-4 w-4 transition group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
-                    </summary>
-                    <form method="POST" action="{{ route('login.password') }}" class="mt-4 space-y-3">
-                        @csrf
-                        <div>
-                            <label for="pw_phone" class="text-sm font-semibold text-slate-700">{{ __('login.phone') }}</label>
-                            <input id="pw_phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"
-                                   value="{{ old('phone') }}" placeholder="01XXXXXXXXX" required maxlength="30"
-                                   class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base">
-                        </div>
-                        <div>
-                            <label for="pw_password" class="text-sm font-semibold text-slate-700">{{ __('loginpw.password') }}</label>
-                            <input id="pw_password" name="password" type="password" autocomplete="current-password" required maxlength="100"
-                                   class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base">
-                            @error('pwlogin')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">
-                            {{ __('loginpw.login_btn') }}
-                        </button>
-                    </form>
-                </details>
-
-                @if ($s['registration_open'])
-                    <details class="mt-3 group">
-                        <summary class="flex cursor-pointer list-none items-center justify-between rounded-xl border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                            <span>{{ __('loginpw.register_title') }}</span>
-                            <svg class="h-4 w-4 transition group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
-                        </summary>
-                        <p class="mt-3 text-xs text-slate-500">{{ __('loginpw.register_hint') }}</p>
-                        <form method="POST" action="{{ route('login.register') }}" class="mt-3 space-y-3">
-                            @csrf
-                            <div>
-                                <label for="reg_phone" class="text-sm font-semibold text-slate-700">{{ __('login.phone') }}</label>
-                                <input id="reg_phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value="{{ old('phone') }}" placeholder="01XXXXXXXXX" required maxlength="30" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base">
-                            </div>
-                            <div>
-                                <label for="reg_password" class="text-sm font-semibold text-slate-700">{{ __('loginpw.password') }}</label>
-                                <input id="reg_password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="100" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base">
-                            </div>
-                            <div>
-                                <label for="reg_password2" class="text-sm font-semibold text-slate-700">{{ __('loginpw.password_confirm') }}</label>
-                                <input id="reg_password2" name="password_confirmation" type="password" autocomplete="new-password" required minlength="8" maxlength="100" class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base">
-                                @error('register')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-                            <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">{{ __('loginpw.register_btn') }}</button>
-                        </form>
-                    </details>
-                @endif
-            @endif
-
-            @if ($s['otp_enabled'])
-                <p class="mt-5 text-center text-xs leading-5 text-slate-500">{{ __('login.privacy') }}</p>
-            @endif
-        </div>
+            <div class="login-methods">
+                @include('auth._login-methods')
+            </div>
+        </section>
     </div>
 </div>
 @endsection
