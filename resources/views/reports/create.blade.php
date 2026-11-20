@@ -21,6 +21,8 @@
     @include('reports.create-classic')
 @endif
 
+@include('partials.report-queue')
+
 <script>
 function reportWizard() {
     return {

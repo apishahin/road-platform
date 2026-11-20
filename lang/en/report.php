@@ -60,4 +60,10 @@ return [
     'photos_camera' => '📷 Take a photo',
     'photos_compress_note' => 'Photos are automatically compressed before upload — saves your data and our storage.',
     'autofollow_notice' => '🔔 You are now following this issue — you will be notified when its status changes.',
+    'rq_pending' => ':n report(s) waiting to upload — they will be sent automatically when you are back online.',
+    'rq_send_now' => 'Send now',
+    'rq_clear' => 'Discard',
+    'rq_saved' => '✓ Saved! The report will be sent automatically once you are back online.',
+    'rq_sent' => '✓ Queued report sent!',
+    'rq_failed' => '⚠️ A queued report could not be sent (invalid data) — please submit it again.',
 ];
