@@ -30,7 +30,8 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ route('admin.work-center') }}" class="sticky top-2 z-20 mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-work-filter
+    {{-- Keep this in normal document flow: a tall sticky filter was covering the first queue cards below the site header. --}}
+    <form method="GET" action="{{ route('admin.work-center') }}" class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-work-filter
           data-children-url="{{ url('/admin/areas') }}">
         <input type="hidden" name="tab" value="{{ $tab }}" data-work-tab-input>
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end">

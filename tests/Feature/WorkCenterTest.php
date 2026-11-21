@@ -107,6 +107,9 @@ class WorkCenterTest extends TestCase
             ->assertSee(__('workcenter.tab_photos'))
             ->assertSee(__('workcenter.tab_issues'))
             ->assertSee('Gazipur bridge repair')
+            ->assertSee('data-work-filter', false)
+            // The location controls must not stick over the queue cards below the global header.
+            ->assertDontSee('sticky top-2 z-20', false)
             ->assertSee('data-work-area="division"', false)
             ->assertSee('data-work-area="district"', false)
             ->assertSee('data-work-area="upazila"', false)
