@@ -32,13 +32,47 @@
             </button>
         </form>
 
-        <div class="mt-4 flex items-center justify-between text-sm">
-            <form method="POST" action="{{ route('login.resend') }}">
-                @csrf
-                <button type="submit" class="text-brand-700 underline">{{ __('login.resend') }}</button>
-            </form>
-            <a href="{{ route('login') }}" class="text-slate-600 underline">{{ __('login.change_phone') }}</a>
+        <div class="mt-4 flex items-center justify-between gap-3 text-sm">
+            <div>
+                <form method="POST" action="{{ route('login.resend') }}">
+                    @csrf
+                    <button id="otp-resend-button" type="submit" @disabled($resendWaitSeconds > 0)
+                            class="text-brand-700 underline disabled:cursor-not-allowed disabled:opacity-50">{{ __('login.resend') }}</button>
+                </form>
+                <p id="otp-resend-countdown" class="mt-1 text-xs text-slate-500" aria-live="polite"
+                   data-seconds="{{ $resendWaitSeconds }}"
+                   data-template="{{ __('login.resend_wait_seconds', ['seconds' => '__seconds__']) }}"></p>
+            </div>
+            <a href="{{ route('login') }}" class="shrink-0 text-slate-600 underline">{{ __('login.change_phone') }}</a>
         </div>
+
+        @if ($resendWaitSeconds > 0)
+            <script>
+            (() => {
+                const note = document.getElementById('otp-resend-countdown');
+                const button = document.getElementById('otp-resend-button');
+                if (!note || !button) return;
+
+                let seconds = Number(note.dataset.seconds) || 0;
+                const render = () => {
+                    if (seconds <= 0) {
+                        button.disabled = false;
+                        note.textContent = '';
+                        return true;
+                    }
+                    button.disabled = true;
+                    note.textContent = (note.dataset.template || '').replace('__seconds__', String(seconds));
+                    seconds -= 1;
+                    return false;
+                };
+                if (!render()) {
+                    const timer = window.setInterval(() => {
+                        if (render()) window.clearInterval(timer);
+                    }, 1000);
+                }
+            })();
+            </script>
+        @endif
     </div>
 </div>
 @endsection

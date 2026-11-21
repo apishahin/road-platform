@@ -53,7 +53,7 @@ class PasswordLoginTest extends TestCase
 
     private function staffPost(string $identifier, string $password): \Illuminate\Testing\TestResponse
     {
-        return $this->post('/login/staff', ['staff_identifier' => $identifier, 'password' => $password]);
+        return $this->post('/admin/login', ['staff_identifier' => $identifier, 'password' => $password]);
     }
 
     public function test_default_page_shows_only_otp_form(): void
@@ -101,35 +101,36 @@ class PasswordLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_staff_password_login_needs_staff_switch(): void
+    public function test_staff_password_never_works_through_the_public_login_form(): void
     {
-        $this->setting(['password_enabled' => true, 'password_for_staff' => false]);
-        $user = $this->makeUser('volunteer');
+        $this->setting(['password_enabled' => true, 'password_for_staff' => true]);
+        $this->makeUser('volunteer');
 
         $this->pwPost(self::PW)->assertSessionHasErrors('pwlogin');
         $this->assertGuest();
-
-        $this->setting(['password_for_staff' => true]);
-        $this->pwPost(self::PW)->assertSessionHasNoErrors();
-        $this->assertAuthenticatedAs($user);
     }
 
-    public function test_staff_emergency_login_is_discoverable_and_works_when_public_passwords_are_off(): void
+    public function test_staff_emergency_login_is_private_and_works_when_public_passwords_are_off(): void
     {
         $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
         $user = $this->makeUser('moderator');
 
         $this->get('/login')->assertOk()
-            ->assertSee(__('loginpw.staff_emergency_title'))
-            ->assertSee(route('login.staff'), false)
+            ->assertDontSee(__('loginpw.staff_emergency_title'))
+            ->assertDontSee(route('staff.login'), false)
             ->assertDontSee(route('login.password'), false)
             ->assertDontSee(route('login.register'), false);
+
+        $this->get('/admin/login')->assertOk()
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            ->assertSee(__('loginpw.staff_page_title'))
+            ->assertSee(route('staff.login.submit'), false);
 
         $this->staffPost(self::LOCAL, self::PW)->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_staff_emergency_login_never_authenticates_a_citizen_account(): void
+    public function test_private_staff_login_never_authenticates_a_citizen_account(): void
     {
         $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
         $this->makeUser('citizen');
@@ -138,7 +139,7 @@ class PasswordLoginTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_staff_emergency_login_can_use_the_google_account_email(): void
+    public function test_private_staff_login_can_use_the_google_account_email(): void
     {
         $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
         $user = $this->makeUser('admin');
@@ -148,11 +149,12 @@ class PasswordLoginTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_staff_emergency_login_is_refused_when_its_switch_is_off(): void
+    public function test_private_staff_login_is_not_available_when_its_switch_is_off(): void
     {
         $this->makeUser('admin');
 
-        $this->staffPost(self::LOCAL, self::PW)->assertSessionHasErrors('stafflogin');
+        $this->get('/admin/login')->assertNotFound();
+        $this->staffPost(self::LOCAL, self::PW)->assertNotFound();
         $this->assertGuest();
     }
 

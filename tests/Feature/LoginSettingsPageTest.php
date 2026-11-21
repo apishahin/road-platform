@@ -30,6 +30,7 @@ class LoginSettingsPageTest extends TestCase
             'registration_open'  => '1',
             'password_for_staff' => '0',
             'otp_provider'       => 'log',
+            'otp_resend_seconds' => '60',
             'google_phone'       => 'required',
         ], $over);
     }
@@ -59,7 +60,9 @@ class LoginSettingsPageTest extends TestCase
             ->assertOk()
             ->assertSee(__('loginsettings.title'))
             ->assertSee(__('loginsettings.staff_emergency_title'))
-            ->assertSee('name="password_for_staff"', false);
+            ->assertSee('name="password_for_staff"', false)
+            ->assertSee(route('staff.login'), false)
+            ->assertSee('name="otp_resend_seconds"', false);
     }
 
     public function test_admin_can_save_and_google_settings_keep_persist(): void
@@ -81,6 +84,21 @@ class LoginSettingsPageTest extends TestCase
         $this->assertTrue(LoginSettings::googleEnabled());
         $this->assertSame('optional', LoginSettings::googlePhoneMode());
         $this->assertDatabaseHas('audit_events', ['action' => 'login_settings.save']);
+    }
+
+    public function test_admin_can_set_the_login_otp_resend_seconds_with_safe_bounds(): void
+    {
+        $admin = $this->makeUser('admin', '01700000018');
+
+        $this->actingAs($admin)
+            ->post('/admin/login-settings', $this->payload(['otp_resend_seconds' => '75']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(75, LoginSettings::otpResendSeconds());
+
+        $this->actingAs($admin)
+            ->post('/admin/login-settings', $this->payload(['otp_resend_seconds' => '14']))
+            ->assertSessionHasErrors('otp_resend_seconds');
+        $this->assertSame(75, LoginSettings::otpResendSeconds());
     }
 
     public function test_google_requires_firebase_config(): void

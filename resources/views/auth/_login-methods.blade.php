@@ -1,9 +1,6 @@
-            @php
-                $hasPublicPassword = (bool) $s['password_enabled'];
-                $hasStaffEmergency = (bool) $s['password_for_staff'];
-            @endphp
+            @php $hasPublicPassword = (bool) $s['password_enabled']; @endphp
 
-            @if (! $s['otp_enabled'] && ! $hasPublicPassword && ! $s['google_enabled'] && ! $hasStaffEmergency)
+            @if (! $s['otp_enabled'] && ! $hasPublicPassword && ! $s['google_enabled'])
                 <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ __('loginpw.none') }}</p>
             @endif
 
@@ -38,7 +35,7 @@
                 </div>
             @endif
 
-            @if ($s['google_enabled'] && ($s['otp_enabled'] || $hasPublicPassword || $hasStaffEmergency))
+            @if ($s['google_enabled'] && ($s['otp_enabled'] || $hasPublicPassword))
                 <div class="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-slate-400">
                     <span class="h-px flex-1 bg-slate-200"></span>
                     <span>{{ __('glogin.or') }}</span>
@@ -127,33 +124,6 @@
                         </form>
                     </details>
                 @endif
-            @endif
-
-            @if ($hasStaffEmergency)
-                <section class="{{ ($s['otp_enabled'] || $hasPublicPassword) ? 'mt-5 border-t border-amber-200 pt-5' : 'mt-1' }} rounded-xl border border-amber-200 bg-amber-50 p-4">
-                    <h2 class="text-base font-bold text-slate-900">{{ __('loginpw.staff_emergency_title') }}</h2>
-                    <p class="mt-1 text-sm leading-5 text-slate-700">{{ __('loginpw.staff_emergency_hint') }}</p>
-                    <form method="POST" action="{{ route('login.staff') }}" class="mt-4 space-y-3">
-                        @csrf
-                        <div>
-                            <label for="staff_identifier" class="text-sm font-semibold text-slate-700">{{ __('loginpw.staff_identifier') }}</label>
-                            <input id="staff_identifier" name="staff_identifier" type="text" inputmode="text" autocomplete="username"
-                                   value="{{ old('staff_identifier') }}" placeholder="{{ __('loginpw.staff_identifier_placeholder') }}" required maxlength="190"
-                                   class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base">
-                        </div>
-                        <div>
-                            <label for="staff_password" class="text-sm font-semibold text-slate-700">{{ __('loginpw.password') }}</label>
-                            <input id="staff_password" name="password" type="password" autocomplete="current-password" required maxlength="100"
-                                   class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base">
-                            @error('stafflogin')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        <button type="submit" class="w-full rounded-xl bg-amber-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-900">
-                            {{ __('loginpw.staff_login_btn') }}
-                        </button>
-                    </form>
-                </section>
             @endif
 
             @if ($s['otp_enabled'])

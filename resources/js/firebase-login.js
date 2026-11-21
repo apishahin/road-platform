@@ -28,6 +28,9 @@ if (root) {
 
     let verifier = null;
     let confirmation = null;
+    // Firebase still performs its own abuse checks, but the Admin-selected
+    // login resend interval keeps this button consistent with gateway OTP.
+    const resendWaitMs = Math.max(15, Number.parseInt(d.resendWaitSeconds || '60', 10) || 60) * 1000;
 
     const resetVerifier = () => {
         if (verifier) {
@@ -35,6 +38,28 @@ if (root) {
         }
         verifier = null;
         box.innerHTML = '';
+    };
+
+    const startResendCountdown = () => {
+        let seconds = Math.ceil(resendWaitMs / 1000);
+        const update = () => {
+            if (seconds <= 0) {
+                sendBtn.disabled = false;
+                say('textSent');
+                return true;
+            }
+            sendBtn.disabled = true;
+            const wait = (d.textResendWait || '').replace('__seconds__', String(seconds));
+            status.textContent = [d.textSent || '', wait].filter(Boolean).join(' ');
+            status.style.color = '#334155';
+            seconds -= 1;
+            return false;
+        };
+        if (!update()) {
+            const timer = window.setInterval(() => {
+                if (update()) window.clearInterval(timer);
+            }, 1000);
+        }
     };
 
     // When the phone is editable, wrap it in an input row before the send button.
@@ -77,7 +102,7 @@ if (root) {
             codeInput.focus();
             say('textSent');
             sendBtn.textContent = d.textResend;
-            setTimeout(() => { sendBtn.disabled = false; }, 30000);
+            startResendCountdown();
         } catch (e) {
             resetVerifier();
             say(e && e.code === 'auth/too-many-requests' ? 'textTooMany' : 'textError', true);

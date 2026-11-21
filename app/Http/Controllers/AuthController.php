@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\RateLimiter;
 
 class AuthController extends Controller
 {
+    private const OTP_RESEND_AT = 'login_otp_resend_at';
+
     public function __construct(private OtpService $otp)
     {
     }
@@ -63,12 +65,16 @@ class AuthController extends Controller
 
         if (LoginSettings::provider() === 'firebase') {
             // Firebase sends the SMS from the browser; the server only remembers the number.
-            session(['otp_phone' => $phone]);
+            $request->session()->put('otp_phone', $phone);
 
             return redirect()->route('login.verify');
         }
 
-        $result = $this->otp->send($phone, (string) $request->ip());
+        $result = $this->otp->send(
+            $phone,
+            (string) $request->ip(),
+            LoginSettings::otpResendSeconds()
+        );
 
         if ($result === 'blocked') {
             return back()->withInput()->withErrors(['phone' => __('login.blocked')]);
@@ -78,17 +84,20 @@ class AuthController extends Controller
         }
 
         if ($result === 'wait') {
-            session(['otp_phone' => $phone]);
+            $request->session()->put('otp_phone', $phone);
 
             return redirect()->route('login.verify')->withErrors(['code' => __('login.wait')]);
         }
 
-        session(['otp_phone' => $phone]);
+        $request->session()->put([
+            'otp_phone' => $phone,
+            self::OTP_RESEND_AT => now()->addSeconds(LoginSettings::otpResendSeconds())->timestamp,
+        ]);
 
         return redirect()->route('login.verify')->with('status', __('login.sent'));
     }
 
-    public function showVerify()
+    public function showVerify(Request $request)
     {
         $phone = session('otp_phone');
         if (! $phone) {
@@ -106,16 +115,22 @@ class AuthController extends Controller
                     'authDomain' => (string) $cfg['firebase_auth_domain'],
                     'projectId' => (string) $cfg['firebase_project_id'],
                 ],
+                'otpResendSeconds' => LoginSettings::otpResendSeconds(),
             ]);
         }
 
-        return view('auth.verify', ['masked' => Phone::mask($phone)]);
+        $resendAt = (int) $request->session()->get(self::OTP_RESEND_AT, 0);
+
+        return view('auth.verify', [
+            'masked' => Phone::mask($phone),
+            'resendWaitSeconds' => max(0, $resendAt - now()->timestamp),
+        ]);
     }
 
     public function verify(Request $request)
     {
         if (! LoginSettings::otpEnabled()) {
-            session()->forget('otp_phone');
+            session()->forget(['otp_phone', self::OTP_RESEND_AT]);
 
             return redirect()->route('login')->withErrors(['phone' => __('loginpw.otp_off')]);
         }
@@ -142,7 +157,7 @@ class AuthController extends Controller
 
         $existing = User::where('phone', $phone)->first();
         if (! $existing && ! LoginSettings::registrationOpen()) {
-            session()->forget('otp_phone');
+            session()->forget(['otp_phone', self::OTP_RESEND_AT]);
 
             return redirect()->route('login')->withErrors(['phone' => __('loginpw.reg_closed')]);
         }
@@ -150,7 +165,7 @@ class AuthController extends Controller
 
         $user = $this->otp->userFor($phone);
         if (! $user) {
-            session()->forget('otp_phone');
+            session()->forget(['otp_phone', self::OTP_RESEND_AT]);
 
             return redirect()->route('login')->withErrors(['phone' => __('login.blocked')]);
         }
@@ -162,6 +177,7 @@ class AuthController extends Controller
 
         Auth::login($user, remember: true);
         $request->session()->regenerate();
+        $request->session()->forget(['otp_phone', self::OTP_RESEND_AT]);
 
         // Staff land on the dashboard first; citizens go back to wherever they were.
         if ($user->isModerator()) {
@@ -207,8 +223,11 @@ class AuthController extends Controller
             return back()->withInput($keep)->withErrors(['pwlogin' => __('loginpw.bad_login')]);
         }
 
-        if ($user->role !== 'citizen' && ! LoginSettings::passwordForStaff()) {
-            return back()->withInput($keep)->withErrors(['pwlogin' => __('loginpw.staff_off')]);
+        // Public password login is deliberately for citizen accounts only.
+        // Staff credentials are accepted solely on the private /admin/login
+        // fallback, never on the public /login screen.
+        if ($user->role !== 'citizen') {
+            return back()->withInput($keep)->withErrors(['pwlogin' => __('loginpw.bad_login')]);
         }
 
         RateLimiter::clear($pk);
@@ -224,15 +243,26 @@ class AuthController extends Controller
     }
 
     /**
+     * Dedicated staff-only fallback. It is intentionally not rendered, linked,
+     * or advertised from the public /login page.
+     */
+    public function showStaffLogin()
+    {
+        abort_unless(LoginSettings::passwordForStaff(), 404);
+
+        return response()
+            ->view('auth.staff-login')
+            ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    }
+
+    /**
      * Emergency access for staff when a third-party login method is unavailable.
      * It is deliberately separate from the public password endpoint so enabling
      * it cannot make password login available to citizen accounts.
      */
     public function staffPasswordLogin(Request $request)
     {
-        if (! LoginSettings::passwordForStaff()) {
-            return back()->withErrors(['stafflogin' => __('loginpw.pw_off')]);
-        }
+        abort_unless(LoginSettings::passwordForStaff(), 404);
 
         $keep = $request->only('staff_identifier');
         $identifier = trim((string) $request->input('staff_identifier'));

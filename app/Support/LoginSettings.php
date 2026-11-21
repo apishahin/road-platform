@@ -13,6 +13,8 @@ class LoginSettings
     public const KEY = 'login_settings';
     public const PROVIDERS = ['log', 'gateway', 'firebase', 'telegram'];
     public const DESIGNS = ['soft', 'split', 'minimal'];
+    public const OTP_RESEND_MIN_SECONDS = 15;
+    public const OTP_RESEND_MAX_SECONDS = 600;
     public const BOOLS = ['otp_enabled', 'password_enabled', 'google_enabled', 'registration_open', 'password_for_staff', 'require_verified_phone'];
 
     public static function defaults(): array
@@ -25,6 +27,9 @@ class LoginSettings
             'password_for_staff' => false,
             'require_verified_phone' => false,
             'otp_provider'       => 'log',
+            // Public login only: wait before the same number can request a
+            // replacement OTP. The server enforces this, not only the UI.
+            'otp_resend_seconds' => 60,
             // The public login screen can be changed by an admin without code.
             'login_design'       => 'soft',
             // Google is a direct, one-tap path by default. Admins may still
@@ -66,6 +71,13 @@ class LoginSettings
         }
         if (isset($in['otp_provider']) && in_array($in['otp_provider'], self::PROVIDERS, true)) {
             $out['otp_provider'] = $in['otp_provider'];
+        }
+        if (array_key_exists('otp_resend_seconds', $in)
+            && filter_var($in['otp_resend_seconds'], FILTER_VALIDATE_INT) !== false) {
+            $out['otp_resend_seconds'] = min(self::OTP_RESEND_MAX_SECONDS, max(
+                self::OTP_RESEND_MIN_SECONDS,
+                (int) $in['otp_resend_seconds']
+            ));
         }
         if (isset($in['google_phone']) && in_array($in['google_phone'], ['required', 'optional'], true)) {
             $out['google_phone'] = $in['google_phone'];
@@ -120,6 +132,7 @@ class LoginSettings
     /** When on, citizens must verify their number before contributing (report/observe/verify/volunteer). */
     public static function requireVerifiedPhone(): bool { return (bool) self::all()['require_verified_phone']; }
     public static function provider(): string { return (string) self::all()['otp_provider']; }
+    public static function otpResendSeconds(): int { return (int) self::all()['otp_resend_seconds']; }
 
     /** Whether Google sign-in must be followed by a mobile number ('required'|'optional'). */
     public static function googlePhoneMode(): string { return (string) self::all()['google_phone']; }

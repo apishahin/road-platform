@@ -59,6 +59,11 @@
                     <span class="mt-1 block text-xs font-normal leading-5 text-slate-600">{{ __('loginsettings.staff_emergency_detail') }}</span>
                 </span>
             </label>
+            <div class="mt-3">
+                <label for="staff-login-url" class="block text-xs font-bold text-slate-700">{{ __('loginsettings.staff_emergency_url') }}</label>
+                <input id="staff-login-url" type="text" readonly value="{{ route('staff.login') }}" onclick="this.select()"
+                       class="mt-1 block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-slate-700">
+            </div>
             <p class="mt-3 text-xs leading-5 text-slate-700">{{ __('loginsettings.staff_emergency_password') }}
                 <a href="{{ route('account.password') }}" class="font-bold text-amber-900 underline">{{ __('loginsettings.staff_emergency_password_link') }}</a>
             </p>
@@ -110,6 +115,14 @@
                     @endforeach
                 </select>
                 <p class="mt-2 text-xs leading-5 text-slate-500">{{ __('loginsettings.gateway_hint') }}</p>
+            </div>
+
+            <div class="mt-4">
+                <label for="otp_resend_seconds" class="block text-sm font-semibold text-slate-800">{{ __('loginsettings.otp_resend_seconds') }}</label>
+                <input id="otp_resend_seconds" name="otp_resend_seconds" type="number" min="{{ \App\Support\LoginSettings::OTP_RESEND_MIN_SECONDS }}" max="{{ \App\Support\LoginSettings::OTP_RESEND_MAX_SECONDS }}" step="1"
+                       value="{{ old('otp_resend_seconds', $s['otp_resend_seconds']) }}"
+                       class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                <p class="mt-2 text-xs leading-5 text-slate-500">{{ __('loginsettings.otp_resend_seconds_hint') }}</p>
             </div>
 
             <div class="mt-5 rounded-lg border border-sky-100 bg-sky-50 p-4">

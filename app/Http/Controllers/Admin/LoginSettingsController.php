@@ -53,6 +53,7 @@ class LoginSettingsController extends Controller
 
         $request->validate([
             'otp_provider' => 'required|in:' . implode(',', LoginSettings::PROVIDERS),
+            'otp_resend_seconds' => 'sometimes|integer|min:' . LoginSettings::OTP_RESEND_MIN_SECONDS . '|max:' . LoginSettings::OTP_RESEND_MAX_SECONDS,
             'google_phone' => 'sometimes|in:required,optional',
             'login_design' => 'sometimes|in:' . implode(',', LoginSettings::DESIGNS),
         ]);
@@ -71,7 +72,10 @@ class LoginSettingsController extends Controller
         }
 
         $new['otp_provider'] = (string) $request->input('otp_provider');
-        // Older forms may not send it; keep the current mode then.
+        // Older forms may not send these values; keep the current setting then.
+        if ($request->filled('otp_resend_seconds')) {
+            $new['otp_resend_seconds'] = (int) $request->input('otp_resend_seconds');
+        }
         if ($request->filled('google_phone')) {
             $new['google_phone'] = (string) $request->input('google_phone');
         }

@@ -17,8 +17,12 @@ class OtpService
     }
 
     /** @return 'sent'|'wait'|'blocked' */
-    public function send(string $phone, string $ip): string
+    public function send(string $phone, string $ip, int $resendSeconds = 60): string
     {
+        // Callers for account verification retain the safe one-minute default.
+        // Public login passes the admin-selected value, bounded defensively here.
+        $resendSeconds = min(600, max(15, $resendSeconds));
+
         $banned = User::where('phone', $phone)->where('is_banned', true)->exists();
         if ($banned) {
             return 'blocked';
@@ -33,8 +37,8 @@ class OtpService
             || RateLimiter::tooManyAttempts($byIp, 10)) {
             return 'wait';
         }
-        RateLimiter::hit($cool, 60);       // 1 code per minute
-        RateLimiter::hit($byTel, 600);     // 3 codes per 10 minutes per phone
+        RateLimiter::hit($cool, $resendSeconds); // configured replacement-code wait
+        RateLimiter::hit($byTel, 600);              // 3 codes per 10 minutes per phone
         RateLimiter::hit($byIp, 3600);     // 10 codes per hour per IP
 
         // Old unused codes stop working.

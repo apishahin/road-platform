@@ -20,6 +20,7 @@ return [
     'code'         => 'Code',
     'verify'       => 'Verify',
     'resend'       => 'Send a new code',
+    'resend_wait_seconds' => 'You can request another code in :seconds seconds.',
     'change_phone' => 'Change number',
     'sent'         => 'Code sent.',
     'welcome'      => 'You are logged in.',

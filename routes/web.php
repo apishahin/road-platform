@@ -216,9 +216,9 @@ Route::middleware('auth')->prefix('admin')->group(function () {
 
 \Illuminate\Support\Facades\Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/login/password', [\App\Http\Controllers\AuthController::class, 'passwordLogin'])->middleware('throttle:10,1')->name('login.password');
-    // Separate endpoint: this can only authenticate non-citizen staff when
-    // the admin-controlled emergency switch is enabled.
-    \Illuminate\Support\Facades\Route::post('/login/staff', [\App\Http\Controllers\AuthController::class, 'staffPasswordLogin'])->middleware('throttle:10,1')->name('login.staff');
+    // Private fallback: deliberately not linked or rendered on public /login.
+    \Illuminate\Support\Facades\Route::get('/admin/login', [\App\Http\Controllers\AuthController::class, 'showStaffLogin'])->name('staff.login');
+    \Illuminate\Support\Facades\Route::post('/admin/login', [\App\Http\Controllers\AuthController::class, 'staffPasswordLogin'])->middleware('throttle:10,1')->name('staff.login.submit');
     \Illuminate\Support\Facades\Route::post('/login/register', [\App\Http\Controllers\AuthController::class, 'register'])->middleware('throttle:5,1')->name('login.register');
 });
 
