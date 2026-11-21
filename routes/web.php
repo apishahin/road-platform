@@ -5,11 +5,15 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\IssueController;
 use App\Http\Controllers\IssueListController;
+use App\Http\Controllers\PwaInstallController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::view('/offline', 'offline')->name('offline');
+// A public, shareable entry point for PWA installation and its matching QR code.
+Route::get('/install', [PwaInstallController::class, 'show'])->name('pwa.install');
+Route::get('/install/qr.svg', [PwaInstallController::class, 'qr'])->name('pwa.install.qr');
 
 Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index');
 Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
