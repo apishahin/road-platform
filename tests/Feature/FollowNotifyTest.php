@@ -62,12 +62,12 @@ class FollowNotifyTest extends TestCase
         $issue = $this->makeIssue();
         $user  = $this->user();
 
-        $this->actingAs($user)->get(route('issues.show', $issue->public_id))
+        $this->actingAs($user)->get(route('issues.show', $issue->id))
             ->assertOk()->assertSee('data-follow-box', false)->assertSee(__('issues.follow_btn'));
 
         IssueFollow::create(['issue_id' => $issue->id, 'user_id' => $user->id, 'created_at' => now()]);
 
-        $this->actingAs($user)->get(route('issues.show', $issue->public_id))
+        $this->actingAs($user)->get(route('issues.show', $issue->id))
             ->assertOk()->assertSee(__('issues.follow_following'));
     }
 
@@ -87,7 +87,7 @@ class FollowNotifyTest extends TestCase
 
         $n = UserNotification::where('user_id', $follower->id)->first();
         $this->assertNotNull($n->status_event_id);
-        $this->assertStringContainsString('/issues/', (string) $n->url);
+        $this->assertStringContainsString('/issue/' . $issue->id, (string) $n->url);
         $this->assertNull($n->read_at);
     }
 

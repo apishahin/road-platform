@@ -56,7 +56,7 @@ class CameraCompressLeaderboardTest extends TestCase
         UpdatePhotos::set(true);
         $issue = $this->makeIssue();
 
-        $this->actingAs($this->user())->get(route('issues.show', $issue->public_id))
+        $this->actingAs($this->user())->get(route('issues.show', $issue->id))
             ->assertOk()
             ->assertSee('data-compress', false)
             ->assertSee('photo_camera', false);

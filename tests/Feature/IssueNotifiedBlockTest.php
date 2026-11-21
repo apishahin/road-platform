@@ -95,7 +95,7 @@ class IssueNotifiedBlockTest extends TestCase
         [$issue, $contact, $user] = $this->makeData();
         $this->addNotification($issue, $contact, $user, 'sent');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee(__('issuenotified.title'))
             ->assertSee('Executive Engineer');
@@ -108,7 +108,7 @@ class IssueNotifiedBlockTest extends TestCase
         $this->addNotification($issue, $contact, $user, 'failed');
         $this->addNotification($issue, $contact, $user, 'opened', 'whatsapp');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee(__('issuenotified.title'))
             ->assertDontSee('Executive Engineer');
@@ -119,7 +119,7 @@ class IssueNotifiedBlockTest extends TestCase
         [$issue, $contact, $user] = $this->makeData();
         $this->addNotification($issue, $contact, $user, 'sent');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee('SecretPersonName')
             ->assertDontSee('01711223344')

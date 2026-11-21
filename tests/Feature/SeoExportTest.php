@@ -53,8 +53,8 @@ class SeoExportTest extends TestCase
         $res = $this->get('/sitemap.xml')->assertOk()
             ->assertHeader('Content-Type', 'application/xml; charset=UTF-8');
         $c = $res->getContent();
-        $this->assertStringContainsString('/issues/' . $pub->public_id, $c);
-        $this->assertStringNotContainsString('/issues/' . $unpub->public_id, $c);
+        $this->assertStringContainsString('/issue/' . $pub->id, $c);
+        $this->assertStringNotContainsString('/issue/' . $unpub->id, $c);
         $this->assertStringContainsString(route('issues.index'), $c);
         $this->assertStringContainsString(route('dashboard'), $c);
     }
@@ -80,7 +80,7 @@ class SeoExportTest extends TestCase
             ->assertSee('icons/icon-512.png', false);
 
         // issue page: its own title/URL in the tags
-        $this->get('/issues/' . $issue->public_id)->assertOk()
+        $this->get('/issue/' . $issue->id)->assertOk()
             ->assertSee('property="og:title"', false)
             ->assertSee($issue->title);
     }

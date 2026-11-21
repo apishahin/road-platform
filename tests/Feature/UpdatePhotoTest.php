@@ -119,11 +119,11 @@ class UpdatePhotoTest extends TestCase
         $issue = $this->makeIssue();
         $citizen = $this->makeUser('01711000001', 'citizen');
 
-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)
+        $this->actingAs($citizen)->get('/issue/' . $issue->id)
             ->assertOk()->assertDontSee(__('issues.photo_camera'));
 
         UpdatePhotos::set(true);
-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)
+        $this->actingAs($citizen)->get('/issue/' . $issue->id)
             ->assertOk()->assertSee(__('issues.photo_camera'));
     }
 
@@ -137,7 +137,7 @@ class UpdatePhotoTest extends TestCase
         $this->assertSame(0, UpdatePhotos::publicFor($issue)->count());
 
         auth()->logout();
-        $this->get('/issues/' . $issue->public_id)->assertOk()
+        $this->get('/issue/' . $issue->id)->assertOk()
             ->assertDontSee(__('issues.photos_updates_title'));
     }
 
@@ -153,7 +153,7 @@ class UpdatePhotoTest extends TestCase
         $this->assertSame(1, UpdatePhotos::publicFor($issue)->count());
 
         auth()->logout();
-        $this->get('/issues/' . $issue->public_id)->assertOk()
+        $this->get('/issue/' . $issue->id)->assertOk()
             ->assertSee(__('issues.photos_updates_title'))
             ->assertSee(__('issues.photo_cap_citizen'));
     }

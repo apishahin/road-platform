@@ -12,13 +12,12 @@
             }
         }
         if ($u->canModerate()) {
-            $pendingReports = \App\Models\Report::where('moderation', 'pending')->count();
-            $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), $pendingReports, 'shield'];
-            $review[] = [route('verify.queue'), __('issues.nav_verify'), 0, 'verify'];
-            $review[] = [route('photoreview.index'), __('issues.nav_photos'), 0, 'photo'];
+            $pendingReports = \App\Models\Report::where('moderation', 'pending')
+                ->tap(fn ($query) => \App\Support\ModerationScope::restrict($query, $u))->count();
+            // One inbox replaces the former separate moderation, verification, photo and issue links.
+            $review[] = [route('admin.work-center'), __('workcenter.menu'), $pendingReports, 'inbox'];
         }
         if ($u->isModerator()) {
-            $review[] = [route('admin.issues.index'), __('issueadmin.menu'), 0, 'doc'];
             $review[] = [route('admin.contacts.index'), __('authcontact.menu'), 0, 'chat'];
         }
         if ($isAdmin) {
@@ -51,6 +50,7 @@
     }
 
     $icons = [
+        'inbox'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5h16v13H4v-13Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h4l1.5 2h5L16 13h4"/></svg>',
         'shield'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 2.5v5c0 4.6-3 8-7 10.5C8 18.5 5 15.1 5 10.5v-5L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.8 1.8L15 10"/></svg>',
         'verify'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="8.5"/></svg>',
         'photo'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path stroke-linecap="round" stroke-linejoin="round" d="m5 18 4.5-4.5 3 3 3.5-3.5L20.5 17"/></svg>',

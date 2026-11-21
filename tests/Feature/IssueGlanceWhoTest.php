@@ -106,7 +106,7 @@ class IssueGlanceWhoTest extends TestCase
         $this->report($issue, $v, 'approved');
         $this->report($issue, $p, 'pending');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee($this->role('citizen', 2))
             ->assertSee($this->role('volunteer', 1))
@@ -121,7 +121,7 @@ class IssueGlanceWhoTest extends TestCase
         $v = $this->makeUser('01700000013', 'volunteer');
         $this->visit($issue, $v, 'site_visit');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee($this->role('volunteer', 1))
             ->assertDontSee('01700000013');
@@ -131,7 +131,7 @@ class IssueGlanceWhoTest extends TestCase
     {
         $issue = $this->makeIssue();
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee($this->role('volunteer', 1))
             ->assertDontSee($this->role('moderator', 1));
@@ -143,7 +143,7 @@ class IssueGlanceWhoTest extends TestCase
         $v = $this->makeUser('01700000013', 'volunteer');
         $this->visit($issue, $v, 'platform');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee($this->role('volunteer', 1));
     }

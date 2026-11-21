@@ -39,6 +39,11 @@ class Report extends Model
         return $this->belongsTo(Issue::class);
     }
 
+    public function suggestedArea(): BelongsTo
+    {
+        return $this->belongsTo(AdminArea::class, 'suggested_area_id');
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -86,8 +86,14 @@ class AuthorityContactController extends Controller
             $node = $node->parent;
         }
 
+        $branchIds = ModerationScope::branchIds(auth()->user());
+        $divisions = AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn');
+        if ($branchIds !== null) {
+            $divisions->whereIn('id', $branchIds);
+        }
+
         return [
-            'divisions' => AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn')->get(),
+            'divisions' => $divisions->get(),
             'areaSelection' => $selection,
             'areaLabel' => $area ? AuthorityContact::pathOf($area) : '',
         ];

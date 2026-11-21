@@ -111,7 +111,7 @@ class IntegrationsTest extends TestCase
         SocialPoster::afterStatusChange($issue, $event);
         Http::assertSent(fn ($r) => str_contains($r->url(), 'graph.facebook.com/v21.0/123456/feed')
             && $r['access_token'] === 'secret-token'
-            && str_contains($r['link'], '/issues/'));
+            && str_contains($r['link'], '/issue/'));
 
         // non-repaired events never post
         Http::fake();

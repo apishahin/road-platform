@@ -24,7 +24,7 @@
     <div class="mt-4 space-y-5">
         @forelse ($rows as $r)
             @php $iss = $r['issue']; @endphp
-            <div class="rounded-xl border border-slate-200 bg-white p-4" data-pr>
+            <div id="photo-{{ $r['ev']->id }}" class="rounded-xl border border-slate-200 bg-white p-4" data-pr>
                 <div style="font-size:13px;color:#475569">
                     @if ($r['kind'] === 'visit')
                         {{ __('issues.photo_review_from_visit') }}

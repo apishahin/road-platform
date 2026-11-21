@@ -43,16 +43,10 @@ class IssuePresenter
         ];
     }
 
-    /**
-     * Public issue URL. It retains the opaque public ID and adds a short, human
-     * reference based on the issue's database ID for support and sharing.
-     */
+    /** Short, stable public issue URL for sharing and support. */
     public static function url(Issue $issue): string
     {
-        return route('issues.show', [
-            'issue' => $issue->public_id,
-            'reference' => 'issue-' . $issue->id,
-        ]);
+        return route('issues.show', ['issue' => $issue->id]);
     }
 
     /** Filter group used by the home page chips: new, started or repaired. */

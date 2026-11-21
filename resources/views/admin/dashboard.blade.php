@@ -5,13 +5,13 @@
 @section('content')
 @php
     $cards = [
-        ['key' => 'reports_pending',      'label' => 'admindash.card_reports_pending',      'url' => route('admin.moderation.index'),                       'accent' => 'amber',   'warm' => true],
+        ['key' => 'reports_pending',      'label' => 'admindash.card_reports_pending',      'url' => route('admin.work-center', ['tab' => 'moderation']),   'accent' => 'amber',   'warm' => true],
         ['key' => 'applications_pending', 'label' => 'admindash.card_applications_pending', 'url' => route('admin.applications.index'),                     'accent' => 'amber',   'warm' => true],
         ['key' => 'users_unverified',     'label' => 'admindash.card_users_unverified',     'url' => route('admin.users.index', ['v' => 'unverified']),       'accent' => 'amber',   'warm' => true],
         ['key' => 'users_nophone',        'label' => 'admindash.card_users_nophone',        'url' => route('admin.users.index', ['v' => 'none']),             'accent' => 'slate',   'warm' => true],
         ['key' => 'blocked_ips',          'label' => 'admindash.card_blocked_ips',          'url' => route('admin.users.index'),                              'accent' => 'rose',    'warm' => false],
         ['key' => 'users_total',          'label' => 'admindash.card_users_total',          'url' => route('admin.users.index'),                              'accent' => 'brand',   'warm' => false],
-        ['key' => 'issues_week',          'label' => 'admindash.card_issues_week',          'url' => route('admin.issues.index'),                             'accent' => 'emerald', 'warm' => false],
+        ['key' => 'issues_week',          'label' => 'admindash.card_issues_week',          'url' => route('admin.work-center', ['tab' => 'issues']),       'accent' => 'emerald', 'warm' => false],
     ];
     $accents = [
         'amber'   => ['ring' => 'ring-amber-200',   'bg' => 'bg-amber-50',   'text' => 'text-amber-700',   'hot' => true],

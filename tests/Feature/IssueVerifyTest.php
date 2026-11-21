@@ -128,7 +128,7 @@ class IssueVerifyTest extends TestCase
         $this->assertSame(2, StatusEvent::where('issue_id', $issue->id)->where('source_type', 'site_visit')->count());
         $this->assertSame('volunteer', StatusEvent::where('issue_id', $issue->id)->orderBy('id')->first()->actor_type);
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee(__('issues.glance_role_volunteer', ['count' => IssuePresenter::num(1)]))
             ->assertDontSee('01700000021');
@@ -224,8 +224,8 @@ class IssueVerifyTest extends TestCase
         $citizen = $this->makeUser('01700000002', 'citizen');
         $issue   = $this->makeIssue();
 
-        $this->actingAs($mod)->get('/issues/' . $issue->public_id)->assertOk()->assertSee(__('issues.verify_title'));
-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)->assertOk()->assertDontSee(__('issues.verify_title'));
+        $this->actingAs($mod)->get('/issue/' . $issue->id)->assertOk()->assertSee(__('issues.verify_title'));
+        $this->actingAs($citizen)->get('/issue/' . $issue->id)->assertOk()->assertDontSee(__('issues.verify_title'));
     }
 
     public function test_queue_lists_claims_for_moderator(): void

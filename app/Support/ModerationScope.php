@@ -42,6 +42,31 @@ class ModerationScope
         return array_values(array_unique(array_map('intval', $all)));
     }
 
+    /**
+     * Area IDs which may appear in a cascading selector. For volunteers this
+     * contains both their permitted areas and the parent branches needed to
+     * reach those areas; moderator/admin remains unrestricted (null).
+     *
+     * @return array<int, int>|null
+     */
+    public static function branchIds(?User $user): ?array
+    {
+        $ids = self::areaIds($user);
+        if ($ids === null || $ids === []) {
+            return $ids;
+        }
+
+        $all = array_values(array_unique(array_map('intval', $ids)));
+        $level = $all;
+        for ($i = 0; $i < 6 && $level; $i++) {
+            $level = AdminArea::whereIn('id', $level)->pluck('parent_id')
+                ->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+            $all = array_merge($all, $level);
+        }
+
+        return array_values(array_unique($all));
+    }
+
     public static function restrict(Builder $query, ?User $user): Builder
     {
         $ids = self::areaIds($user);

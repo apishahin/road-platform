@@ -101,7 +101,7 @@ class IssueGlanceTest extends TestCase
     {
         $issue = $this->makeIssue();
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee(__('issues.glance_title'));
     }
@@ -113,7 +113,7 @@ class IssueGlanceTest extends TestCase
         $contact = $this->makeContact($staff);
         $this->notify($issue, $contact, $staff, 'sent');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee('Executive Engineer')
             ->assertDontSee(__('issuenotified.title'));
@@ -128,7 +128,7 @@ class IssueGlanceTest extends TestCase
         $this->notify($issue, $contact, $staff, 'failed');
         $this->notify($issue, $contact, $staff, 'opened');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee('Executive Engineer')
             ->assertSee(__('issues.glance_not_notified'));
@@ -141,7 +141,7 @@ class IssueGlanceTest extends TestCase
         $contact = $this->makeContact($staff);
         $this->notify($issue, $contact, $staff, 'sent');
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee('SecretPersonName')
             ->assertDontSee('01711122344')
@@ -154,7 +154,7 @@ class IssueGlanceTest extends TestCase
         AppearanceSettings::save(['issue_view' => 'detailed']);
         $issue = $this->makeIssue();
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertDontSee(__('issues.glance_title'));
     }
@@ -182,7 +182,7 @@ class IssueGlanceTest extends TestCase
         $this->assertSame('fixed', Observation::first()->type);
         $this->assertSame('reported', $issue->fresh()->progress_status);
 
-        $this->get('/issues/' . $issue->public_id)
+        $this->get('/issue/' . $issue->id)
             ->assertOk()
             ->assertSee(__('issues.glance_fixed_claims', ['count' => IssuePresenter::num(1)]))
             ->assertSee(__('issues.glance_claim_note'))

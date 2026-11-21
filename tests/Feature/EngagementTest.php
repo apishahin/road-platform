@@ -44,21 +44,23 @@ class EngagementTest extends TestCase
     {
         $issue = $this->makeIssue();
 
-        $this->get(route('issues.show', $issue->public_id))
+        $this->get(route('issues.show', $issue->id))
             ->assertOk()
             ->assertSee('data-share-links', false)
             ->assertSee('facebook.com/sharer/sharer.php', false)
             ->assertSee('wa.me/?text=', false);
     }
 
-    public function test_public_issue_url_contains_a_human_issue_reference_and_old_links_still_work(): void
+    public function test_public_issue_url_uses_only_its_number_and_old_ulid_links_redirect(): void
     {
         $issue = $this->makeIssue();
         $url = IssuePresenter::url($issue);
 
-        $this->assertStringEndsWith('/issues/' . $issue->public_id . '/issue-' . $issue->id, $url);
+        $this->assertStringEndsWith('/issue/' . $issue->id, $url);
+        $this->assertStringNotContainsString($issue->public_id, $url);
         $this->get($url)->assertOk();
-        $this->get('/issues/' . $issue->public_id)->assertOk();
+        $this->get('/issues/' . $issue->public_id)->assertRedirect($url)->assertStatus(301);
+        $this->get('/issues/' . $issue->public_id . '/issue-' . $issue->id)->assertRedirect($url)->assertStatus(301);
     }
 
     public function test_report_success_page_shows_autofollow_note(): void

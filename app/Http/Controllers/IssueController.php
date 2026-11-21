@@ -8,6 +8,16 @@ use Illuminate\Support\Str;
 
 class IssueController extends Controller
 {
+    /** Redirect pre-Patch66 public ULID links to the compact numeric canonical URL. */
+    public function legacy(Issue $issue)
+    {
+        if ($issue->published_at === null) {
+            abort_unless(auth()->user()?->isModerator(), 404);
+        }
+
+        return redirect()->to(IssuePresenter::url($issue), 301);
+    }
+
     public function show(Issue $issue)
     {
         // Unpublished issues are visible only to moderators.

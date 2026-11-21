@@ -34,7 +34,7 @@ class NavAndHomeTest extends TestCase
     public function test_admin_menu_has_all_groups(): void
     {
         $r = $this->as('admin')->get('/')->assertOk();
-        foreach (['admin.moderation.index', 'admin.issues.index', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
+        foreach (['admin.work-center', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
             $r->assertSee(route($name), false);
         }
     }
@@ -42,8 +42,10 @@ class NavAndHomeTest extends TestCase
     public function test_moderator_sees_only_moderation_links(): void
     {
         $this->as('moderator')->get('/')->assertOk()
-            ->assertSee(route('admin.issues.index'), false)
+            ->assertSee(route('admin.work-center'), false)
             ->assertSee(route('admin.contacts.index'), false)
+            ->assertDontSee(route('admin.moderation.index'), false)
+            ->assertDontSee(route('admin.issues.index'), false)
             ->assertDontSee(route('admin.users.index'), false)
             ->assertDontSee(route('admin.smsgateways.index'), false);
     }
@@ -60,7 +62,8 @@ class NavAndHomeTest extends TestCase
 
         $response->assertSee('<details', false)
             ->assertSee(route('admin.storage.index'), false)
-            ->assertSee(route('admin.moderation.index'), false);
+            ->assertSee(route('admin.work-center'), false)
+            ->assertDontSee(route('admin.moderation.index'), false);
     }
 
     public function test_assigned_volunteer_gets_the_mobile_review_controls(): void
@@ -71,8 +74,9 @@ class NavAndHomeTest extends TestCase
 
         $this->actingAs($volunteer)->get('/')->assertOk()
             ->assertSee('class="rp-mobile-staff"', false)
-            ->assertSee(route('admin.moderation.index'), false)
-            ->assertSee(route('verify.queue'), false)
+            ->assertSee(route('admin.work-center'), false)
+            ->assertDontSee(route('admin.moderation.index'), false)
+            ->assertDontSee(route('verify.queue'), false)
             ->assertDontSee(route('admin.users.index'), false);
     }
 
@@ -80,6 +84,7 @@ class NavAndHomeTest extends TestCase
     {
         $this->as('citizen')->get('/')->assertOk()
             ->assertSee(route('volunteer.apply'), false)
+            ->assertDontSee(route('admin.work-center'), false)
             ->assertDontSee(route('admin.issues.index'), false);
     }
 

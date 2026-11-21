@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdminArea;
+use App\Support\ModerationScope;
 use Illuminate\Http\JsonResponse;
 
 class AreaChildrenController extends Controller
@@ -13,8 +14,13 @@ class AreaChildrenController extends Controller
         abort_unless(auth()->user()?->canModerate(), 403);
 
         $isBn = app()->getLocale() === 'bn';
+        $branchIds = ModerationScope::branchIds(auth()->user());
+        if ($branchIds !== null) {
+            abort_unless(in_array((int) $area->id, $branchIds, true), 403);
+        }
 
         $items = AdminArea::where('parent_id', $area->id)
+            ->when($branchIds !== null, fn ($query) => $query->whereIn('id', $branchIds))
             ->orderBy('name_en')
             ->get()
             ->map(fn ($a) => [

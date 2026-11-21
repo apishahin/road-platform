@@ -28,6 +28,11 @@ class Evidence extends Model
         return $this->belongsTo(StatusEvent::class);
     }
 
+    public function observation(): BelongsTo
+    {
+        return $this->belongsTo(Observation::class);
+    }
+
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploader_id');

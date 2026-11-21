@@ -32,10 +32,13 @@ Route::get('/ads.txt', function () {
     \Illuminate\Support\Facades\Route::get('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'index'])->name('ads.index');
     \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
 });
-// The optional issue-N reference makes shared public links easier to quote; old links remain valid.
-Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'show'])
-    ->where('reference', 'issue-[0-9]+')
+// Short canonical public URL. The older ULID links redirect here so existing shares keep working.
+Route::get('/issue/{issue}', [IssueController::class, 'show'])
+    ->whereNumber('issue')
     ->name('issues.show');
+Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'legacy'])
+    ->where('reference', 'issue-[0-9]+')
+    ->name('issues.legacy');
 Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
 Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
 Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
@@ -166,6 +169,11 @@ Route::get('/areas/{area}/children', \App\Http\Controllers\AreaChildrenControlle
     \Illuminate\Support\Facades\Route::get('/', [$c, 'index'])->name('index');
     \Illuminate\Support\Facades\Route::post('/{application}/approve', [$c, 'approve'])->name('approve');
     \Illuminate\Support\Facades\Route::post('/{application}/reject', [$c, 'reject'])->name('reject');
+});
+
+// Unified staff inbox, followed by the specialist management routes it brings together.
+Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/work-center', [\App\Http\Controllers\Admin\WorkCenterController::class, 'index'])->name('work-center');
 });
 
 // Published issues: unpublish, publish again, edit (admin / moderator)
