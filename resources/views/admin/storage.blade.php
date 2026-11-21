@@ -3,7 +3,7 @@
 @section('content')
 <div class="mx-auto max-w-3xl px-4 py-8">
     <h1 class="text-2xl font-bold">ছবির স্টোরেজ</h1>
-    <p class="mt-1 text-sm text-slate-600">ছবি কোথায় জমা হবে তা এখান থেকে বাছুন। R2-এর পাসওয়ার্ড/key এখানে বসে না, শুধু সার্ভারের .env ফাইলে থাকে।</p>
+    <p class="mt-1 text-sm text-slate-600">ছবি কোথায় জমা হবে তা এখান থেকে বাছুন। Cloudflare R2-এর endpoint, bucket ও access key-ও এখান থেকে সেট করা যায়; গোপন key database-এ APP_KEY দিয়ে এনক্রিপ্ট করে রাখা হয়।</p>
 
     @if (session('status'))
         <div class="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</div>
@@ -43,13 +43,71 @@
             <p class="mt-1 text-sm text-slate-600">
                 @if ($key === 'local')
                     ছবি এই সার্ভারের storage ফোল্ডারে থাকে। পরীক্ষার জন্য ভালো।
+                @elseif ($r2['stored_in_database'])
+                    R2-এর তথ্য Admin settings-এ এনক্রিপ্ট করে সংরক্ষিত আছে।
                 @elseif ($r2Ready)
-                    .env-এ R2-এর তথ্য সেট করা আছে।
+                    পুরনো .env-এ R2-এর তথ্য আছে। নিচের form একবার save করলে সেগুলো নিরাপদে Admin settings-এ চলে আসবে; এরপর .env edit করার দরকার হবে না।
                 @else
-                    .env-এ R2-এর তথ্য এখনো সম্পূর্ণ সেট করা নেই।
+                    নিচের form-এ R2-এর সব তথ্য দিন, save করুন, তারপর সংযোগ পরীক্ষা করুন।
                 @endif
             </p>
-            <div class="mt-3 flex gap-2">
+
+            @if ($key === 'r2')
+                <form method="POST" action="{{ route('admin.storage.r2') }}" autocomplete="off" class="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4">
+                    @csrf
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-semibold text-slate-900">Cloudflare R2 সংযোগ সেটআপ</div>
+                        <span class="text-xs text-slate-600">Secret key কখনো এখানে দেখানো হবে না।</span>
+                    </div>
+                    <p class="mt-1 text-xs leading-5 text-slate-600">Cloudflare Dashboard → R2 → Manage R2 API Tokens থেকে Access Key ID, Secret Access Key এবং account endpoint নিন। Private bucket-এ মূল/অপেক্ষমাণ ছবি, public bucket-এ অনুমোদিত ছোট কপি রাখা হবে।</p>
+
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label for="r2_endpoint" class="text-xs font-semibold text-slate-700">S3 API endpoint</label>
+                            <input id="r2_endpoint" name="r2_endpoint" type="url" required placeholder="https://ACCOUNT_ID.r2.cloudflarestorage.com"
+                                   value="{{ old('r2_endpoint', $r2['endpoint']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label for="r2_private_bucket" class="text-xs font-semibold text-slate-700">Private bucket</label>
+                            <input id="r2_private_bucket" name="r2_private_bucket" type="text" required maxlength="63" autocapitalize="none"
+                                   value="{{ old('r2_private_bucket', $r2['private_bucket']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <p class="mt-1 text-xs text-slate-500">Original ও pending ছবি; public URL থাকবে না।</p>
+                        </div>
+                        <div>
+                            <label for="r2_public_bucket" class="text-xs font-semibold text-slate-700">Public bucket</label>
+                            <input id="r2_public_bucket" name="r2_public_bucket" type="text" required maxlength="63" autocapitalize="none"
+                                   value="{{ old('r2_public_bucket', $r2['public_bucket']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <p class="mt-1 text-xs text-slate-500">শুধু অনুমোদিত, processed ছবি।</p>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label for="r2_public_url" class="text-xs font-semibold text-slate-700">Public bucket URL বা custom domain</label>
+                            <input id="r2_public_url" name="r2_public_url" type="url" required placeholder="https://images.example.com"
+                                   value="{{ old('r2_public_url', $r2['public_url']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label for="r2_access_key_id" class="text-xs font-semibold text-slate-700">R2 Access Key ID</label>
+                            <input id="r2_access_key_id" name="r2_access_key_id" type="password" maxlength="300" autocomplete="new-password"
+                                   placeholder="{{ $r2['has_access_key_id'] ? 'সংরক্ষিত আছে — বদলাতে চাইলে দিন' : 'Access Key ID দিন' }}"
+                                   class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            @if ($r2['has_access_key_id'])
+                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-rose-700"><input type="checkbox" name="clear_r2_access_key_id" value="1"> Access Key ID মুছে দিন</label>
+                            @endif
+                        </div>
+                        <div>
+                            <label for="r2_secret_access_key" class="text-xs font-semibold text-slate-700">R2 Secret Access Key</label>
+                            <input id="r2_secret_access_key" name="r2_secret_access_key" type="password" maxlength="300" autocomplete="new-password"
+                                   placeholder="{{ $r2['has_secret_access_key'] ? 'সংরক্ষিত আছে — বদলাতে চাইলে দিন' : 'Secret Access Key দিন' }}"
+                                   class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            @if ($r2['has_secret_access_key'])
+                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-rose-700"><input type="checkbox" name="clear_r2_secret_access_key" value="1"> Secret Access Key মুছে দিন</label>
+                            @endif
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-4 rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800">R2 সেটিং সংরক্ষণ করুন</button>
+                </form>
+            @endif
+
+            <div class="mt-3 flex flex-wrap gap-2">
                 <form method="POST" action="{{ route('admin.storage.check') }}">
                     @csrf
                     <input type="hidden" name="target" value="{{ $key }}">

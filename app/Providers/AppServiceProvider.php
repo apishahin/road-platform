@@ -20,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Support\MailSettings::apply();
+        // Database-backed R2 settings override legacy .env values per request.
+        \App\Support\StorageSettings::apply();
         \App\Support\PlatformHooks::register();
         //
     }

@@ -7,6 +7,7 @@ use App\Models\Evidence;
 use App\Services\AuditService;
 use App\Support\StorageSettings;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class StorageController extends Controller
 {
@@ -23,6 +24,7 @@ class StorageController extends Controller
             'choice'  => StorageSettings::choice(),
             'keepOrig' => StorageSettings::keepOriginals(),
             'encode'   => \App\Support\PhotoEncodeSettings::all(),
+            'r2'      => StorageSettings::r2ForForm(),
             'r2Ready' => StorageSettings::r2Configured(),
             'private' => StorageSettings::privateDisk(),
             'public'  => StorageSettings::publicDisk(),
@@ -44,6 +46,66 @@ class StorageController extends Controller
         }
 
         return redirect()->route('admin.storage.index')->with('checks', $results);
+    }
+
+    /**
+     * Admin-only R2 credentials and bucket details. Sensitive values are
+     * encrypted by StorageSettings and are intentionally never returned to UI.
+     */
+    public function saveR2(Request $request, AuditService $audit)
+    {
+        $this->guard();
+
+        $validator = Validator::make($request->all(), [
+            'r2_endpoint' => ['required', 'url', 'starts_with:https://', 'max:255'],
+            'r2_private_bucket' => ['required', 'regex:/^[a-z0-9][a-z0-9.-]{1,61}$/'],
+            'r2_public_bucket' => ['required', 'regex:/^[a-z0-9][a-z0-9.-]{1,61}$/'],
+            'r2_public_url' => ['required', 'url', 'starts_with:https://', 'max:255'],
+            'r2_access_key_id' => ['nullable', 'string', 'max:300'],
+            'r2_secret_access_key' => ['nullable', 'string', 'max:300'],
+            'clear_r2_access_key_id' => ['nullable', 'boolean'],
+            'clear_r2_secret_access_key' => ['nullable', 'boolean'],
+        ]);
+        if ($validator->fails()) {
+            return back()
+                ->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
+                ->withErrors($validator);
+        }
+        $data = $validator->validated();
+
+        $current = StorageSettings::r2ForForm();
+        $clearKey = $request->boolean('clear_r2_access_key_id');
+        $clearSecret = $request->boolean('clear_r2_secret_access_key');
+        $accessKeyId = trim((string) ($data['r2_access_key_id'] ?? ''));
+        $secretAccessKey = trim((string) ($data['r2_secret_access_key'] ?? ''));
+
+        if ($accessKeyId === '' && ! $current['has_access_key_id'] && ! $clearKey) {
+            return back()->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
+                ->withErrors(['r2_access_key_id' => 'R2 Access Key ID দিন।']);
+        }
+        if ($secretAccessKey === '' && ! $current['has_secret_access_key'] && ! $clearSecret) {
+            return back()->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
+                ->withErrors(['r2_secret_access_key' => 'R2 Secret Access Key দিন।']);
+        }
+
+        StorageSettings::saveR2([
+            'endpoint' => $data['r2_endpoint'],
+            'private_bucket' => $data['r2_private_bucket'],
+            'public_bucket' => $data['r2_public_bucket'],
+            'public_url' => $data['r2_public_url'],
+        ], $accessKeyId, $secretAccessKey, $clearKey, $clearSecret);
+
+        $audit->log($request->user(), 'storage.r2_saved', 'setting', 'r2_storage', [
+            'endpoint' => rtrim($data['r2_endpoint'], '/'),
+            'private_bucket' => $data['r2_private_bucket'],
+            'public_bucket' => $data['r2_public_bucket'],
+            'public_url' => rtrim($data['r2_public_url'], '/'),
+            'access_key_changed' => $accessKeyId !== '' || $clearKey,
+            'secret_key_changed' => $secretAccessKey !== '' || $clearSecret,
+        ]);
+
+        return redirect()->route('admin.storage.index')
+            ->with('status', 'R2-এর সেটিং এনক্রিপ্ট করে সংরক্ষণ হয়েছে। এখন “পরীক্ষা করুন” চাপুন।');
     }
 
     /** Admin only: keep or discard the untouched original upload. */

@@ -2,44 +2,43 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * Which disks hold evidence photos. The choice (local / r2) is stored in the
- * settings table. Credentials are never stored here; they stay in .env.
+ * Which disks hold evidence photos and the optional Cloudflare R2 connection.
+ *
+ * The active destination and R2 values are stored in the settings table so an
+ * administrator can operate them without editing .env. R2 credentials are
+ * encrypted with APP_KEY before they reach the database. Existing .env values
+ * remain a safe legacy fallback until the Admin form is saved.
  */
 class StorageSettings
 {
     public const OPTIONS = [
-        'local' => ['private' => 'private',    'public' => 'public'],
-        'r2'    => ['private' => 'r2_private', 'public' => 'r2_public'],
+        'local' => ['private' => 'private', 'public' => 'public'],
+        'r2' => ['private' => 'r2_private', 'public' => 'r2_public'],
     ];
 
-    private static ?string $stored = null;
-    private static bool $loaded = false;
+    public const R2_KEY = 'r2_storage_settings';
 
     private static function stored(): ?string
     {
-        if (self::$loaded) {
-            return self::$stored;
-        }
-        self::$loaded = true;
-
         try {
             if (Schema::hasTable('settings')) {
                 $value = DB::table('settings')->where('key', 'evidence_storage')->value('value');
                 if ($value !== null && isset(self::OPTIONS[$value])) {
-                    self::$stored = $value;
+                    return $value;
                 }
             }
         } catch (\Throwable) {
-            // database not ready: fall back to .env
+            // Database not ready: fall back to configuration values.
         }
 
-        return self::$stored;
+        return null;
     }
 
     public static function choice(): string
@@ -100,21 +99,172 @@ class StorageSettings
             ['key' => 'evidence_storage'],
             ['value' => $choice, 'updated_at' => now(), 'created_at' => now()]
         );
-        self::$stored = $choice;
-        self::$loaded = true;
     }
 
-    /** True only if every R2 setting exists in .env. Never exposes the values. */
+    /**
+     * The non-secret R2 values from .env/config. These form the fallback for
+     * existing installations which have not yet saved the Admin form.
+     */
+    private static function r2Defaults(): array
+    {
+        return [
+            'endpoint' => (string) config('filesystems.disks.r2_private.endpoint', ''),
+            'private_bucket' => (string) config('filesystems.disks.r2_private.bucket', ''),
+            'public_bucket' => (string) config('filesystems.disks.r2_public.bucket', ''),
+            'public_url' => (string) config('filesystems.disks.r2_public.url', ''),
+            'access_key_id' => (string) config('filesystems.disks.r2_private.key', ''),
+            'secret_access_key' => (string) config('filesystems.disks.r2_private.secret', ''),
+        ];
+    }
+
+    private static function r2Raw(): ?array
+    {
+        try {
+            if (! Schema::hasTable('settings')) {
+                return null;
+            }
+            $raw = DB::table('settings')->where('key', self::R2_KEY)->value('value');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $data = json_decode((string) $raw, true);
+
+        return is_array($data) ? $data : null;
+    }
+
+    private static function decryptR2Value(array $raw, string $key, string $fallback): string
+    {
+        if (! array_key_exists($key, $raw)) {
+            return $fallback;
+        }
+        if ((string) $raw[$key] === '') {
+            return '';
+        }
+
+        try {
+            return Crypt::decryptString((string) $raw[$key]);
+        } catch (\Throwable) {
+            // APP_KEY may have changed, so never try an unreadable credential.
+            return '';
+        }
+    }
+
+    /**
+     * Effective R2 configuration. The credentials are only returned to server
+     * code; views must use r2ForForm(), which deliberately excludes them.
+     */
+    public static function r2(): array
+    {
+        $settings = self::r2Defaults();
+        $raw = self::r2Raw();
+        if (! $raw) {
+            return $settings;
+        }
+
+        foreach (['endpoint', 'private_bucket', 'public_bucket', 'public_url'] as $field) {
+            if (array_key_exists($field, $raw)) {
+                $settings[$field] = trim((string) $raw[$field]);
+            }
+        }
+        $settings['access_key_id'] = self::decryptR2Value($raw, 'access_key_id', $settings['access_key_id']);
+        $settings['secret_access_key'] = self::decryptR2Value($raw, 'secret_access_key', $settings['secret_access_key']);
+
+        return $settings;
+    }
+
+    /** Values safe to put in the Admin page — credentials are never exposed. */
+    public static function r2ForForm(): array
+    {
+        $r2 = self::r2();
+
+        return [
+            'endpoint' => $r2['endpoint'],
+            'private_bucket' => $r2['private_bucket'],
+            'public_bucket' => $r2['public_bucket'],
+            'public_url' => $r2['public_url'],
+            'has_access_key_id' => $r2['access_key_id'] !== '',
+            'has_secret_access_key' => $r2['secret_access_key'] !== '',
+            'stored_in_database' => self::r2Raw() !== null,
+        ];
+    }
+
+    public static function hasStoredR2(): bool
+    {
+        return self::r2Raw() !== null;
+    }
+
+    /**
+     * Persist all R2 fields. Empty credential fields retain their effective
+     * current value, unless the Admin explicitly selected their clear option.
+     */
+    public static function saveR2(
+        array $values,
+        string $accessKeyId = '',
+        string $secretAccessKey = '',
+        bool $clearAccessKeyId = false,
+        bool $clearSecretAccessKey = false,
+    ): void {
+        $current = self::r2();
+        $accessKeyId = trim($accessKeyId);
+        $secretAccessKey = trim($secretAccessKey);
+
+        if ($clearAccessKeyId) {
+            $current['access_key_id'] = '';
+        } elseif ($accessKeyId !== '') {
+            $current['access_key_id'] = $accessKeyId;
+        }
+        if ($clearSecretAccessKey) {
+            $current['secret_access_key'] = '';
+        } elseif ($secretAccessKey !== '') {
+            $current['secret_access_key'] = $secretAccessKey;
+        }
+
+        $data = [
+            'endpoint' => rtrim(trim((string) $values['endpoint']), '/'),
+            'private_bucket' => trim((string) $values['private_bucket']),
+            'public_bucket' => trim((string) $values['public_bucket']),
+            'public_url' => rtrim(trim((string) $values['public_url']), '/'),
+            'access_key_id' => $current['access_key_id'] === '' ? '' : Crypt::encryptString($current['access_key_id']),
+            'secret_access_key' => $current['secret_access_key'] === '' ? '' : Crypt::encryptString($current['secret_access_key']),
+        ];
+
+        DB::table('settings')->updateOrInsert(
+            ['key' => self::R2_KEY],
+            ['value' => json_encode($data), 'updated_at' => now()]
+        );
+    }
+
+    /** Apply encrypted database settings to Laravel's R2 disks for this request. */
+    public static function apply(): void
+    {
+        $r2 = self::r2();
+
+        config([
+            'filesystems.disks.r2_private.key' => $r2['access_key_id'] !== '' ? $r2['access_key_id'] : null,
+            'filesystems.disks.r2_private.secret' => $r2['secret_access_key'] !== '' ? $r2['secret_access_key'] : null,
+            'filesystems.disks.r2_private.bucket' => $r2['private_bucket'] !== '' ? $r2['private_bucket'] : null,
+            'filesystems.disks.r2_private.endpoint' => $r2['endpoint'] !== '' ? $r2['endpoint'] : null,
+            'filesystems.disks.r2_public.key' => $r2['access_key_id'] !== '' ? $r2['access_key_id'] : null,
+            'filesystems.disks.r2_public.secret' => $r2['secret_access_key'] !== '' ? $r2['secret_access_key'] : null,
+            'filesystems.disks.r2_public.bucket' => $r2['public_bucket'] !== '' ? $r2['public_bucket'] : null,
+            'filesystems.disks.r2_public.endpoint' => $r2['endpoint'] !== '' ? $r2['endpoint'] : null,
+            'filesystems.disks.r2_public.url' => $r2['public_url'] !== '' ? $r2['public_url'] : null,
+        ]);
+    }
+
+    /** True only if every R2 setting has a usable value. Never exposes them. */
     public static function r2Configured(): bool
     {
-        foreach (['r2_private', 'r2_public'] as $disk) {
-            $c = config("filesystems.disks.$disk");
-            if (! $c || empty($c['bucket']) || empty($c['key']) || empty($c['secret']) || empty($c['endpoint'])) {
+        $r2 = self::r2();
+
+        foreach (['access_key_id', 'secret_access_key', 'endpoint', 'private_bucket', 'public_bucket', 'public_url'] as $field) {
+            if ($r2[$field] === '') {
                 return false;
             }
         }
 
-        return ! empty(config('filesystems.disks.r2_public.url'));
+        return true;
     }
 
     /** Write, read back and delete a tiny file. */
