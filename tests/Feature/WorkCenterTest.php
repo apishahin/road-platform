@@ -154,7 +154,9 @@ class WorkCenterTest extends TestCase
             ->assertOk()
             ->assertSee('Only my union bridge')
             ->assertDontSee('Another division bridge')
-            ->assertDontSee(__('workcenter.tab_issues'));
+            // The title text is also mentioned in the general description in Bangla;
+            // assert the tab control itself is absent rather than translated prose.
+            ->assertDontSee('data-work-tab="issues"', false);
 
         $this->actingAs($volunteer)->getJson(route('admin.areas.children', $division))
             ->assertOk()
