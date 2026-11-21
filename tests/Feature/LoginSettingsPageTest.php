@@ -57,7 +57,9 @@ class LoginSettingsPageTest extends TestCase
 
         $this->actingAs($admin)->get('/admin/login-settings')
             ->assertOk()
-            ->assertSee(__('loginsettings.title'));
+            ->assertSee(__('loginsettings.title'))
+            ->assertSee(__('loginsettings.staff_emergency_title'))
+            ->assertSee('name="password_for_staff"', false);
     }
 
     public function test_admin_can_save_and_google_settings_keep_persist(): void
@@ -94,6 +96,24 @@ class LoginSettingsPageTest extends TestCase
 
         $this->assertFalse(LoginSettings::googleEnabled());
         $this->assertDatabaseMissing('audit_events', ['action' => 'login_settings.save']);
+    }
+
+    public function test_staff_emergency_can_be_the_only_enabled_login_method_for_an_admin_with_a_password(): void
+    {
+        $admin = $this->makeUser('admin', '01700000017');
+        $admin->forceFill(['password' => 'longpassword1'])->save();
+
+        $this->actingAs($admin)
+            ->post('/admin/login-settings', $this->payload([
+                'otp_enabled' => '0',
+                'password_enabled' => '0',
+                'password_for_staff' => '1',
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse(LoginSettings::otpEnabled());
+        $this->assertFalse(LoginSettings::passwordEnabled());
+        $this->assertTrue(LoginSettings::passwordForStaff());
     }
 
     public function test_cannot_turn_off_every_login_method(): void

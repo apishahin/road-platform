@@ -1,4 +1,9 @@
-            @if (! $s['otp_enabled'] && ! $s['password_enabled'] && ! $s['google_enabled'])
+            @php
+                $hasPublicPassword = (bool) $s['password_enabled'];
+                $hasStaffEmergency = (bool) $s['password_for_staff'];
+            @endphp
+
+            @if (! $s['otp_enabled'] && ! $hasPublicPassword && ! $s['google_enabled'] && ! $hasStaffEmergency)
                 <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ __('loginpw.none') }}</p>
             @endif
 
@@ -16,7 +21,14 @@
                      data-text-closed="{{ __('glogin.closed') }}"
                      data-text-banned="{{ __('glogin.banned') }}"
                      data-text-too-many="{{ __('glogin.too_many') }}"
-                     data-text-not-ready="{{ __('glogin.not_ready') }}">
+                     data-text-not-ready="{{ __('glogin.not_ready') }}"
+                     data-text-domain="{{ __('glogin.domain') }}"
+                     data-text-provider="{{ __('glogin.provider') }}"
+                     data-text-popup-blocked="{{ __('glogin.popup_blocked') }}"
+                     data-text-network="{{ __('glogin.network') }}"
+                     data-text-config="{{ __('glogin.config') }}"
+                     data-text-account-exists="{{ __('glogin.account_exists') }}"
+                     data-text-verification-failed="{{ __('glogin.verification_failed') }}">
                     <button type="button" id="gl-btn"
                             class="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
                         <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1 .67-2.28 1.07-3.71 1.07-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.67-.35-1.39-.35-2.09s.14-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -26,7 +38,7 @@
                 </div>
             @endif
 
-            @if ($s['google_enabled'] && ($s['otp_enabled'] || $s['password_enabled']))
+            @if ($s['google_enabled'] && ($s['otp_enabled'] || $hasPublicPassword || $hasStaffEmergency))
                 <div class="my-6 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-slate-400">
                     <span class="h-px flex-1 bg-slate-200"></span>
                     <span>{{ __('glogin.or') }}</span>
@@ -59,7 +71,7 @@
                 </section>
             @endif
 
-            @if ($s['password_enabled'])
+            @if ($hasPublicPassword)
                 <details class="{{ $s['otp_enabled'] ? 'mt-5 border-t border-slate-200 pt-5' : 'mt-1' }} group">
                     <summary class="flex cursor-pointer list-none items-center justify-between rounded-xl bg-slate-50 px-3 py-3 text-sm font-bold text-slate-800 hover:bg-slate-100">
                         <span>{{ __('loginpw.or_password') }}</span>
@@ -115,6 +127,33 @@
                         </form>
                     </details>
                 @endif
+            @endif
+
+            @if ($hasStaffEmergency)
+                <section class="{{ ($s['otp_enabled'] || $hasPublicPassword) ? 'mt-5 border-t border-amber-200 pt-5' : 'mt-1' }} rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <h2 class="text-base font-bold text-slate-900">{{ __('loginpw.staff_emergency_title') }}</h2>
+                    <p class="mt-1 text-sm leading-5 text-slate-700">{{ __('loginpw.staff_emergency_hint') }}</p>
+                    <form method="POST" action="{{ route('login.staff') }}" class="mt-4 space-y-3">
+                        @csrf
+                        <div>
+                            <label for="staff_identifier" class="text-sm font-semibold text-slate-700">{{ __('loginpw.staff_identifier') }}</label>
+                            <input id="staff_identifier" name="staff_identifier" type="text" inputmode="text" autocomplete="username"
+                                   value="{{ old('staff_identifier') }}" placeholder="{{ __('loginpw.staff_identifier_placeholder') }}" required maxlength="190"
+                                   class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base">
+                        </div>
+                        <div>
+                            <label for="staff_password" class="text-sm font-semibold text-slate-700">{{ __('loginpw.password') }}</label>
+                            <input id="staff_password" name="password" type="password" autocomplete="current-password" required maxlength="100"
+                                   class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base">
+                            @error('stafflogin')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <button type="submit" class="w-full rounded-xl bg-amber-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-900">
+                            {{ __('loginpw.staff_login_btn') }}
+                        </button>
+                    </form>
+                </section>
             @endif
 
             @if ($s['otp_enabled'])

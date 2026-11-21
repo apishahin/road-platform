@@ -51,6 +51,11 @@ class PasswordLoginTest extends TestCase
         return $this->post('/login/password', ['phone' => self::LOCAL, 'password' => $password]);
     }
 
+    private function staffPost(string $identifier, string $password): \Illuminate\Testing\TestResponse
+    {
+        return $this->post('/login/staff', ['staff_identifier' => $identifier, 'password' => $password]);
+    }
+
     public function test_default_page_shows_only_otp_form(): void
     {
         $this->get('/login')->assertOk()
@@ -107,6 +112,48 @@ class PasswordLoginTest extends TestCase
         $this->setting(['password_for_staff' => true]);
         $this->pwPost(self::PW)->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_staff_emergency_login_is_discoverable_and_works_when_public_passwords_are_off(): void
+    {
+        $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
+        $user = $this->makeUser('moderator');
+
+        $this->get('/login')->assertOk()
+            ->assertSee(__('loginpw.staff_emergency_title'))
+            ->assertSee(route('login.staff'), false)
+            ->assertDontSee(route('login.password'), false)
+            ->assertDontSee(route('login.register'), false);
+
+        $this->staffPost(self::LOCAL, self::PW)->assertSessionHasNoErrors();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_staff_emergency_login_never_authenticates_a_citizen_account(): void
+    {
+        $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
+        $this->makeUser('citizen');
+
+        $this->staffPost(self::LOCAL, self::PW)->assertSessionHasErrors('stafflogin');
+        $this->assertGuest();
+    }
+
+    public function test_staff_emergency_login_can_use_the_google_account_email(): void
+    {
+        $this->setting(['password_enabled' => false, 'password_for_staff' => true]);
+        $user = $this->makeUser('admin');
+        $user->forceFill(['email' => 'admin@example.com'])->save();
+
+        $this->staffPost('ADMIN@EXAMPLE.COM', self::PW)->assertSessionHasNoErrors();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_staff_emergency_login_is_refused_when_its_switch_is_off(): void
+    {
+        $this->makeUser('admin');
+
+        $this->staffPost(self::LOCAL, self::PW)->assertSessionHasErrors('stafflogin');
+        $this->assertGuest();
     }
 
     public function test_register_creates_unverified_account(): void

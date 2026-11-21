@@ -66,7 +66,11 @@ class GoogleLoginTest extends TestCase
         $this->get('/login')->assertOk()
             ->assertSee('id="google-login"', false)
             ->assertSee('id="gl-btn"', false)
-            ->assertSee(route('login.google.verify'), false);
+            ->assertSee(route('login.google.verify'), false)
+            ->assertSee('data-text-domain=', false)
+            ->assertSee('data-text-provider=', false)
+            ->assertSee('data-text-popup-blocked=', false)
+            ->assertSee('data-text-verification-failed=', false);
     }
 
     public function test_existing_google_user_is_logged_in_with_remember(): void

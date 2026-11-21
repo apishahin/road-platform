@@ -223,6 +223,67 @@ class AuthController extends Controller
         return redirect()->intended(route('home'))->with('status', __('login.welcome'));
     }
 
+    /**
+     * Emergency access for staff when a third-party login method is unavailable.
+     * It is deliberately separate from the public password endpoint so enabling
+     * it cannot make password login available to citizen accounts.
+     */
+    public function staffPasswordLogin(Request $request)
+    {
+        if (! LoginSettings::passwordForStaff()) {
+            return back()->withErrors(['stafflogin' => __('loginpw.pw_off')]);
+        }
+
+        $keep = $request->only('staff_identifier');
+        $identifier = trim((string) $request->input('staff_identifier'));
+        $phone = Phone::normalize($identifier);
+        $email = ! $phone && filter_var($identifier, FILTER_VALIDATE_EMAIL)
+            ? mb_strtolower($identifier) : null;
+        $password = (string) $request->input('password');
+        if ((! $phone && ! $email) || $password === '') {
+            return back()->withInput($keep)->withErrors(['stafflogin' => __('loginpw.staff_bad_login')]);
+        }
+
+        $loginKey = $phone ?: $email;
+        $pk = 'staff-pw-login:' . sha1($loginKey);
+        $ik = 'staff-pw-ip:' . sha1((string) $request->ip());
+        if (RateLimiter::tooManyAttempts($pk, 5) || RateLimiter::tooManyAttempts($ik, 30)) {
+            return back()->withInput($keep)->withErrors(['stafflogin' => __('loginpw.wait')]);
+        }
+
+        $user = $phone
+            ? User::where('phone', $phone)->first()
+            : User::whereRaw('LOWER(email) = ?', [$email])->first();
+        $ok = false;
+        if ($user && $user->password) {
+            $ok = Hash::check($password, $user->password);
+        } else {
+            Hash::make($password); // keeps the time about the same
+        }
+
+        // This form never authenticates a public/citizen account, including
+        // when a citizen happens to know their correct password.
+        if ($ok && ($user->is_banned || $user->role === 'citizen')) {
+            $ok = false;
+        }
+        if (! $ok) {
+            RateLimiter::hit($pk, 600);
+            RateLimiter::hit($ik, 3600);
+
+            return back()->withInput($keep)->withErrors(['stafflogin' => __('loginpw.staff_bad_login')]);
+        }
+
+        RateLimiter::clear($pk);
+        Auth::login($user, remember: true);
+        $request->session()->regenerate();
+
+        if ($user->isModerator()) {
+            return redirect()->route('admin.dashboard')->with('status', __('login.welcome'));
+        }
+
+        return redirect()->intended(route('home'))->with('status', __('login.welcome'));
+    }
+
     public function register(Request $request)
     {
         if (! LoginSettings::passwordEnabled()) {

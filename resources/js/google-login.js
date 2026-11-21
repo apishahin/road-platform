@@ -9,8 +9,33 @@ if (root) {
     const btn = document.getElementById('gl-btn');
 
     const say = (key, bad = false) => {
-        status.textContent = d[key] || '';
+        status.textContent = d[key] || d.textError || '';
         status.style.color = bad ? '#b91c1c' : '#334155';
+    };
+
+    // Firebase's codes are safe to turn into specific instructions. Never put
+    // the raw exception text on the page: it can contain implementation detail.
+    const messageKeyFor = (error) => {
+        const code = error && typeof error.code === 'string' ? error.code : '';
+        const keys = {
+            'auth/popup-closed-by-user': 'textClosed',
+            'auth/cancelled-popup-request': 'textClosed',
+            'auth/too-many-requests': 'textTooMany',
+            'auth/unauthorized-domain': 'textDomain',
+            'auth/operation-not-allowed': 'textProvider',
+            'auth/popup-blocked': 'textPopupBlocked',
+            'auth/network-request-failed': 'textNetwork',
+            'auth/account-exists-with-different-credential': 'textAccountExists',
+            'auth/invalid-api-key': 'textConfig',
+            'auth/invalid-auth-domain': 'textConfig',
+            'auth/app-not-authorized': 'textConfig',
+            'auth/invalid-credential': 'textConfig',
+        };
+
+        if (keys[code]) return keys[code];
+        if (error && error.name === 'TypeError') return 'textNetwork';
+
+        return 'textError';
     };
 
     let auth = null;
@@ -22,7 +47,7 @@ if (root) {
             auth = getAuth(initializeApp({ apiKey: d.apiKey, authDomain: d.authDomain, projectId: d.projectId }));
             auth.languageCode = document.documentElement.lang || 'en';
         } catch (e) {
-            say('textError', true);
+            say(messageKeyFor(e), true);
             btn.disabled = true;
         }
     }
@@ -55,14 +80,18 @@ if (root) {
                 window.location.href = j.next;
                 return;
             }
-            const err = j.err || 'error';
-            say(err === 'closed' ? 'textClosed' : err === 'banned' ? 'textBanned' : err === 'too_many' ? 'textTooMany' : 'textError', true);
+
+            const serverKeys = {
+                closed: 'textClosed',
+                banned: 'textBanned',
+                too_many: 'textTooMany',
+                invalid: 'textVerificationFailed',
+            };
+            const key = serverKeys[j.err] || 'textError';
+            say(key, key !== 'textClosed');
         } catch (e) {
-            if (e && e.code === 'auth/popup-closed-by-user') {
-                say('textClosed');
-            } else {
-                say('textError', true);
-            }
+            const key = messageKeyFor(e);
+            say(key, key !== 'textClosed');
         }
         btn.disabled = false;
     });

@@ -86,7 +86,8 @@ class LoginSettings
     {
         $s = $s ?? self::all();
 
-        return ! empty($s['otp_enabled']) || ! empty($s['password_enabled']) || ! empty($s['google_enabled']);
+        return ! empty($s['otp_enabled']) || ! empty($s['password_enabled'])
+            || ! empty($s['google_enabled']) || ! empty($s['password_for_staff']);
     }
 
     public static function save(array $new): void
