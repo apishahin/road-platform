@@ -45,10 +45,12 @@ if (root) {
         const update = () => {
             if (seconds <= 0) {
                 sendBtn.disabled = false;
+                sendBtn.hidden = false;
                 say('textSent');
                 return true;
             }
             sendBtn.disabled = true;
+            sendBtn.hidden = true;
             const wait = (d.textResendWait || '').replace('__seconds__', String(seconds));
             status.textContent = [d.textSent || '', wait].filter(Boolean).join(' ');
             status.style.color = '#334155';
@@ -107,6 +109,7 @@ if (root) {
             resetVerifier();
             say(e && e.code === 'auth/too-many-requests' ? 'textTooMany' : 'textError', true);
             sendBtn.disabled = false;
+            sendBtn.hidden = false;
         }
     });
 

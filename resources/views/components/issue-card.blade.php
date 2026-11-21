@@ -1,6 +1,6 @@
 @props(['issue', 'photo' => null])
 
-<a href="{{ url('/issues/' . $issue->public_id) }}"
+<a href="{{ \App\Support\IssuePresenter::url($issue) }}"
    class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-500 hover:shadow">
     <div class="flex items-start gap-3">
     @if ($photo)

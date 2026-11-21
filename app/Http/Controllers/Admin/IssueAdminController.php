@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Issue;
 use App\Services\IssuePublishService;
+use App\Support\IssuePresenter;
 use Illuminate\Http\Request;
 
 class IssueAdminController extends Controller
@@ -125,7 +126,7 @@ class IssueAdminController extends Controller
                         $i->lng,
                         $i->published_at,
                         $i->created_at,
-                        route('issues.show', $i->public_id),
+                        IssuePresenter::url($i),
                     ]);
                 }
             });

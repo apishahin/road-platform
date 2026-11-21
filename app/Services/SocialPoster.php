@@ -31,7 +31,7 @@ class SocialPoster
                 'https://graph.facebook.com/v21.0/' . $s['fb_page_id'] . '/feed',
                 [
                     'message'      => __('issues.share_repaired_msg', ['title' => $issue->title]),
-                    'link'         => url('/issues/' . $issue->public_id),
+                    'link'         => \App\Support\IssuePresenter::url($issue),
                     'access_token' => $token,
                 ]
             );

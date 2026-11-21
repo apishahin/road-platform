@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\{AdminArea, Category, Issue, IssueFollow, User};
+use App\Support\IssuePresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -50,13 +51,24 @@ class EngagementTest extends TestCase
             ->assertSee('wa.me/?text=', false);
     }
 
+    public function test_public_issue_url_contains_a_human_issue_reference_and_old_links_still_work(): void
+    {
+        $issue = $this->makeIssue();
+        $url = IssuePresenter::url($issue);
+
+        $this->assertStringEndsWith('/issues/' . $issue->public_id . '/issue-' . $issue->id, $url);
+        $this->get($url)->assertOk();
+        $this->get('/issues/' . $issue->public_id)->assertOk();
+    }
+
     public function test_report_success_page_shows_autofollow_note(): void
     {
         $this->actingAs($this->citizen())
             ->withSession(['submitted' => true])
             ->get(route('report.success'))
             ->assertOk()
-            ->assertSee('data-autofollow-note', false);
+            ->assertSee('data-autofollow-note', false)
+            ->assertDontSee('<footer', false);
     }
 
     public function test_reporter_auto_follows_the_issue(): void

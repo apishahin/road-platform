@@ -16,7 +16,8 @@ class IssueNotification extends Model
 
     public function contact(): BelongsTo
     {
-        return $this->belongsTo(AuthorityContact::class, 'authority_contact_id');
+        // A removed directory entry must not erase or break the historic notification log.
+        return $this->belongsTo(AuthorityContact::class, 'authority_contact_id')->withTrashed();
     }
 
     public function sender(): BelongsTo

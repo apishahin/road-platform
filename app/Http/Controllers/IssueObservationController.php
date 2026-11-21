@@ -38,7 +38,7 @@ class IssueObservationController extends Controller
             ['type' => $data['type'], 'note' => $data['note'] ?? null]
         );
 
-        $redirect = redirect(url('/issues/' . $issue->public_id) . '#confirm')->with('obs_done', true);
+        $redirect = redirect(\App\Support\IssuePresenter::url($issue) . '#confirm')->with('obs_done', true);
 
         $photo = UpdatePhotos::enabled()
             ? ($request->file('photo_camera') ?: $request->file('photo_gallery'))

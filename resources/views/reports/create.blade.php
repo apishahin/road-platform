@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', __('report.title'))
+{{-- The multi-step report form uses its own focused completion area. --}}
+@section('hide_footer', '1')
 
 @push('head')
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">

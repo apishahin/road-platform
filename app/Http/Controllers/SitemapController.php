@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Issue;
 use App\Models\Page;
+use App\Support\IssuePresenter;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -58,8 +59,8 @@ class SitemapController extends Controller
         Issue::whereNotNull('published_at')
             ->orderByDesc('published_at')
             ->limit(5000)
-            ->get(['public_id', 'published_at', 'last_activity_at'])
-            ->each(fn ($i) => $add(route('issues.show', $i->public_id), $i->last_activity_at ?? $i->published_at, 'daily', '0.8'));
+            ->get(['id', 'public_id', 'published_at', 'last_activity_at'])
+            ->each(fn ($i) => $add(IssuePresenter::url($i), $i->last_activity_at ?? $i->published_at, 'daily', '0.8'));
 
         return $x."</urlset>\n";
     }

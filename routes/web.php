@@ -32,7 +32,10 @@ Route::get('/ads.txt', function () {
     \Illuminate\Support\Facades\Route::get('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'index'])->name('ads.index');
     \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
 });
-Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
+// The optional issue-N reference makes shared public links easier to quote; old links remain valid.
+Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'show'])
+    ->where('reference', 'issue-[0-9]+')
+    ->name('issues.show');
 Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
 Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
 Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
@@ -85,10 +88,11 @@ Route::middleware('auth')->group(function () {
 // Login with phone + OTP
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'sendCode'])->middleware('throttle:10,1');
+    // OtpService provides phone/IP limits and a friendly cooldown screen (never a bare 429 page).
+    Route::post('/login', [AuthController::class, 'sendCode']);
     Route::get('/login/verify', [AuthController::class, 'showVerify'])->name('login.verify');
     Route::post('/login/verify', [AuthController::class, 'verify'])->middleware('throttle:10,1')->name('login.verify.submit');
-    Route::post('/login/resend', [AuthController::class, 'resend'])->middleware('throttle:5,1')->name('login.resend');
+    Route::post('/login/resend', [AuthController::class, 'resend'])->name('login.resend');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
@@ -183,6 +187,9 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/authority-contacts/template.csv', [$c, 'template'])->name('admin.contacts.template');
     Route::get('/authority-contacts/areas.csv', [$c, 'areasCsv'])->name('admin.contacts.areascsv');
     Route::post('/authority-contacts/import', [$c, 'import'])->name('admin.contacts.import');
+    Route::get('/authority-contacts/{contact:id}/edit', [$c, 'edit'])->name('admin.contacts.edit');
+    Route::put('/authority-contacts/{contact:id}', [$c, 'update'])->name('admin.contacts.update');
+    Route::delete('/authority-contacts/{contact:id}', [$c, 'destroy'])->name('admin.contacts.destroy');
     Route::post('/authority-contacts/{contact:id}/approve', [$c, 'approve'])->name('admin.contacts.approve');
     Route::post('/authority-contacts/{contact:id}/disable', [$c, 'disable'])->name('admin.contacts.disable');
     Route::post('/authority-contacts/{contact:id}/enable', [$c, 'enable'])->name('admin.contacts.enable');

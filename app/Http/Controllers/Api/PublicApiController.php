@@ -140,7 +140,7 @@ class PublicApiController extends Controller
             'reports_count' => (int) $i->reports_count,
             'reported_at'  => $i->first_reported_at?->toIso8601String(),
             'updated_at'   => $i->last_activity_at?->toIso8601String(),
-            'url'          => url('/issues/' . $i->public_id),
+            'url'          => IssuePresenter::url($i),
         ];
         if ($full) {
             $row['photos'] = $i->evidence()

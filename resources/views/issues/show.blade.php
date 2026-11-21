@@ -2,12 +2,13 @@
 
 @section('title', $issue->title)
 @section('description', $explanation)
+@section('canonical', \App\Support\IssuePresenter::url($issue))
 @if ($photos->isNotEmpty())
 @section('og_image', url($photos->first()->url()))
 @endif
 
 @push('head')
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ \App\Support\IssuePresenter::url($issue) }}">
 @endpush
 
 @section('content')
@@ -25,7 +26,7 @@
         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             {{ __('issue.page.duplicate_notice') }}
             @if ($issue->duplicateOf)
-                <a href="{{ url('/issues/' . $issue->duplicateOf->public_id) }}" class="font-semibold underline">{{ __('issue.page.view_main') }}</a>
+                <a href="{{ \App\Support\IssuePresenter::url($issue->duplicateOf) }}" class="font-semibold underline">{{ __('issue.page.view_main') }}</a>
             @endif
         </div>
     @elseif ($issue->disposition === 'rejected')
@@ -336,7 +337,7 @@
 
 {{-- Share --}}
             <section class="rounded-xl border border-slate-200 bg-white p-5"
-                     x-data='{ copied: false, url: @js(url()->current()), title: @js($issue->title) }'>
+                     x-data='{ copied: false, url: @js(\App\Support\IssuePresenter::url($issue)), title: @js($issue->title) }'>
                 <h2 class="font-semibold text-slate-900">{{ __('issue.page.share') }}</h2>
                 <button type="button"
                         class="mt-3 w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
@@ -396,7 +397,7 @@
             <input type="radio" name="type" value="still_exists" required>
             <span>{{ __('issues.verify_still') }}</span>
         </label>
-        <textarea name="note" rows="2" maxlength="300" required placeholder="{{ __('issues.verify_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+        <textarea name="note" rows="2" maxlength="300" placeholder="{{ __('issues.verify_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
         <label class="flex items-center gap-2 text-sm text-slate-800">
             <input type="checkbox" name="seen" value="1" required>
             <span>{{ __('issues.verify_seen') }}</span>

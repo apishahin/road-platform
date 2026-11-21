@@ -67,7 +67,7 @@
             <div id="issue-list">
                 @forelse ($recent->take(7) as $issue)
                     @php $d = $P::display($issue); $ph = $photos[$issue->id] ?? null; @endphp
-                    <a href="{{ url('/issues/' . $issue->public_id) }}" class="issue">
+                    <a href="{{ \App\Support\IssuePresenter::url($issue) }}" class="issue">
                         @if ($ph)
                             <img class="thumb" src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">
                         @else
@@ -158,7 +158,7 @@
     <div class="repairs">
         @foreach ($repaired->take(8) as $issue)
             @php $ph = $photos[$issue->id] ?? null; @endphp
-            <a href="{{ url('/issues/' . $issue->public_id) }}" class="repair-card">
+            <a href="{{ \App\Support\IssuePresenter::url($issue) }}" class="repair-card">
                 <div class="repair-image">
                     @if ($ph)
                         <img src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">

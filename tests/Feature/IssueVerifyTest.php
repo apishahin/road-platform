@@ -186,13 +186,18 @@ class IssueVerifyTest extends TestCase
         $this->assertSame('verified', $f->verification_status);
     }
 
-    public function test_note_is_required(): void
+    public function test_note_is_optional_and_a_neutral_audit_reason_is_recorded(): void
     {
         $mod   = $this->makeUser('01700000031', 'moderator');
         $issue = $this->makeIssue();
 
-        $this->actingAs($mod)->post($this->url($issue), $this->body(['note' => '']))->assertSessionHasErrors('note');
-        $this->assertSame('reported', $issue->fresh()->progress_status);
+        $this->actingAs($mod)->post($this->url($issue), $this->body(['note' => '']))->assertRedirect();
+
+        $this->assertSame('repaired', $issue->fresh()->progress_status);
+        $this->assertDatabaseHas('status_events', [
+            'issue_id' => $issue->id,
+            'reason' => __('issues.verify_no_note'),
+        ]);
     }
 
     public function test_seen_checkbox_is_required(): void

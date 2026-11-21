@@ -51,7 +51,7 @@
                     @endif
                 </div>
                 <div style="margin-top:4px;font-size:13px">
-                    <a href="{{ url('/issues/' . $iss->public_id) }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_review_open_issue') }}</a>
+                    <a href="{{ \App\Support\IssuePresenter::url($iss) }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_review_open_issue') }}</a>
                     @if ($iss->lat && $iss->lng)
                         &nbsp;&middot;&nbsp;
                         <a href="https://www.openstreetmap.org/?mlat={{ $iss->lat }}&mlon={{ $iss->lng }}#map=17/{{ $iss->lat }}/{{ $iss->lng }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_map') }}</a>

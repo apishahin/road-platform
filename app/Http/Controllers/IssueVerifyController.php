@@ -45,12 +45,14 @@ class IssueVerifyController extends Controller
 
         $data = $request->validate([
             'type' => ['required', 'in:repaired,still_exists'],
-            'note' => ['required', 'string', 'min:3', 'max:300'],
+            'note' => ['nullable', 'string', 'max:300'],
             'seen' => ['accepted'],
         ]);
 
         $actor  = $request->user();
-        $reason = trim($data['note']);
+        // Status events always need an auditable reason; a blank staff comment is
+        // represented by this neutral system text rather than blocking the update.
+        $reason = trim((string) ($data['note'] ?? '')) ?: __('issues.verify_no_note');
         $before = (int) StatusEvent::where('issue_id', $issue->id)->max('id');
 
         DB::transaction(function () use ($status, $issue, $actor, $reason, $data) {
@@ -75,7 +77,7 @@ class IssueVerifyController extends Controller
             }
         });
 
-        $redirect = redirect(url('/issues/' . $issue->public_id) . '#verify')->with('verify_done', true);
+        $redirect = redirect(\App\Support\IssuePresenter::url($issue) . '#verify')->with('verify_done', true);
 
         $photo = UpdatePhotos::enabled()
             ? ($request->file('photo_camera') ?: $request->file('photo_gallery'))

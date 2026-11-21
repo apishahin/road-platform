@@ -21,6 +21,8 @@ return [
     'verify'       => 'Verify',
     'resend'       => 'Send a new code',
     'resend_wait_seconds' => 'You can request another code in :seconds seconds.',
+    'resend_wait_title' => 'A new code is not available yet',
+    'resend_wait_notice' => 'For security, please wait :seconds seconds before requesting a new code.',
     'change_phone' => 'Change number',
     'sent'         => 'Code sent.',
     'welcome'      => 'You are logged in.',

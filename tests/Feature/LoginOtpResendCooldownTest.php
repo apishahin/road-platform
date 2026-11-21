@@ -25,9 +25,27 @@ class LoginOtpResendCooldownTest extends TestCase
 
         $this->post('/login/resend')
             ->assertRedirect(route('login.verify'))
-            ->assertSessionHasErrors('code');
+            ->assertSessionHas('otp_resend_notice');
+
+        $this->get('/login/verify')->assertOk()
+            ->assertSee('data-resend-hidden', false)
+            ->assertSee(__('login.resend_wait_title'));
 
         // A blocked resend cannot replace the existing OTP row.
+        $this->assertDatabaseCount('otp_codes', 1);
+    }
+
+    public function test_repeated_gateway_resend_posts_stay_on_a_friendly_cooldown_flow_not_a_429_page(): void
+    {
+        LoginSettings::save(['otp_resend_seconds' => 60]);
+        $this->post('/login', ['phone' => self::PHONE])->assertRedirect(route('login.verify'));
+
+        for ($attempt = 0; $attempt < 7; $attempt++) {
+            $this->post('/login/resend')
+                ->assertRedirect(route('login.verify'))
+                ->assertSessionHas('otp_resend_notice');
+        }
+
         $this->assertDatabaseCount('otp_codes', 1);
     }
 

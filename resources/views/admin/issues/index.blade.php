@@ -118,7 +118,7 @@
 
                 <div class="mt-3 flex flex-wrap items-center gap-2">
                     @if ($tab === 'published')
-                        <a href="{{ route('issues.show', $issue->public_id) }}" target="_blank" rel="noopener" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.view') }}</a>
+                        <a href="{{ \App\Support\IssuePresenter::url($issue) }}" target="_blank" rel="noopener" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.view') }}</a>
                     @endif
                     @if($issue->published_at && ! $issue->unpublished_at)<a href="{{ route('admin.issues.notify', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;margin-right:10px;">{{ __('notify.button') }}</a> @endif <a href="{{ route('admin.issues.edit', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.edit') }}</a>
 

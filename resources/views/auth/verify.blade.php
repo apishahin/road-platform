@@ -32,16 +32,23 @@
             </button>
         </form>
 
+        @if (session('otp_resend_notice'))
+            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status" aria-live="polite">
+                <p class="font-bold">{{ __('login.resend_wait_title') }}</p>
+                <p class="mt-0.5">{{ session('otp_resend_notice') }}</p>
+            </div>
+        @endif
+
         <div class="mt-4 flex items-center justify-between gap-3 text-sm">
-            <div>
-                <form method="POST" action="{{ route('login.resend') }}">
+            <div class="min-w-0">
+                <form id="otp-resend-form" method="POST" action="{{ route('login.resend') }}" @if ($resendWaitSeconds > 0) hidden data-resend-hidden @endif>
                     @csrf
-                    <button id="otp-resend-button" type="submit" @disabled($resendWaitSeconds > 0)
-                            class="text-brand-700 underline disabled:cursor-not-allowed disabled:opacity-50">{{ __('login.resend') }}</button>
+                    <button id="otp-resend-button" type="submit" class="font-semibold text-brand-700 underline hover:text-brand-800">{{ __('login.resend') }}</button>
                 </form>
-                <p id="otp-resend-countdown" class="mt-1 text-xs text-slate-500" aria-live="polite"
-                   data-seconds="{{ $resendWaitSeconds }}"
-                   data-template="{{ __('login.resend_wait_seconds', ['seconds' => '__seconds__']) }}"></p>
+                <div id="otp-resend-countdown" @if ($resendWaitSeconds <= 0) hidden @endif
+                     class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600" aria-live="polite"
+                     data-seconds="{{ $resendWaitSeconds }}"
+                     data-template="{{ __('login.resend_wait_seconds', ['seconds' => '__seconds__']) }}"></div>
             </div>
             <a href="{{ route('login') }}" class="shrink-0 text-slate-600 underline">{{ __('login.change_phone') }}</a>
         </div>
@@ -50,17 +57,18 @@
             <script>
             (() => {
                 const note = document.getElementById('otp-resend-countdown');
-                const button = document.getElementById('otp-resend-button');
-                if (!note || !button) return;
+                const form = document.getElementById('otp-resend-form');
+                if (!note || !form) return;
 
                 let seconds = Number(note.dataset.seconds) || 0;
                 const render = () => {
                     if (seconds <= 0) {
-                        button.disabled = false;
+                        note.hidden = true;
                         note.textContent = '';
+                        form.hidden = false;
                         return true;
                     }
-                    button.disabled = true;
+                    note.hidden = false;
                     note.textContent = (note.dataset.template || '').replace('__seconds__', String(seconds));
                     seconds -= 1;
                     return false;

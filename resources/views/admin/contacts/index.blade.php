@@ -21,36 +21,9 @@
         <div class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $errors->first() }}</div>
     @endif
 
-    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 class="font-semibold text-slate-900">{{ __('authcontact.add_title') }}</h2>
-        <form method="POST" action="{{ route('admin.contacts.store') }}" class="mt-3 space-y-3">
-            @csrf
-            <div>
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_area') }}</label>
-                <input type="text" id="area-q" autocomplete="off" placeholder="{{ __('authcontact.search_hint') }}" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                <input type="hidden" name="admin_area_id" id="area-id" value="{{ old('admin_area_id') }}">
-                <div id="area-pick" style="margin-top:4px;border-radius:8px;overflow:hidden;"></div>
-                <div id="area-chosen" style="margin-top:4px;font-size:13px;font-weight:600;color:#0f172a;"></div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_name') }}
-                    <input type="text" name="name" value="{{ old('name') }}" maxlength="150" required style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                </label>
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_position') }}
-                    <input type="text" name="position" value="{{ old('position') }}" maxlength="150" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                </label>
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_phone') }}
-                    <input type="text" name="phone" value="{{ old('phone') }}" maxlength="30" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                </label>
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_email') }}
-                    <input type="email" name="email" value="{{ old('email') }}" maxlength="150" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                </label>
-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_whatsapp') }}
-                    <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" maxlength="30" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
-                </label>
-            </div>
-            <button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:8px 18px;cursor:pointer;">{{ __('authcontact.add_btn') }}</button>
-        </form>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <h2 class="text-lg font-bold text-slate-900">{{ __('authcontact.add_title') }}</h2>
+        @include('admin.contacts._form')
     </div>
 
     @if ($isAdmin)
@@ -90,24 +63,31 @@
                     @if ($c->email) &middot; {{ $c->email }} @endif
                     @if ($c->whatsapp) &middot; WhatsApp: {{ $c->whatsapp }} @endif
                 </div>
-                @if ($isAdmin)
-                    <div class="mt-3 flex gap-2">
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if ($isAdmin)
                         @if ($c->status === 'pending')
                             <form method="POST" action="{{ route('admin.contacts.approve', ['contact' => $c->id]) }}">@csrf
-                                <button type="submit" style="background:#15803d;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.approve') }}</button>
+                                <button type="submit" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-800">{{ __('authcontact.approve') }}</button>
                             </form>
                         @endif
                         @if ($c->status === 'disabled')
                             <form method="POST" action="{{ route('admin.contacts.enable', ['contact' => $c->id]) }}">@csrf
-                                <button type="submit" style="background:#15803d;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.enable') }}</button>
+                                <button type="submit" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-800">{{ __('authcontact.enable') }}</button>
                             </form>
                         @else
                             <form method="POST" action="{{ route('admin.contacts.disable', ['contact' => $c->id]) }}">@csrf
-                                <button type="submit" style="background:#dc2626;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.disable') }}</button>
+                                <button type="submit" class="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">{{ __('authcontact.disable') }}</button>
                             </form>
                         @endif
-                    </div>
-                @endif
+                    @endif
+                    @if ($isAdmin || (int) $c->added_by === (int) auth()->id())
+                        <a href="{{ route('admin.contacts.edit', $c) }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">{{ __('authcontact.edit') }}</a>
+                        <form method="POST" action="{{ route('admin.contacts.destroy', $c) }}" onsubmit="return confirm(@js(__('authcontact.delete_confirm')));">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50">{{ __('authcontact.delete') }}</button>
+                        </form>
+                    @endif
+                </div>
             </div>
         @empty
             <p class="text-sm text-slate-500">{{ __('authcontact.none') }}</p>
@@ -117,35 +97,3 @@
     <div class="mt-6">{{ $contacts->links() }}</div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-(function () {
-  var q = document.getElementById('area-q'), box = document.getElementById('area-pick');
-  var hid = document.getElementById('area-id'), chosen = document.getElementById('area-chosen'), t = null;
-  var url = @json(route('admin.contacts.areas'));
-  q.addEventListener('input', function () {
-    clearTimeout(t);
-    var v = q.value.trim();
-    if (v.length < 2) { box.innerHTML = ''; return; }
-    t = setTimeout(function () {
-      fetch(url + '?q=' + encodeURIComponent(v), { headers: { 'Accept': 'application/json' } })
-        .then(function (r) { return r.json(); })
-        .then(function (list) {
-          box.innerHTML = '';
-          list.forEach(function (a) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = a.label;
-            b.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:13px;';
-            b.addEventListener('click', function () {
-              hid.value = a.id; chosen.textContent = a.label; box.innerHTML = ''; q.value = '';
-            });
-            box.appendChild(b);
-          });
-        });
-    }, 250);
-  });
-})();
-</script>
-@endpush

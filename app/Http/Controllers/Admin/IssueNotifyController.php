@@ -9,6 +9,7 @@ use App\Models\Issue;
 use App\Models\IssueNotification;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Support\IssuePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -91,7 +92,7 @@ class IssueNotifyController extends Controller
             '',
             __('notify.tpl_title') . ': ' . $issue->title,
             __('notify.tpl_place') . ': ' . $place,
-            __('notify.tpl_link') . ': ' . route('issues.show', $issue->public_id),
+            __('notify.tpl_link') . ': ' . IssuePresenter::url($issue),
             '',
             __('notify.tpl_ask'),
             '',

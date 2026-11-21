@@ -47,7 +47,8 @@ class PwaOfflineReportTest extends TestCase
             ->assertSee('report-queue', false)      // SW sync registration
             ->assertSee('rq-card', false)           // pending-queue card
             ->assertSee('indexedDB', false)         // offline storage
-            ->assertSee('SyncManager', false);
+            ->assertSee('SyncManager', false)
+            ->assertDontSee('<footer', false);       // focus stays on the report wizard
     }
 
     public function test_offline_page_exists_for_pwa_fallback(): void

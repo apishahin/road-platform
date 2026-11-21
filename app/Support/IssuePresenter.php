@@ -36,11 +36,23 @@ class IssuePresenter
             'color'    => $d['color'],
             'status'   => $d['label'],
             'category' => $issue->category?->name(),
-            'url'      => url('/issues/' . $issue->public_id),
+            'url'      => self::url($issue),
             'group'    => self::group($issue),
             'notified' => (bool) $issue->getAttribute('authority_notified'),
             'meters'   => isset($issue->meters) ? (int) round($issue->meters) : null,
         ];
+    }
+
+    /**
+     * Public issue URL. It retains the opaque public ID and adds a short, human
+     * reference based on the issue's database ID for support and sharing.
+     */
+    public static function url(Issue $issue): string
+    {
+        return route('issues.show', [
+            'issue' => $issue->public_id,
+            'reference' => 'issue-' . $issue->id,
+        ]);
     }
 
     /** Filter group used by the home page chips: new, started or repaired. */

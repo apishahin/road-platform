@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Support\ModerationScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class AuthorityContactController extends Controller
 {
@@ -16,51 +17,36 @@ class AuthorityContactController extends Controller
     {
     }
 
-    private function guard(Request $r): void
+    private function guard(Request $request): void
     {
-        abort_unless($r->user()?->isModerator(), 403);
+        abort_unless($request->user()?->isModerator(), 403);
     }
 
-    private function adminOnly(Request $r): void
+    private function adminOnly(Request $request): void
     {
-        abort_unless($r->user()?->role === 'admin', 403);
+        abort_unless($request->user()?->role === 'admin', 403);
     }
 
-    private function clean(?string $v): ?string
-    {
-        $v = preg_replace('/[^0-9+]/', '', (string) $v);
-
-        return $v === '' ? null : $v;
-    }
-
-    public function index(Request $request)
+    /** Admins may manage every entry; moderators may manage only entries they added. */
+    private function manage(Request $request, AuthorityContact $contact): void
     {
         $this->guard($request);
-        $user = $request->user();
-        $isAdmin = $user->role === 'admin';
-        $status = in_array($request->query('status'), ['pending', 'approved', 'disabled'], true)
-            ? $request->query('status') : null;
-
-        $q = AuthorityContact::with(['area.parent.parent.parent','addedBy'])->orderByDesc('id');
-        if (! $isAdmin) {
-            $q->where('added_by', $user->id);
-        }
-        if ($status) {
-            $q->where('status', $status);
-        }
-
-        return view('admin.contacts.index', [
-            'contacts' => $q->paginate(30)->withQueryString(),
-            'status' => $status,
-            'isAdmin' => $isAdmin,
-            'pendingCount' => $isAdmin ? AuthorityContact::where('status', 'pending')->count() : 0,
-        ]);
+        abort_unless(
+            $request->user()->role === 'admin' || (int) $contact->added_by === (int) $request->user()->id,
+            403
+        );
     }
 
-    public function store(Request $request)
+    private function clean(?string $value): ?string
     {
-        $this->guard($request);
-        $user = $request->user();
+        $value = preg_replace('/[^0-9+]/', '', (string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /** @return array{admin_area_id:int,name:string,position:?string,phone:?string,email:?string,whatsapp:?string} */
+    private function contactData(Request $request): array
+    {
         $data = $request->validate([
             'admin_area_id' => ['required', 'integer', 'exists:admin_areas,id'],
             'name' => ['required', 'string', 'max:150'],
@@ -72,36 +58,135 @@ class AuthorityContactController extends Controller
 
         $phone = $this->clean($data['phone'] ?? null);
         $whatsapp = $this->clean($data['whatsapp'] ?? null);
-        $email = ! empty($data['email']) ? $data['email'] : null;
+        $email = ! empty($data['email']) ? trim((string) $data['email']) : null;
         if (! $phone && ! $whatsapp && ! $email) {
-            return back()->withInput()->withErrors(['phone' => __('authcontact.need_one')]);
+            throw ValidationException::withMessages(['phone' => __('authcontact.need_one')]);
         }
 
-        ModerationScope::authorizeArea($user, (int) $data['admin_area_id']);
-
-        $isAdmin = $user->role === 'admin';
-        $c = AuthorityContact::create([
+        return [
             'admin_area_id' => (int) $data['admin_area_id'],
             'name' => trim($data['name']),
             'position' => ! empty($data['position']) ? trim($data['position']) : null,
             'phone' => $phone,
             'email' => $email,
             'whatsapp' => $whatsapp,
+        ];
+    }
+
+    /** The selected area's complete Division → District → Upazila → Union chain. */
+    private function areaFormData(?AuthorityContact $contact = null): array
+    {
+        $oldArea = old('admin_area_id');
+        $areaId = $oldArea !== null ? (int) $oldArea : (int) ($contact?->admin_area_id ?? 0);
+        $area = $areaId ? AdminArea::find($areaId) : null;
+        $selection = [];
+        $node = $area;
+        while ($node) {
+            $selection[$node->level] = $node->id;
+            $node = $node->parent;
+        }
+
+        return [
+            'divisions' => AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn')->get(),
+            'areaSelection' => $selection,
+            'areaLabel' => $area ? AuthorityContact::pathOf($area) : '',
+        ];
+    }
+
+    public function index(Request $request)
+    {
+        $this->guard($request);
+        $user = $request->user();
+        $isAdmin = $user->role === 'admin';
+        $status = in_array($request->query('status'), ['pending', 'approved', 'disabled'], true)
+            ? $request->query('status') : null;
+
+        $query = AuthorityContact::with(['area.parent.parent.parent', 'addedBy'])->orderByDesc('id');
+        if (! $isAdmin) {
+            $query->where('added_by', $user->id);
+        }
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        return view('admin.contacts.index', array_merge([
+            'contacts' => $query->paginate(30)->withQueryString(),
+            'status' => $status,
+            'isAdmin' => $isAdmin,
+            'pendingCount' => $isAdmin ? AuthorityContact::where('status', 'pending')->count() : 0,
+        ], $this->areaFormData()));
+    }
+
+    public function store(Request $request)
+    {
+        $this->guard($request);
+        $user = $request->user();
+        $data = $this->contactData($request);
+        ModerationScope::authorizeArea($user, $data['admin_area_id']);
+
+        $isAdmin = $user->role === 'admin';
+        $contact = AuthorityContact::create($data + [
             'status' => $isAdmin ? 'approved' : 'pending',
             'added_by' => $user->id,
             'approved_by' => $isAdmin ? $user->id : null,
             'approved_at' => $isAdmin ? now() : null,
         ]);
-        $this->audit->log($user, 'authority_contact.add', 'authority_contact', (string) $c->id, [
-            'area_id' => $c->admin_area_id,
-            'status' => $c->status,
+        $this->audit->log($user, 'authority_contact.add', 'authority_contact', (string) $contact->id, [
+            'area_id' => $contact->admin_area_id,
+            'status' => $contact->status,
         ]);
 
         return redirect()->route('admin.contacts.index')
             ->with('status', __($isAdmin ? 'authcontact.added_ok' : 'authcontact.added_pending'));
     }
 
-    private function setStatus(Request $request, AuthorityContact $contact, string $to, string $action, string $msg)
+    public function edit(Request $request, AuthorityContact $contact)
+    {
+        $this->manage($request, $contact);
+
+        return view('admin.contacts.edit', array_merge([
+            'contact' => $contact,
+        ], $this->areaFormData($contact)));
+    }
+
+    public function update(Request $request, AuthorityContact $contact)
+    {
+        $this->manage($request, $contact);
+        $user = $request->user();
+        $data = $this->contactData($request);
+        ModerationScope::authorizeArea($user, $data['admin_area_id']);
+
+        $before = ['area_id' => $contact->admin_area_id, 'status' => $contact->status];
+        if ($user->role !== 'admin' && $contact->status === 'approved') {
+            // A moderator's material change is reviewed again before it can receive notifications.
+            $data['status'] = 'pending';
+            $data['approved_by'] = null;
+            $data['approved_at'] = null;
+        }
+        $contact->forceFill($data)->save();
+
+        $this->audit->log($user, 'authority_contact.update', 'authority_contact', (string) $contact->id, [
+            'before' => $before,
+            'area_id' => $contact->admin_area_id,
+            'status' => $contact->status,
+        ]);
+
+        return redirect()->route('admin.contacts.index')->with('status', __('authcontact.updated_msg'));
+    }
+
+    /** Soft deletion preserves linked notification history and prevents foreign-key failures. */
+    public function destroy(Request $request, AuthorityContact $contact)
+    {
+        $this->manage($request, $contact);
+        $user = $request->user();
+        $details = ['area_id' => $contact->admin_area_id, 'status' => $contact->status];
+        $contact->delete();
+        $this->audit->log($user, 'authority_contact.delete', 'authority_contact', (string) $contact->id, $details);
+
+        return redirect()->route('admin.contacts.index')->with('status', __('authcontact.deleted_msg'));
+    }
+
+    private function setStatus(Request $request, AuthorityContact $contact, string $to, string $action, string $message)
     {
         $this->adminOnly($request);
         if ($contact->status !== $to) {
@@ -115,7 +200,7 @@ class AuthorityContactController extends Controller
             ]);
         }
 
-        return back()->with('status', __($msg));
+        return back()->with('status', __($message));
     }
 
     public function approve(Request $request, AuthorityContact $contact)
@@ -133,23 +218,24 @@ class AuthorityContactController extends Controller
         return $this->setStatus($request, $contact, 'approved', 'authority_contact.enable', 'authcontact.enabled_msg');
     }
 
+    /** Kept for integrations using the original text-search picker. */
     public function areaSearch(Request $request)
     {
         $this->guard($request);
-        $q = trim((string) $request->query('q'));
-        if (mb_strlen($q) < 2) {
+        $query = trim((string) $request->query('q'));
+        if (mb_strlen($query) < 2) {
             return response()->json([]);
         }
-        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $query) . '%';
         $rows = AdminArea::with('parent.parent.parent')
-            ->where(function ($w) use ($like) {
-                $w->where('name_bn', 'like', $like)->orWhere('name_en', 'like', $like);
+            ->where(function ($where) use ($like) {
+                $where->where('name_bn', 'like', $like)->orWhere('name_en', 'like', $like);
             })
             ->orderBy('level')->orderBy('name_bn')->limit(20)->get();
 
-        return response()->json($rows->map(fn ($a) => [
-            'id' => $a->id,
-            'label' => AuthorityContact::pathOf($a),
+        return response()->json($rows->map(fn ($area) => [
+            'id' => $area->id,
+            'label' => AuthorityContact::pathOf($area),
         ])->values());
     }
 
@@ -159,12 +245,12 @@ class AuthorityContactController extends Controller
         $id = AdminArea::where('level', 'division')->value('id') ?? 1;
 
         return response()->streamDownload(function () use ($id) {
-            $o = fopen('php://output', 'w');
-            fwrite($o, "\xEF\xBB\xBF");
-            fputcsv($o, ['area_id', 'name', 'position', 'phone', 'email', 'whatsapp'], ',', '"', '');
-            fputcsv($o, [$id, '[Demo] Divisional Commissioner', 'Commissioner', '01700000001', 'demo1@example.com', '01700000001'], ',', '"', '');
-            fputcsv($o, [$id, '[Demo] Deputy Commissioner', 'DC', '01700000002', 'demo2@example.com', ''], ',', '"', '');
-            fclose($o);
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['area_id', 'name', 'position', 'phone', 'email', 'whatsapp'], ',', '"', '');
+            fputcsv($output, [$id, '[Demo] Divisional Commissioner', 'Commissioner', '01700000001', 'demo1@example.com', '01700000001'], ',', '"', '');
+            fputcsv($output, [$id, '[Demo] Deputy Commissioner', 'DC', '01700000002', 'demo2@example.com', ''], ',', '"', '');
+            fclose($output);
         }, 'authority-contacts-demo.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
@@ -173,15 +259,15 @@ class AuthorityContactController extends Controller
         $this->adminOnly($request);
 
         return response()->streamDownload(function () {
-            $o = fopen('php://output', 'w');
-            fwrite($o, "\xEF\xBB\xBF");
-            fputcsv($o, ['area_id', 'level', 'area_name'], ',', '"', '');
-            AdminArea::with('parent.parent.parent')->chunkById(500, function ($rows) use ($o) {
-                foreach ($rows as $a) {
-                    fputcsv($o, [$a->id, $a->level, AuthorityContact::pathOf($a)], ',', '"', '');
+            $output = fopen('php://output', 'w');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ['area_id', 'level', 'area_name'], ',', '"', '');
+            AdminArea::with('parent.parent.parent')->chunkById(500, function ($rows) use ($output) {
+                foreach ($rows as $area) {
+                    fputcsv($output, [$area->id, $area->level, AuthorityContact::pathOf($area)], ',', '"', '');
                 }
             });
-            fclose($o);
+            fclose($output);
         }, 'area-ids.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
@@ -191,20 +277,20 @@ class AuthorityContactController extends Controller
         $request->validate(['file' => ['required', 'file', 'max:1024', 'mimes:csv,txt']]);
         $user = $request->user();
 
-        $h = fopen($request->file('file')->getRealPath(), 'r');
+        $handle = fopen($request->file('file')->getRealPath(), 'r');
         $header = null;
         $row = 0;
         $ok = 0;
         $skip = 0;
         $errors = [];
 
-        while (($cols = fgetcsv($h, 0, ',', '"', '')) !== false) {
+        while (($cols = fgetcsv($handle, 0, ',', '"', '')) !== false) {
             $row++;
             if ($row === 1) {
                 $cols[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) ($cols[0] ?? ''));
-                $header = array_map(fn ($c) => strtolower(trim((string) $c)), $cols);
+                $header = array_map(fn ($column) => strtolower(trim((string) $column)), $cols);
                 if (! in_array('area_id', $header, true) || ! in_array('name', $header, true)) {
-                    fclose($h);
+                    fclose($handle);
 
                     return back()->with('import_errors', [__('authcontact.bad_header')]);
                 }
@@ -214,7 +300,7 @@ class AuthorityContactController extends Controller
                 $errors[] = __('authcontact.too_many');
                 break;
             }
-            if (! array_filter($cols, fn ($c) => trim((string) $c) !== '')) {
+            if (! array_filter($cols, fn ($column) => trim((string) $column) !== '')) {
                 continue;
             }
             if (! mb_check_encoding(implode('', array_map('strval', $cols)), 'UTF-8')) {
@@ -225,18 +311,18 @@ class AuthorityContactController extends Controller
                 continue;
             }
 
-            $rec = [];
-            foreach ($header as $i => $k) {
-                $rec[$k] = trim((string) ($cols[$i] ?? ''));
+            $record = [];
+            foreach ($header as $i => $key) {
+                $record[$key] = trim((string) ($cols[$i] ?? ''));
             }
-            $phone = $this->clean($rec['phone'] ?? null);
-            $whatsapp = $this->clean($rec['whatsapp'] ?? null);
-            $email = ($rec['email'] ?? '') !== '' ? $rec['email'] : null;
+            $phone = $this->clean($record['phone'] ?? null);
+            $whatsapp = $this->clean($record['whatsapp'] ?? null);
+            $email = ($record['email'] ?? '') !== '' ? $record['email'] : null;
 
-            $v = Validator::make([
-                'area_id' => $rec['area_id'] ?? '',
-                'name' => $rec['name'] ?? '',
-                'position' => $rec['position'] ?? '',
+            $validator = Validator::make([
+                'area_id' => $record['area_id'] ?? '',
+                'name' => $record['name'] ?? '',
+                'position' => $record['position'] ?? '',
                 'email' => $email,
             ], [
                 'area_id' => ['required', 'integer', 'exists:admin_areas,id'],
@@ -244,36 +330,36 @@ class AuthorityContactController extends Controller
                 'position' => ['nullable', 'max:150'],
                 'email' => ['nullable', 'email', 'max:150'],
             ]);
-            if ($v->fails() || (! $phone && ! $whatsapp && ! $email)) {
+            if ($validator->fails() || (! $phone && ! $whatsapp && ! $email)) {
                 $skip++;
                 if (count($errors) < 10) {
-                    $errors[] = "#$row: " . ($v->fails() ? $v->errors()->first() : __('authcontact.need_one'));
+                    $errors[] = "#$row: " . ($validator->fails() ? $validator->errors()->first() : __('authcontact.need_one'));
                 }
                 continue;
             }
 
-            $areaId = (int) $rec['area_id'];
-            $dup = AuthorityContact::where('admin_area_id', $areaId)
-                ->where(function ($q) use ($phone, $email, $whatsapp) {
+            $areaId = (int) $record['area_id'];
+            $duplicate = AuthorityContact::where('admin_area_id', $areaId)
+                ->where(function ($query) use ($phone, $email, $whatsapp) {
                     if ($phone) {
-                        $q->orWhere('phone', $phone);
+                        $query->orWhere('phone', $phone);
                     }
                     if ($email) {
-                        $q->orWhere('email', $email);
+                        $query->orWhere('email', $email);
                     }
                     if ($whatsapp) {
-                        $q->orWhere('whatsapp', $whatsapp);
+                        $query->orWhere('whatsapp', $whatsapp);
                     }
                 })->exists();
-            if ($dup) {
+            if ($duplicate) {
                 $skip++;
                 continue;
             }
 
             AuthorityContact::create([
                 'admin_area_id' => $areaId,
-                'name' => $rec['name'],
-                'position' => ($rec['position'] ?? '') !== '' ? $rec['position'] : null,
+                'name' => $record['name'],
+                'position' => ($record['position'] ?? '') !== '' ? $record['position'] : null,
                 'phone' => $phone,
                 'email' => $email,
                 'whatsapp' => $whatsapp,
@@ -284,7 +370,7 @@ class AuthorityContactController extends Controller
             ]);
             $ok++;
         }
-        fclose($h);
+        fclose($handle);
 
         $this->audit->log($user, 'authority_contact.import', 'authority_contact', 'bulk', [
             'imported' => $ok,

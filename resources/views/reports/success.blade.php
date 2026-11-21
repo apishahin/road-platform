@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
 @section('title', __('report.success_title'))
+{{-- Keep the report wizard's confirmation screen equally focused. --}}
+@section('hide_footer', '1')
 
 @section('content')
 <div class="mx-auto max-w-md px-4 py-12 text-center">

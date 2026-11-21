@@ -6,7 +6,7 @@
 <div class="mx-auto max-w-3xl px-4 py-8">
     <h1 class="text-2xl font-bold text-slate-900">{{ __('notify.title') }}</h1>
     <p class="mt-1 text-sm text-slate-600">{{ __('notify.issue') }}: <strong>{{ $issue->title }}</strong>
-        <a href="{{ route('issues.show', $issue->public_id) }}" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px;text-decoration:underline;">#{{ $issue->id }}</a>
+        <a href="{{ \App\Support\IssuePresenter::url($issue) }}" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px;text-decoration:underline;">#{{ $issue->id }}</a>
     </p>
     <p style="margin-top:4px;"><a href="{{ route('admin.issues.index') }}" style="font-size:13px;text-decoration:underline;">{{ __('notify.back') }}</a></p>
 

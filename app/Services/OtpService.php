@@ -67,6 +67,18 @@ class OtpService
         return ($smsOk === false && \App\Support\LoginSettings::provider() === 'gateway') ? 'failed' : 'sent';
     }
 
+    /** Seconds until the next permitted login OTP request for this phone/IP pair. */
+    public function waitSeconds(string $phone, string $ip): int
+    {
+        $keys = [
+            'otp-cool:' . sha1($phone),
+            'otp-phone:' . sha1($phone),
+            'otp-ip:' . sha1($ip),
+        ];
+
+        return max(0, ...array_map(fn (string $key) => RateLimiter::availableIn($key), $keys));
+    }
+
     /** @return 'ok'|'invalid'|'locked' */
     public function verify(string $phone, string $code): string
     {

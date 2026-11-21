@@ -196,6 +196,7 @@
         }
         $__socBg = ['facebook' => '#1765c1', 'youtube' => '#e32222', 'x' => '#0f1419', 'website' => '#347edb'];
     @endphp
+    @if (trim($__env->yieldContent('hide_footer')) !== '1')
     @include('partials.ad-slot', ['slot' => 'above_footer'])
     <footer class="{{ $__fCls }}" @if ($__dark) data-footer-dark @endif>
         <div style="max-width:1320px;margin-inline:auto;padding-inline:16px;">
@@ -255,6 +256,7 @@
     .rp-foot-light .footer-note{color:#53645b;}
     .rp-foot-light .footer-bottom{border-top-color:#e0eae4;color:#819087;}
     </style>
+    @endif
 
     @stack('scripts')
 @include('partials.pwa-install')

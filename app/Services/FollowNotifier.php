@@ -20,7 +20,7 @@ class FollowNotifier
                 return;
             }
 
-            $url = url('/issues/' . $issue->public_id);
+            $url = \App\Support\IssuePresenter::url($issue);
             $now = now();
             $rows = [];
             foreach ($userIds as $uid) {

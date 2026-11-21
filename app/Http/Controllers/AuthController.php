@@ -84,9 +84,18 @@ class AuthController extends Controller
         }
 
         if ($result === 'wait') {
-            $request->session()->put('otp_phone', $phone);
+            // The OTP service owns the rate limit so repeated requests get a useful
+            // screen and countdown instead of Laravel's generic 429 response.
+            $seconds = max(1, $this->otp->waitSeconds($phone, (string) $request->ip()));
+            $request->session()->put([
+                'otp_phone' => $phone,
+                self::OTP_RESEND_AT => now()->addSeconds($seconds)->timestamp,
+            ]);
 
-            return redirect()->route('login.verify')->withErrors(['code' => __('login.wait')]);
+            return redirect()->route('login.verify')->with(
+                'otp_resend_notice',
+                __('login.resend_wait_notice', ['seconds' => \App\Support\IssuePresenter::num($seconds)])
+            );
         }
 
         $request->session()->put([
