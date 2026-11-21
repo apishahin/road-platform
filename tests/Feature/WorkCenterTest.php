@@ -112,6 +112,12 @@ class WorkCenterTest extends TestCase
             ->assertSee('data-work-area="upazila"', false)
             ->assertSee('data-work-area="union"', false);
 
+        // Lifecycle timestamps are hydrated as dates, so the Issue Management
+        // tab can safely format the publication time for existing DB records.
+        $this->actingAs($admin)->get(route('admin.work-center', ['tab' => 'issues']))
+            ->assertOk()
+            ->assertSee('Gazipur bridge repair');
+
         $this->actingAs($admin)->withHeaders(['Accept' => 'application/json', 'X-Work-Center' => '1'])
             ->get(route('admin.work-center', [
                 'tab' => 'all',

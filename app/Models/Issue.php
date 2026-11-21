@@ -39,6 +39,9 @@ class Issue extends Model
             'reports_count'     => 'integer',
             'first_reported_at' => 'datetime',
             'last_activity_at'  => 'datetime',
+            // Work Center and administration display these lifecycle moments.
+            'published_at'      => 'datetime',
+            'unpublished_at'    => 'datetime',
         ];
     }
 
