@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AdminArea;
+use App\Models\ModeratorArea;
 use App\Models\User;
 use App\Support\AppearanceSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +46,34 @@ class NavAndHomeTest extends TestCase
             ->assertSee(route('admin.contacts.index'), false)
             ->assertDontSee(route('admin.users.index'), false)
             ->assertDontSee(route('admin.smsgateways.index'), false);
+    }
+
+    public function test_mobile_staff_menu_has_grouped_touch_controls(): void
+    {
+        $response = $this->as('admin')->get('/')->assertOk()
+            ->assertSee('id="mobile-site-menu"', false)
+            ->assertSee('class="rp-mobile-staff"', false)
+            ->assertSee('class="rp-mobile-staff-heading"', false)
+            ->assertSee('class="rp-mobile-staff-group"', false)
+            ->assertSee('class="rp-mobile-staff-link', false)
+            ->assertSee('class="rp-mobile-account"', false);
+
+        $response->assertSee('<details', false)
+            ->assertSee(route('admin.storage.index'), false)
+            ->assertSee(route('admin.moderation.index'), false);
+    }
+
+    public function test_assigned_volunteer_gets_the_mobile_review_controls(): void
+    {
+        $volunteer = User::create(['phone' => '+8801900000093', 'display_name' => 'Volunteer', 'role' => 'volunteer']);
+        $area = AdminArea::unguarded(fn () => AdminArea::create(['level' => 'division', 'name_bn' => 'ঢাকা']));
+        ModeratorArea::create(['user_id' => $volunteer->id, 'admin_area_id' => $area->id]);
+
+        $this->actingAs($volunteer)->get('/')->assertOk()
+            ->assertSee('class="rp-mobile-staff"', false)
+            ->assertSee(route('admin.moderation.index'), false)
+            ->assertSee(route('verify.queue'), false)
+            ->assertDontSee(route('admin.users.index'), false);
     }
 
     public function test_citizen_sees_apply_link_but_no_admin_links(): void

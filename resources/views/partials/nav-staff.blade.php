@@ -120,31 +120,56 @@
     </a>
     @endif
 @else
-    @foreach ($groups as $g)
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-            <p class="px-1.5 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $g['label'] }}</p>
-            <div class="flex flex-col gap-0.5">
-                @foreach ($g['items'] as [$url, $label, $badge, $icon])
-                    <a href="{{ $url }}" class="flex items-center gap-2.5 rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">
-                        <span class="grid size-7 shrink-0 place-items-center rounded-md bg-slate-100 text-slate-500">{!! $icons[$icon] !!}</span>
-                        <span class="flex-1">{{ $label }}</span>
-                        @if ($badge > 0)<span style="{{ $pill }}">{{ $badge }}</span>@endif
-                    </a>
-                @endforeach
+    @if ($groups)
+        <section class="rp-mobile-staff" aria-label="{{ __('issues.nav_admin') }}">
+            <div class="rp-mobile-staff-heading">
+                <span class="rp-mobile-staff-emblem" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 2.5v5c0 4.6-3 8-7 10.5C8 18.5 5 15.1 5 10.5v-5L12 3Z"/><path stroke-linecap="round" d="M9 12h6M12 9v6"/></svg>
+                </span>
+                <span>
+                    <small>{{ __('issues.nav_admin') }}</small>
+                    <strong>{{ __('adminusers.role_' . $u->role) }}</strong>
+                </span>
             </div>
-        </div>
-    @endforeach
+
+            @foreach ($groups as $g)
+                <details class="rp-mobile-staff-group" @if ($loop->first) open @endif>
+                    <summary>
+                        <span>{{ $g['label'] }}</span>
+                        <svg class="rp-mobile-summary-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m7 10 5 5 5-5"/></svg>
+                    </summary>
+                    <div class="rp-mobile-staff-links">
+                        @foreach ($g['items'] as [$url, $label, $badge, $icon])
+                            @php($isCurrent = rtrim(url()->current(), '/') === rtrim($url, '/'))
+                            <a href="{{ $url }}" class="rp-mobile-staff-link {{ $isCurrent ? 'is-current' : '' }}" @if ($isCurrent) aria-current="page" @endif>
+                                <span class="rp-mobile-staff-icon">{!! $icons[$icon] !!}</span>
+                                <span class="rp-mobile-staff-label">{{ $label }}</span>
+                                @if ($badge > 0)<span class="rp-mobile-staff-badge">{{ $badge }}</span>@endif
+                                <svg class="rp-mobile-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
+                            </a>
+                        @endforeach
+                    </div>
+                </details>
+            @endforeach
+        </section>
+    @endif
     @if ($canApply)
-        <a href="{{ route('volunteer.apply') }}" class="text-sm font-medium text-slate-700">{{ __('volapp.menu_apply') }}</a>
+        <a href="{{ route('volunteer.apply') }}" class="rp-mobile-quick-link">
+            <span class="rp-mobile-quick-icon">{!! $icons['volunteer'] !!}</span>
+            <span>{{ __('volapp.menu_apply') }}</span>
+            <svg class="rp-mobile-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
+        </a>
     @endif
     @if (\App\Support\SiteSections::navOn('fund'))
-        <a href="{{ route('fund.show') }}" class="flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-sm font-bold text-emerald-700">
-            {!! $icons['fund'] !!} {{ __('issues.site_nav_fund') }}
+        <a href="{{ route('fund.show') }}" class="rp-mobile-quick-link rp-mobile-fund-link">
+            <span class="rp-mobile-quick-icon">{!! $icons['fund'] !!}</span>
+            <span>{{ __('issues.site_nav_fund') }}</span>
+            <svg class="rp-mobile-link-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
         </a>
     @endif
     @if (\App\Support\SiteSections::navOn('report'))
-    <a href="{{ url('/report') }}" class="flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-bold text-white shadow-sm">
-        {!! $icons['report'] !!}{{ __('Report a problem') }}
-    </a>
+        <a href="{{ url('/report') }}" class="rp-mobile-report-link">
+            {!! $icons['report'] !!}<span>{{ __('Report a problem') }}</span>
+        </a>
     @endif
 @endif

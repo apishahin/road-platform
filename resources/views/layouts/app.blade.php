@@ -82,46 +82,91 @@
                 @endauth
                 @include('partials.nav-staff', ['mobile' => false])
                 @include('partials.nav-user')
-                <button type="button" class="rp-pill icon-btn hamburger" @click="open = !open" aria-label="Menu">
-                    <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+                <button type="button" class="rp-pill icon-btn hamburger" @click="open = !open" :aria-expanded="open.toString()" aria-controls="mobile-site-menu" aria-label="Menu">
+                    <svg x-show="!open" style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+                    <svg x-show="open" x-cloak style="width:20px;height:20px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18"/></svg>
                 </button>
             </div>
         </div>
 
-        {{-- Mobile menu --}}
-        <div x-show="open" x-cloak x-transition class="rp-mobilemenu">
-            <div style="max-width:1320px;margin-inline:auto;">
-                @if (\App\Support\SiteSections::navOn('home'))
-                    <a href="{{ route('home') }}">{{ __('Home') }}</a>
-                @endif
-                @if (\App\Support\SiteSections::navOn('issues'))
-                    <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
-                @endif
-                @if (\App\Support\SiteSections::navOn('dashboard'))
-                    <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
-                @endif
-                @foreach (\App\Models\Page::menuItems() as $menuPage)
-                    <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
-                @endforeach
+        {{-- Mobile menu: fixed-height drawer with its own scroll area, so staff controls remain reachable on short screens. --}}
+        <div x-show="open" x-cloak x-transition.opacity class="rp-mobile-backdrop" aria-hidden="true" @click="open = false"></div>
+        <div id="mobile-site-menu" x-show="open" x-cloak
+             x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-1"
+             class="rp-mobilemenu" @click.outside="open = false" @keydown.escape.window="open = false">
+            <div class="rp-mobile-inner" @click="if ($event.target.closest('a')) open = false">
+                <nav class="rp-mobile-primary" aria-label="{{ __('Main menu') }}">
+                    @if (\App\Support\SiteSections::navOn('home'))
+                        <a href="{{ route('home') }}">{{ __('Home') }}</a>
+                    @endif
+                    @if (\App\Support\SiteSections::navOn('issues'))
+                        <a href="{{ route('issues.index') }}">{{ __('Issues') }}</a>
+                    @endif
+                    @if (\App\Support\SiteSections::navOn('dashboard'))
+                        <a href="{{ route('dashboard') }}">{{ __('issues.nav_dashboard') }}</a>
+                    @endif
+                    @foreach (\App\Models\Page::menuItems() as $menuPage)
+                        <a href="{{ route('page.show', $menuPage->slug) }}">{{ $menuPage->title() }}</a>
+                    @endforeach
+                </nav>
                 @if (\App\Support\SiteSections::navOn('lang'))
-                    <a href="{{ route('lang', app()->getLocale() === 'bn' ? 'en' : 'bn') }}">◎ {{ app()->getLocale() === 'bn' ? 'English' : 'বাংলা' }}</a>
+                    <a href="{{ route('lang', app()->getLocale() === 'bn' ? 'en' : 'bn') }}" class="rp-mobile-utility">
+                        <span>◎ {{ app()->getLocale() === 'bn' ? 'English' : 'বাংলা' }}</span><span aria-hidden="true">›</span>
+                    </a>
                 @endif
                 @guest
-                    <a href="{{ route('login') }}">{{ __('Login') }}</a>
+                    <a href="{{ route('login') }}" class="rp-mobile-login">{{ __('Login') }}</a>
                 @endguest
                 @auth
-                    <a href="{{ route('notifications.index') }}">{{ __('issues.notif_title') }}</a>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                        <a href="{{ route('account.password') }}" class="block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctpw.title') }}</a>
-                        <a href="{{ route('account.phone') }}" class="mt-1.5 block rounded-lg bg-white px-2.5 py-2 text-sm font-medium text-slate-700 shadow-sm">{{ __('acctphone.nav_phone') }}</a>
-                        <a href="{{ route('account.delete') }}" class="mt-1.5 block rounded-lg bg-rose-50 px-2.5 py-2 text-sm font-bold text-rose-600">{{ __('acctphone.del_link') }}</a>
-                        <form method="POST" action="{{ route('logout') }}" class="mt-1.5">
+                    @php
+                        $__mobileUser = auth()->user();
+                        $__mobileName = trim((string) ($__mobileUser->display_name ?? ''));
+                        $__mobileLabel = $__mobileName !== '' ? $__mobileName : 'User #' . $__mobileUser->id;
+                        $__mobileInitial = mb_strtoupper(mb_substr($__mobileLabel, 0, 1));
+                        $__mobileUnread = \App\Models\UserNotification::unreadCount($__mobileUser->id);
+                    @endphp
+                    {{-- Put a staff member's operational actions before personal settings on a small screen. --}}
+                    @include('partials.nav-staff', ['mobile' => true])
+                    <section class="rp-mobile-account" aria-label="{{ __('issues.nav_my_account') }}">
+                        <div class="rp-mobile-account-head">
+                            <span class="rp-mobile-avatar" aria-hidden="true">{{ $__mobileInitial }}</span>
+                            <span class="rp-mobile-account-name">
+                                <strong>{{ $__mobileLabel }}</strong>
+                                <small>{{ __('adminusers.role_' . $__mobileUser->role) }}</small>
+                            </span>
+                        </div>
+                        <div class="rp-mobile-account-links">
+                            <a href="{{ route('notifications.index') }}" class="rp-mobile-account-link">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.5 18a2.5 2.5 0 0 1-5 0m9.2-2.6H5.3a1.2 1.2 0 0 1-1-1.9l1.4-1.8V8.4a6.3 6.3 0 0 1 12.6 0v3.1l1.4 1.8a1.2 1.2 0 0 1-1 1.9Z"/></svg>
+                                <span>{{ __('issues.notif_title') }}</span>
+                                @if ($__mobileUnread > 0)<span class="rp-mobile-account-count">{{ $__mobileUnread > 99 ? '99+' : \App\Support\IssuePresenter::num($__mobileUnread) }}</span>@endif
+                            </a>
+                            <a href="{{ route('account.password') }}" class="rp-mobile-account-link">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4.2"/><path stroke-linecap="round" stroke-linejoin="round" d="m11 12 8-8M16 7l2.5 2.5M13.5 9.5 16 12"/></svg>
+                                <span>{{ __('acctpw.title') }}</span>
+                            </a>
+                            <a href="{{ route('account.phone') }}" class="rp-mobile-account-link">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path stroke-linecap="round" d="M10.5 18.5h3"/></svg>
+                                <span>{{ __('acctphone.nav_phone') }}</span>
+                            </a>
+                            <a href="{{ route('account.delete') }}" class="rp-mobile-account-link is-danger">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M4.5 6.5h15M9.5 6V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3V6m3.2.5-.7 13A1.6 1.6 0 0 1 15.4 21H8.6a1.6 1.6 0 0 1-1.6-1.5l-.7-13"/></svg>
+                                <span>{{ __('acctphone.del_link') }}</span>
+                            </a>
+                        </div>
+                        <form method="POST" action="{{ route('logout') }}" class="rp-mobile-account-logout">
                             @csrf
-                            <button type="submit" class="block w-full rounded-lg bg-rose-50 px-2.5 py-2 text-left text-sm font-bold text-rose-600">{{ __('login.logout') }}</button>
+                            <button type="submit">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M12 3.5v7M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+                                <span>{{ __('login.logout') }}</span>
+                            </button>
                         </form>
-                    </div>
+                    </section>
                 @endauth
-                @include('partials.nav-staff', ['mobile' => true])
+                @guest
+                    @include('partials.nav-staff', ['mobile' => true])
+                @endguest
             </div>
         </div>
     </header>
