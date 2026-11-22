@@ -467,9 +467,8 @@ Alpine.data('areaPicker', (areas, locale, seed = {}) => ({
     ensureLeaflet(function () {
       var el = mb.querySelector('[data-m]');
       if (!map) {
-        map = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
+        map = L.map(el);
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-        window.RoadPlatformMap.restrictMapToBangladesh(map, L);
         marker = L.marker([lat, lng]).addTo(map);
       } else {
         marker.setLatLng([lat, lng]);

@@ -33,15 +33,12 @@ function reportWizard() {
         divisions: @json($areaDivs), districts: [], upazilas: [], unions: [],
         areaUrl: @json(url('/areas')), areaTouched: false, areaAuto: false, areaTimer: null, areaSeq: 0,
         nearby: [], loading: false, dupError: false, map: null, marker: null,
-        outsideBangladesh: @json(__('report.outside_bangladesh')),
 
         init() {
         this.watchPoint();
             this.$nextTick(() => {
-                const mapTools = window.RoadPlatformMap;
-                this.map = L.map('report-map', mapTools.bangladeshMapOptions(L)).setView(@json($center), @json($zoom));
+                this.map = L.map('report-map').setView(@json($center), @json($zoom));
                 L.tileLayer(@json($tileUrl), { maxZoom: 19, attribution: @json($attribution) }).addTo(this.map);
-                mapTools.restrictMapToBangladesh(this.map, L);
                 this.map.on('click', (e) => this.setPoint(e.latlng.lat, e.latlng.lng));
             });
             this.$watch('step', (v) => {
@@ -50,10 +47,6 @@ function reportWizard() {
         },
 
         setPoint(lat, lng) {
-            if (!window.RoadPlatformMap.isInBangladesh(lat, lng)) {
-                alert(this.outsideBangladesh);
-                return;
-            }
             this.lat = lat.toFixed(7);
             this.lng = lng.toFixed(7);
             if (this.marker) {
@@ -63,11 +56,6 @@ function reportWizard() {
             this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
             this.marker.on('dragend', (e) => {
                 const p = e.target.getLatLng();
-                if (!window.RoadPlatformMap.isInBangladesh(p.lat, p.lng)) {
-                    e.target.setLatLng([this.lat, this.lng]);
-                    alert(this.outsideBangladesh);
-                    return;
-                }
                 this.lat = p.lat.toFixed(7);
                 this.lng = p.lng.toFixed(7);
             });
@@ -76,13 +64,8 @@ function reportWizard() {
         useMyLocation() {
             if (!navigator.geolocation) return;
             navigator.geolocation.getCurrentPosition((pos) => {
-                const { latitude: lat, longitude: lng } = pos.coords;
-                if (!window.RoadPlatformMap.isInBangladesh(lat, lng)) {
-                    alert(this.outsideBangladesh);
-                    return;
-                }
-                this.map.setView([lat, lng], 17);
-                this.setPoint(lat, lng);
+                this.map.setView([pos.coords.latitude, pos.coords.longitude], 17);
+                this.setPoint(pos.coords.latitude, pos.coords.longitude);
             });
         },
 

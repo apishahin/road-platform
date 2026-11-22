@@ -67,6 +67,14 @@ class IssueController extends Controller
                 'position' => trim((string) ($n->contact->position ?? '')),
             ]);
 
+        // Small OpenStreetMap embed around the issue point
+        $lat = (float) $issue->lat;
+        $lng = (float) $issue->lng;
+        $pad = 0.004;
+        $mapEmbed = 'https://www.openstreetmap.org/export/embed.html?bbox='
+            . implode(',', [$lng - $pad, $lat - $pad, $lng + $pad, $lat + $pad])
+            . '&layer=mapnik&marker=' . $lat . ',' . $lng;
+
         $extra = $this->glance($issue);
 
         $__u = auth()->user();
@@ -85,6 +93,7 @@ class IssueController extends Controller
             'reports'      => $reports,
             'photos'       => $photos,
             'authorities'  => $authorities,
+            'mapEmbed'     => $mapEmbed,
             'reportsCount' => IssuePresenter::num($issue->reports_count),
             'firstAt'      => IssuePresenter::num($issue->first_reported_at?->format('d/m/Y') ?? '—'),
             'lastAt'       => IssuePresenter::num($issue->last_activity_at?->diffForHumans() ?? '—'),

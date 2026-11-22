@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Issue;
-use App\Support\BangladeshMap;
 use App\Support\IssuePresenter;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class IssueController extends Controller
 {
@@ -19,12 +17,6 @@ class IssueController extends Controller
             'lng'    => ['required', 'numeric', 'between:-180,180'],
             'radius' => ['nullable', 'integer', 'min:50', 'max:5000'],
         ]);
-
-        if (! BangladeshMap::contains((float) $v['lat'], (float) $v['lng'])) {
-            throw ValidationException::withMessages([
-                'lat' => __('report.outside_bangladesh'),
-            ]);
-        }
 
         $issues = Issue::query()
             ->active()

@@ -1,6 +1,5 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh } from './bangladesh-map';
 
 const cfg = window.roadPlatform;
 const t = cfg.i18n;
@@ -70,9 +69,9 @@ function card(issue) {
     return a;
 }
 
-// Map: tiles, labels and roads are visible only inside the Bangladesh outline.
-const map = L.map('home-map', bangladeshMapOptions(L, { zoomSnap: 0.25 })).setView(cfg.center, cfg.zoom);
-const homeView = restrictMapToBangladesh(map, L);
+// Map
+const map = L.map('home-map', { zoomSnap: 0.25 }).setView(cfg.center, cfg.zoom);
+const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
 // default view: the whole of Bangladesh, zoomed a notch tighter
 function countryView() {
     if (! homeView) { return; }
@@ -92,13 +91,8 @@ function inGroup(i) {
     return filter === 'all' || i.group === filter;
 }
 
-function visibleIssues() {
-    // Do not let an old/imported coordinate outside the country appear above the map mask.
-    return cfg.issues.filter((issue) => isInBangladesh(issue.lat, issue.lng)).filter(inGroup);
-}
-
 function drawMarkers() {
-    const items = visibleIssues();
+    const items = cfg.issues.filter(inGroup);
     markers.clearLayers();
     items.forEach((issue) => {
         L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
@@ -131,7 +125,7 @@ function render() {
             listEl.replaceChildren(...recentNodes);
             return;
         }
-        showList(visibleIssues().slice(0, 8));
+        showList(cfg.issues.filter(inGroup).slice(0, 8));
         return;
     }
     showList(nearby.filter(inGroup));
@@ -167,11 +161,6 @@ btn?.addEventListener('click', () => {
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const { latitude: lat, longitude: lng } = pos.coords;
-            if (!isInBangladesh(lat, lng)) {
-                statusEl.textContent = t.outsideBangladesh;
-                btn.disabled = false;
-                return;
-            }
 
             map.setView([lat, lng], 15);
             if (me) me.remove();

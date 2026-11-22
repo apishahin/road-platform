@@ -29,12 +29,6 @@
     <meta name="twitter:image" content="@yield('og_image', \App\Support\SiteSections::ogImage())">
 
 
-    <script>
-        window.roadPlatformMapConfig = {{ Js::from([
-            'bounds' => config('roadplatform.map.country_bounds'),
-            'boundary' => config('roadplatform.map.country_boundary'),
-        ]) }};
-    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @include('partials.appearance-head')
     @include('partials.rp-chrome')
