@@ -1,4 +1,10 @@
 import Alpine from 'alpinejs';
+import { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh } from './bangladesh-map';
+
+// Some focused map dialogs load Leaflet directly from a CDN, so make the shared
+// Bangladesh-only map behaviour available to both Vite and inline page scripts.
+window.RoadPlatformMap = { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh };
+window.dispatchEvent(new Event('road-platform-map-tools-ready'));
 
 window.Alpine = Alpine;
 Alpine.start();

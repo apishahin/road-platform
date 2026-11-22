@@ -27,6 +27,7 @@
             'denied'     => __('Location permission was denied. You can still browse the map.'),
             'noGeo'      => __('Your browser does not support location.'),
             'locFailed'  => __('Could not get your location.'),
+            'outsideBangladesh' => __('report.outside_bangladesh'),
             'loadFailed' => __('Could not load nearby issues.'),
             'notified'   => __('issues.notified_tag'),
         ],

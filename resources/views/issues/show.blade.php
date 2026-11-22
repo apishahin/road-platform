@@ -281,8 +281,7 @@
             <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <h2 class="px-4 pt-4 font-semibold text-slate-900">{{ __('issue.page.map') }}</h2>
                 <div class="relative mt-3">
-                <iframe src="{{ $mapEmbed }}" title="{{ $issue->title }}" loading="lazy"
-                        class="h-56 w-full border-0"></iframe>
+                <div id="issue-map" role="application" aria-label="{{ $issue->title }}" class="h-56 w-full bg-slate-100"></div>
                 <a data-map data-lat="{{ $issue->lat }}" data-lng="{{ $issue->lng }}"
                    href="https://www.openstreetmap.org/?mlat={{ $issue->lat }}&mlon={{ $issue->lng }}#map=17/{{ $issue->lat }}/{{ $issue->lng }}"
                    style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:8px;text-decoration:none;">
@@ -459,6 +458,7 @@
 (function () {
   var lb = null, items = [], idx = 0;
   var mb = null, map = null, marker = null;
+  var detailMap = null, detailMarker = null;
   function btn(attr, css, html) {
     return '<button type="button" ' + attr + ' style="' + css + '">' + html + '</button>';
   }
@@ -508,6 +508,25 @@
     }
     s.addEventListener('load', cb);
   }
+  function initIssueMap() {
+    var el = document.getElementById('issue-map');
+    if (!el || detailMap) { return; }
+    ensureLeaflet(function () {
+      if (!window.RoadPlatformMap) {
+        window.addEventListener('road-platform-map-tools-ready', initIssueMap, { once: true });
+        return;
+      }
+      if (detailMap) { return; }
+      var lat = @json((float) $issue->lat), lng = @json((float) $issue->lng);
+      detailMap = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(detailMap);
+      window.RoadPlatformMap.restrictMapToBangladesh(detailMap, L);
+      detailMarker = L.marker([lat, lng]).addTo(detailMap);
+      detailMap.setView([lat, lng], 17);
+      setTimeout(function () { detailMap.invalidateSize(); }, 60);
+    });
+  }
+  initIssueMap();
   function mapClose() { mb.style.display = 'none'; }
   function mapOpen(lat, lng, href, label) {
     if (!mb) {
@@ -529,8 +548,9 @@
     ensureLeaflet(function () {
       var el = mb.querySelector('[data-m]');
       if (!map) {
-        map = L.map(el);
+        map = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+        window.RoadPlatformMap.restrictMapToBangladesh(map, L);
         marker = L.marker([lat, lng]).addTo(map);
       } else {
         marker.setLatLng([lat, lng]);

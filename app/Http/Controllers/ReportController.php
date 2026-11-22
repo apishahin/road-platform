@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Services\ReportService;
+use App\Support\BangladeshMap;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class ReportController extends Controller
@@ -42,8 +44,8 @@ class ReportController extends Controller
         }
 
         $data = $request->validate([
-            'lat'         => ['required', 'numeric', 'between:20.5,26.7'],
-            'lng'         => ['required', 'numeric', 'between:88,92.8'],
+            'lat'         => ['required', 'numeric', 'between:20.65,26.47'],
+            'lng'         => ['required', 'numeric', 'between:88.05,92.70'],
             'issue_id'    => ['nullable', 'string', 'size:26'],
             'category_id' => ['required_without:issue_id', 'nullable', 'exists:categories,id'],
             'title'       => ['required_without:issue_id', 'nullable', 'string', 'max:150'],
@@ -54,6 +56,12 @@ class ReportController extends Controller
             'photos'      => ['nullable', 'array', 'max:3'],
             'photos.*'    => ['file', 'mimes:jpeg,png,webp', 'max:20480'],
         ]);
+
+        if (! BangladeshMap::contains((float) $data['lat'], (float) $data['lng'])) {
+            throw ValidationException::withMessages([
+                'lat' => __('report.outside_bangladesh'),
+            ]);
+        }
 
         try {
             $report = $this->reports->submit(

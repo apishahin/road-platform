@@ -20,6 +20,14 @@ class HomePageTest extends TestCase
         $this->get('/issues')->assertOk();
     }
 
+    public function test_map_pages_receive_the_bangladesh_boundary_configuration(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('roadPlatformMapConfig', false)
+            ->assertSee('92.672721', false);
+    }
+
     public function test_draft_page_is_404_for_guests(): void
     {
         Page::create(['slug' => 'draft-one', 'title_bn' => 'Draft', 'body_bn' => 'x', 'is_published' => false]);

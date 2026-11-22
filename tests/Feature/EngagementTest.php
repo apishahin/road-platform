@@ -48,7 +48,9 @@ class EngagementTest extends TestCase
             ->assertOk()
             ->assertSee('data-share-links', false)
             ->assertSee('facebook.com/sharer/sharer.php', false)
-            ->assertSee('wa.me/?text=', false);
+            ->assertSee('wa.me/?text=', false)
+            ->assertSee('id="issue-map"', false)
+            ->assertDontSee('openstreetmap.org/export/embed.html', false);
     }
 
     public function test_public_issue_url_uses_only_its_number_and_old_ulid_links_redirect(): void

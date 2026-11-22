@@ -63,6 +63,13 @@ class PublicApiTest extends TestCase
         $this->getJson('/api/v1/issues?category=nope')->assertJsonPath('meta.total', 0);
     }
 
+    public function test_nearby_lookup_rejects_a_location_outside_bangladesh(): void
+    {
+        $this->getJson('/api/v1/issues/nearby?lat=22.5726&lng=88.3639') // Kolkata
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('lat');
+    }
+
     public function test_turning_off_public_read_requires_key(): void
     {
         ApiKeySettings::savePublicRead(false);
