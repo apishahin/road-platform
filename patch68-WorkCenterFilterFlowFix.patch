@@ -1,0 +1,41 @@
+From 08d75ba3c94017939c0863d97ff6bf88b4b626ad Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 17:22:20 +0000
+Subject: [PATCH] Keep Work Center filters from covering queue cards
+
+---
+ resources/views/admin/work-center/index.blade.php | 3 ++-
+ tests/Feature/WorkCenterTest.php                  | 3 +++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/resources/views/admin/work-center/index.blade.php b/resources/views/admin/work-center/index.blade.php
+index 98f7080..6449085 100644
+--- a/resources/views/admin/work-center/index.blade.php
++++ b/resources/views/admin/work-center/index.blade.php
+@@ -30,7 +30,8 @@
+         </div>
+     </div>
+ 
+-    <form method="GET" action="{{ route('admin.work-center') }}" class="sticky top-2 z-20 mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-work-filter
++    {{-- Keep this in normal document flow: a tall sticky filter was covering the first queue cards below the site header. --}}
++    <form method="GET" action="{{ route('admin.work-center') }}" class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-work-filter
+           data-children-url="{{ url('/admin/areas') }}">
+         <input type="hidden" name="tab" value="{{ $tab }}" data-work-tab-input>
+         <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
+diff --git a/tests/Feature/WorkCenterTest.php b/tests/Feature/WorkCenterTest.php
+index 30624ee..85b684e 100644
+--- a/tests/Feature/WorkCenterTest.php
++++ b/tests/Feature/WorkCenterTest.php
+@@ -107,6 +107,9 @@ public function test_admin_sees_one_unified_location_filterable_work_center_and_
+             ->assertSee(__('workcenter.tab_photos'))
+             ->assertSee(__('workcenter.tab_issues'))
+             ->assertSee('Gazipur bridge repair')
++            ->assertSee('data-work-filter', false)
++            // The location controls must not stick over the queue cards below the global header.
++            ->assertDontSee('sticky top-2 z-20', false)
+             ->assertSee('data-work-area="division"', false)
+             ->assertSee('data-work-area="district"', false)
+             ->assertSee('data-work-area="upazila"', false)
+-- 
+2.47.3
+

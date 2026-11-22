@@ -1,0 +1,871 @@
+From c79d17701927bacfcfd02fb26b0b4fb63c45e855 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 18:53:22 +0000
+Subject: [PATCH] Add shareable PWA install landing page
+
+---
+ app/Http/Controllers/PwaInstallController.php |  20 +
+ app/Support/QrCodeSvg.php                     | 468 ++++++++++++++++++
+ lang/bn/pwa.php                               |  20 +
+ lang/en/pwa.php                               |  20 +
+ resources/views/install.blade.php             | 195 ++++++++
+ routes/web.php                                |   4 +
+ tests/Feature/PwaInstallLinkTest.php          |  52 ++
+ 7 files changed, 779 insertions(+)
+ create mode 100644 app/Support/QrCodeSvg.php
+ create mode 100644 resources/views/install.blade.php
+ create mode 100644 tests/Feature/PwaInstallLinkTest.php
+
+diff --git a/app/Http/Controllers/PwaInstallController.php b/app/Http/Controllers/PwaInstallController.php
+index 6b98da8..d60d78f 100644
+--- a/app/Http/Controllers/PwaInstallController.php
++++ b/app/Http/Controllers/PwaInstallController.php
+@@ -3,10 +3,30 @@
+ namespace App\Http\Controllers;
+ 
+ use App\Support\PwaSettings;
++use App\Support\QrCodeSvg;
+ use Illuminate\Http\Request;
+ 
+ class PwaInstallController extends Controller
+ {
++    /** Public landing page for a shareable PWA install link and QR code. */
++    public function show(Request $request)
++    {
++        return view('install', [
++            'installUrl' => url('/install'),
++        ]);
++    }
++
++    /** A same-origin QR code, so sharing an install link never depends on a third party. */
++    public function qr(Request $request)
++    {
++        $svg = QrCodeSvg::svg(url('/install'), __('pwa.install_qr_alt'));
++
++        return response($svg, 200, [
++            'Content-Type' => 'image/svg+xml; charset=UTF-8',
++            'Cache-Control' => 'no-store, max-age=0',
++        ]);
++    }
++
+     /** Which icon file every device's iOS/Android tiles should use, or null. */
+     public static function iconUrl(): ?string
+     {
+diff --git a/app/Support/QrCodeSvg.php b/app/Support/QrCodeSvg.php
+new file mode 100644
+index 0000000..b62b148
+--- /dev/null
++++ b/app/Support/QrCodeSvg.php
+@@ -0,0 +1,468 @@
++<?php
++
++namespace App\Support;
++
++use InvalidArgumentException;
++
++/**
++ * Small, dependency-free QR encoder for the public install-link card.
++ *
++ * It emits a standards-compliant byte-mode QR code with low error correction.
++ * Install URLs are short, so versions 1–10 cover normal production domains
++ * while keeping the download/share card fast and fully offline.
++ */
++final class QrCodeSvg
++{
++    /** @var array<int, array{capacity: int, blocks: array<int, array{0: int, 1: int, 2: int}>, alignment: array<int, int>}> */
++    private const VERSIONS = [
++        1  => ['capacity' => 17,  'blocks' => [[1, 19, 7]],            'alignment' => []],
++        2  => ['capacity' => 32,  'blocks' => [[1, 34, 10]],           'alignment' => [6, 18]],
++        3  => ['capacity' => 53,  'blocks' => [[1, 55, 15]],           'alignment' => [6, 22]],
++        4  => ['capacity' => 78,  'blocks' => [[1, 80, 20]],           'alignment' => [6, 26]],
++        5  => ['capacity' => 106, 'blocks' => [[1, 108, 26]],          'alignment' => [6, 30]],
++        6  => ['capacity' => 134, 'blocks' => [[2, 68, 18]],           'alignment' => [6, 34]],
++        7  => ['capacity' => 154, 'blocks' => [[2, 78, 20]],           'alignment' => [6, 22, 38]],
++        8  => ['capacity' => 192, 'blocks' => [[2, 97, 24]],           'alignment' => [6, 24, 42]],
++        9  => ['capacity' => 230, 'blocks' => [[2, 116, 30]],          'alignment' => [6, 26, 46]],
++        10 => ['capacity' => 271, 'blocks' => [[2, 68, 18], [2, 69, 18]], 'alignment' => [6, 28, 50]],
++    ];
++
++    /** @var array{0: array<int, int>, 1: array<int, int>}|null */
++    private static ?array $gf = null;
++
++    /** Return an accessible standalone SVG for a short URL or other ASCII text. */
++    public static function svg(string $payload, string $title = 'Install app QR code'): string
++    {
++        $matrix = self::matrix($payload);
++        $size = count($matrix);
++        $path = '';
++
++        foreach ($matrix as $row => $cells) {
++            foreach ($cells as $column => $dark) {
++                if ($dark) {
++                    $path .= "M{$column} {$row}h1v1h-1z";
++                }
++            }
++        }
++
++        $edge = $size + 8; // Four quiet modules on every side.
++        $label = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
++
++        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -4 '.$edge.' '.$edge.'" role="img" aria-labelledby="install-qr-title" shape-rendering="crispEdges">'
++            . '<title id="install-qr-title">'.$label.'</title>'
++            . '<rect x="-4" y="-4" width="'.$edge.'" height="'.$edge.'" fill="#ffffff"/>'
++            . '<path d="'.$path.'" fill="#0f172a"/>'
++            . '</svg>';
++    }
++
++    /**
++     * @return array<int, array<int, bool>> rows of dark/light QR modules
++     */
++    public static function matrix(string $payload): array
++    {
++        $version = self::versionFor($payload);
++        $spec = self::VERSIONS[$version];
++        $size = 17 + (4 * $version);
++        /** @var array<int, array<int, bool|null>> $modules */
++        $modules = array_fill(0, $size, array_fill(0, $size, null));
++
++        self::finder($modules, 0, 0);
++        self::finder($modules, $size - 7, 0);
++        self::finder($modules, 0, $size - 7);
++
++        foreach ($spec['alignment'] as $row) {
++            foreach ($spec['alignment'] as $column) {
++                // Centres already occupied by a finder pattern are skipped.
++                if ($modules[$row][$column] === null) {
++                    self::alignment($modules, $row, $column);
++                }
++            }
++        }
++
++        for ($i = 8; $i < $size - 8; $i++) {
++            self::set($modules, 6, $i, ($i % 2) === 0);
++            self::set($modules, $i, 6, ($i % 2) === 0);
++        }
++
++        self::reserveFormat($modules);
++        if ($version >= 7) {
++            self::reserveVersion($modules, $version);
++        }
++
++        // The fixed dark module belongs to every QR symbol.
++        self::set($modules, $size - 8, 8, true);
++
++        // Mask zero is simple and valid for any QR code: (row + column) is even.
++        self::placeData($modules, self::interleavedCodewords($payload, $version), 0);
++        self::writeFormat($modules, 0);
++        if ($version >= 7) {
++            self::writeVersion($modules, $version);
++        }
++
++        foreach ($modules as $row => $cells) {
++            foreach ($cells as $column => $value) {
++                // A complete symbol has no unset modules. Keeping this defensive
++                // fill makes malformed input fail closed to a light module.
++                $modules[$row][$column] = (bool) $value;
++            }
++        }
++
++        /** @var array<int, array<int, bool>> $modules */
++        return $modules;
++    }
++
++    private static function versionFor(string $payload): int
++    {
++        $bytes = strlen($payload);
++        foreach (self::VERSIONS as $version => $spec) {
++            if ($bytes <= $spec['capacity']) {
++                return $version;
++            }
++        }
++
++        throw new InvalidArgumentException('The QR payload is too long.');
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function finder(array &$modules, int $top, int $left): void
++    {
++        $size = count($modules);
++        for ($row = -1; $row <= 7; $row++) {
++            for ($column = -1; $column <= 7; $column++) {
++                $r = $top + $row;
++                $c = $left + $column;
++                if ($r < 0 || $c < 0 || $r >= $size || $c >= $size) {
++                    continue;
++                }
++
++                $dark = $row >= 0 && $row <= 6 && $column >= 0 && $column <= 6
++                    && ($row === 0 || $row === 6 || $column === 0 || $column === 6
++                        || ($row >= 2 && $row <= 4 && $column >= 2 && $column <= 4));
++                self::set($modules, $r, $c, $dark);
++            }
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function alignment(array &$modules, int $centreRow, int $centreColumn): void
++    {
++        for ($row = -2; $row <= 2; $row++) {
++            for ($column = -2; $column <= 2; $column++) {
++                $outer = max(abs($row), abs($column)) === 2;
++                self::set($modules, $centreRow + $row, $centreColumn + $column, $outer || ($row === 0 && $column === 0));
++            }
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function reserveFormat(array &$modules): void
++    {
++        $size = count($modules);
++        for ($i = 0; $i < 15; $i++) {
++            if ($i < 6) {
++                self::set($modules, $i, 8, false);
++            } elseif ($i < 8) {
++                self::set($modules, $i + 1, 8, false);
++            } else {
++                self::set($modules, $size - 15 + $i, 8, false);
++            }
++
++            if ($i < 8) {
++                self::set($modules, 8, $size - $i - 1, false);
++            } elseif ($i < 9) {
++                self::set($modules, 8, 15 - $i, false);
++            } else {
++                self::set($modules, 8, 15 - $i - 1, false);
++            }
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function reserveVersion(array &$modules, int $version): void
++    {
++        $size = count($modules);
++        for ($i = 0; $i < 18; $i++) {
++            self::set($modules, intdiv($i, 3), $size - 11 + ($i % 3), false);
++            self::set($modules, $size - 11 + ($i % 3), intdiv($i, 3), false);
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function writeFormat(array &$modules, int $mask): void
++    {
++        // Error correction level L = binary 01. BCH(15,5), then the QR mask.
++        $bits = self::formatBits((1 << 3) | $mask);
++        $size = count($modules);
++        for ($i = 0; $i < 15; $i++) {
++            $dark = (($bits >> $i) & 1) === 1;
++            if ($i < 6) {
++                self::set($modules, $i, 8, $dark);
++            } elseif ($i < 8) {
++                self::set($modules, $i + 1, 8, $dark);
++            } else {
++                self::set($modules, $size - 15 + $i, 8, $dark);
++            }
++
++            if ($i < 8) {
++                self::set($modules, 8, $size - $i - 1, $dark);
++            } elseif ($i < 9) {
++                self::set($modules, 8, 15 - $i, $dark);
++            } else {
++                self::set($modules, 8, 15 - $i - 1, $dark);
++            }
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function writeVersion(array &$modules, int $version): void
++    {
++        $bits = self::versionBits($version);
++        $size = count($modules);
++        for ($i = 0; $i < 18; $i++) {
++            $dark = (($bits >> $i) & 1) === 1;
++            self::set($modules, intdiv($i, 3), $size - 11 + ($i % 3), $dark);
++            self::set($modules, $size - 11 + ($i % 3), intdiv($i, 3), $dark);
++        }
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules @param array<int, int> $codewords */
++    private static function placeData(array &$modules, array $codewords, int $mask): void
++    {
++        $size = count($modules);
++        $bitIndex = 0;
++        $row = $size - 1;
++        $direction = -1;
++
++        for ($column = $size - 1; $column > 0; $column -= 2) {
++            if ($column === 6) {
++                $column--;
++            }
++
++            while (true) {
++                for ($offset = 0; $offset < 2; $offset++) {
++                    $c = $column - $offset;
++                    if ($modules[$row][$c] !== null) {
++                        continue;
++                    }
++
++                    $dark = false;
++                    if ($bitIndex < count($codewords) * 8) {
++                        $dark = (($codewords[intdiv($bitIndex, 8)] >> (7 - ($bitIndex % 8))) & 1) === 1;
++                        $bitIndex++;
++                    }
++                    if (self::masked($mask, $row, $c)) {
++                        $dark = ! $dark;
++                    }
++                    self::set($modules, $row, $c, $dark);
++                }
++
++                $row += $direction;
++                if ($row < 0 || $row >= $size) {
++                    $row -= $direction;
++                    $direction = -$direction;
++                    break;
++                }
++            }
++        }
++    }
++
++    private static function masked(int $mask, int $row, int $column): bool
++    {
++        return match ($mask) {
++            0 => (($row + $column) % 2) === 0,
++            default => false,
++        };
++    }
++
++    /** @return array<int, int> */
++    private static function interleavedCodewords(string $payload, int $version): array
++    {
++        $spec = self::VERSIONS[$version];
++        $dataLength = 0;
++        foreach ($spec['blocks'] as [$count, $bytes]) {
++            $dataLength += $count * $bytes;
++        }
++
++        $data = self::dataCodewords($payload, $version, $dataLength);
++        $blocks = [];
++        $offset = 0;
++        foreach ($spec['blocks'] as [$count, $bytes, $eccBytes]) {
++            for ($i = 0; $i < $count; $i++) {
++                $chunk = array_slice($data, $offset, $bytes);
++                $offset += $bytes;
++                $blocks[] = ['data' => $chunk, 'ecc' => self::reedSolomon($chunk, $eccBytes)];
++            }
++        }
++
++        $result = [];
++        $dataMax = max(array_map(fn (array $block) => count($block['data']), $blocks));
++        for ($i = 0; $i < $dataMax; $i++) {
++            foreach ($blocks as $block) {
++                if (isset($block['data'][$i])) {
++                    $result[] = $block['data'][$i];
++                }
++            }
++        }
++
++        $eccMax = max(array_map(fn (array $block) => count($block['ecc']), $blocks));
++        for ($i = 0; $i < $eccMax; $i++) {
++            foreach ($blocks as $block) {
++                if (isset($block['ecc'][$i])) {
++                    $result[] = $block['ecc'][$i];
++                }
++            }
++        }
++
++        return $result;
++    }
++
++    /** @return array<int, int> */
++    private static function dataCodewords(string $payload, int $version, int $capacity): array
++    {
++        $bits = [];
++        self::appendBits($bits, 0b0100, 4); // byte mode
++        self::appendBits($bits, strlen($payload), $version < 10 ? 8 : 16);
++        foreach (unpack('C*', $payload) ?: [] as $byte) {
++            self::appendBits($bits, $byte, 8);
++        }
++
++        $capacityBits = $capacity * 8;
++        for ($i = 0; $i < min(4, $capacityBits - count($bits)); $i++) {
++            $bits[] = false;
++        }
++        while ((count($bits) % 8) !== 0) {
++            $bits[] = false;
++        }
++
++        $bytes = [];
++        for ($i = 0; $i < count($bits); $i += 8) {
++            $value = 0;
++            for ($bit = 0; $bit < 8; $bit++) {
++                $value = ($value << 1) | ($bits[$i + $bit] ? 1 : 0);
++            }
++            $bytes[] = $value;
++        }
++
++        $pad = [0xec, 0x11];
++        $padIndex = 0;
++        while (count($bytes) < $capacity) {
++            $bytes[] = $pad[$padIndex++ % 2];
++        }
++
++        return $bytes;
++    }
++
++    /** @param array<int, bool> $bits */
++    private static function appendBits(array &$bits, int $value, int $length): void
++    {
++        for ($i = $length - 1; $i >= 0; $i--) {
++            $bits[] = (($value >> $i) & 1) === 1;
++        }
++    }
++
++    /** @param array<int, int> $data @return array<int, int> */
++    private static function reedSolomon(array $data, int $degree): array
++    {
++        $generator = [1];
++        for ($i = 0; $i < $degree; $i++) {
++            $next = array_fill(0, count($generator) + 1, 0);
++            foreach ($generator as $index => $coefficient) {
++                $next[$index] ^= $coefficient;
++                $next[$index + 1] ^= self::multiply($coefficient, self::exp($i));
++            }
++            $generator = $next;
++        }
++
++        $result = array_fill(0, $degree, 0);
++        foreach ($data as $value) {
++            $factor = $value ^ $result[0];
++            array_shift($result);
++            $result[] = 0;
++            foreach ($result as $index => $ignored) {
++                $result[$index] ^= self::multiply($generator[$index + 1], $factor);
++            }
++        }
++
++        return $result;
++    }
++
++    private static function multiply(int $left, int $right): int
++    {
++        if ($left === 0 || $right === 0) {
++            return 0;
++        }
++
++        return self::exp(self::log($left) + self::log($right));
++    }
++
++    private static function exp(int $power): int
++    {
++        self::gf();
++
++        return self::$gf[0][$power % 255];
++    }
++
++    private static function log(int $value): int
++    {
++        self::gf();
++
++        return self::$gf[1][$value];
++    }
++
++    private static function gf(): void
++    {
++        if (self::$gf !== null) {
++            return;
++        }
++
++        $exp = array_fill(0, 255, 0);
++        $log = array_fill(0, 256, 0);
++        $value = 1;
++        for ($i = 0; $i < 255; $i++) {
++            $exp[$i] = $value;
++            $log[$value] = $i;
++            $value <<= 1;
++            if ($value & 0x100) {
++                $value ^= 0x11d;
++            }
++        }
++        self::$gf = [$exp, $log];
++    }
++
++    private static function formatBits(int $data): int
++    {
++        $remainder = $data << 10;
++        while (self::bitLength($remainder) >= self::bitLength(0x537)) {
++            $remainder ^= 0x537 << (self::bitLength($remainder) - self::bitLength(0x537));
++        }
++
++        return (($data << 10) | $remainder) ^ 0x5412;
++    }
++
++    private static function versionBits(int $version): int
++    {
++        $remainder = $version << 12;
++        while (self::bitLength($remainder) >= self::bitLength(0x1f25)) {
++            $remainder ^= 0x1f25 << (self::bitLength($remainder) - self::bitLength(0x1f25));
++        }
++
++        return ($version << 12) | $remainder;
++    }
++
++    private static function bitLength(int $value): int
++    {
++        $length = 0;
++        while ($value > 0) {
++            $length++;
++            $value >>= 1;
++        }
++
++        return $length;
++    }
++
++    /** @param array<int, array<int, bool|null>> $modules */
++    private static function set(array &$modules, int $row, int $column, bool $dark): void
++    {
++        $modules[$row][$column] = $dark;
++    }
++}
+diff --git a/lang/bn/pwa.php b/lang/bn/pwa.php
+index 0900598..37a05f9 100644
+--- a/lang/bn/pwa.php
++++ b/lang/bn/pwa.php
+@@ -9,6 +9,26 @@
+     'install'       => 'ইনস্টল',
+     'dismiss'       => 'পরে',
+     'pill'          => 'অ্যাপ ইনস্টল',
++    'install_page_eyebrow' => 'মোবাইল ও ডেস্কটপ অ্যাপ',
++    'install_page_title' => 'হোম স্ক্রিনে :name রাখুন',
++    'install_page_body' => 'ব্রাউজার থেকেই নিরাপদে ইনস্টল করুন। অ্যাপটি আলাদা উইন্ডোতে দ্রুত খুলবে এবং দুর্বল নেটেও আগে দেখা পেজ ব্যবহার করা যাবে।',
++    'install_primary' => 'অ্যাপ ইনস্টল করুন',
++    'install_ready' => 'ইনস্টল করার জন্য প্রস্তুত',
++    'install_open' => 'অ্যাপটি ইতিমধ্যে ইনস্টল করা আছে',
++    'install_ios_title' => 'iPhone বা iPad',
++    'install_ios_body' => 'Safari-তে এই পেজ খুলে Share (□↑) চাপুন, তারপর Add to Home Screen বেছে নিন।',
++    'install_android_title' => 'Android ফোন',
++    'install_android_body' => 'Chrome বা Edge-এ Install চাপুন। prompt না এলে browser menu (⋮) থেকে Install app বা Add to Home screen বেছে নিন।',
++    'install_desktop_title' => 'কম্পিউটার',
++    'install_desktop_body' => 'Chrome বা Edge ব্যবহার করুন। address bar-এর install icon অথবা browser menu থেকে Install app বেছে নিন।',
++    'install_share_title' => 'অন্যকে ইনস্টল link দিন',
++    'install_share_body' => 'QR code scan করুন, অথবা link কপি করে WhatsApp, Messenger কিংবা SMS-এ পাঠান।',
++    'install_share' => 'শেয়ার করুন',
++    'install_copy' => 'link কপি করুন',
++    'install_copied' => 'Install link কপি হয়েছে',
++    'install_qr_alt' => 'অ্যাপ ইনস্টল করার QR code',
++    'install_status_manual' => 'নিচের নির্দেশনা অনুসরণ করে browser menu থেকে অ্যাপটি যোগ করুন।',
++    'install_status_declined' => 'ইনস্টল না করলেও এই link থেকেই যেকোনো সময় আবার চেষ্টা করা যাবে।',
+     'admin_icon_title' => 'অ্যাপ আইকন',
+     'admin_icon_body'  => 'ব্যবহারকারী PWA ইনস্টল করলে এই আইকন ফোনের হোম স্ক্রিনে দেখা যাবে। বর্গাকার PNG/JPG/WebP (অন্তত ৩৮৪px) দিন।',
+     'admin_icon_save'    => 'আইকন সংরক্ষণ',
+diff --git a/lang/en/pwa.php b/lang/en/pwa.php
+index 47ab3d7..43b5386 100644
+--- a/lang/en/pwa.php
++++ b/lang/en/pwa.php
+@@ -9,6 +9,26 @@
+     'install'       => 'Install',
+     'dismiss'       => 'Not now',
+     'pill'          => 'Install app',
++    'install_page_eyebrow' => 'Mobile and desktop app',
++    'install_page_title' => 'Keep :name on your home screen',
++    'install_page_body' => 'Install safely from your browser. The app opens quickly in its own window, and pages you have already opened remain available on weak connections.',
++    'install_primary' => 'Install the app',
++    'install_ready' => 'Ready to install',
++    'install_open' => 'The app is already installed',
++    'install_ios_title' => 'iPhone or iPad',
++    'install_ios_body' => 'Open this page in Safari, tap Share (□↑), then choose Add to Home Screen.',
++    'install_android_title' => 'Android phone',
++    'install_android_body' => 'Use Chrome or Edge and tap Install. If no prompt appears, use the browser menu (⋮) and choose Install app or Add to Home screen.',
++    'install_desktop_title' => 'Computer',
++    'install_desktop_body' => 'Use Chrome or Edge. Select the install icon in the address bar, or choose Install app from the browser menu.',
++    'install_share_title' => 'Give someone the install link',
++    'install_share_body' => 'Scan the QR code, or copy the link into WhatsApp, Messenger, or an SMS.',
++    'install_share' => 'Share',
++    'install_copy' => 'Copy link',
++    'install_copied' => 'Install link copied',
++    'install_qr_alt' => 'QR code for installing the app',
++    'install_status_manual' => 'Use the device instructions below to add the app from your browser menu.',
++    'install_status_declined' => 'You can use this link to try again at any time.',
+     'admin_icon_title' => 'App icon',
+     'admin_icon_body'  => 'Shown on users’ home screens after they install the PWA. Upload a square PNG/JPG/WebP (min 384px).',
+     'admin_icon_save'    => 'Save icon',
+diff --git a/resources/views/install.blade.php b/resources/views/install.blade.php
+new file mode 100644
+index 0000000..b1e6f36
+--- /dev/null
++++ b/resources/views/install.blade.php
+@@ -0,0 +1,195 @@
++@extends('layouts.app')
++
++@section('title', __('pwa.install_primary'))
++@section('description', __('pwa.install_page_body'))
++@section('canonical', $installUrl)
++
++@section('content')
++@php
++    $appName = \App\Support\AppearanceSettings::siteName();
++    $appIcon = \App\Support\PwaSettings::icon()
++        ? '/uploads/pwa/icon-192-' . \App\Support\PwaSettings::icon()['file'] . '.png'
++        : '/icons/icon-192.png';
++@endphp
++
++<style>
++/* This page intentionally uses its own small style layer so it remains polished
++   even before a deployment has rebuilt the Tailwind bundle. */
++body:has([data-install-page]) #pwa-helper { display: none !important; }
++.install-page { max-width: 1060px; margin: 0 auto; padding: 36px 16px 64px; }
++.install-hero { overflow: hidden; position: relative; border-radius: 28px; padding: clamp(26px, 5vw, 56px); color: #fff; background: radial-gradient(circle at 86% 18%, rgba(16,185,129,.35), transparent 28%), linear-gradient(135deg,#062c26,#064e3b 55%,#0f766e); box-shadow: 0 22px 55px rgba(6,78,59,.22); }
++.install-hero::after { content: ''; position: absolute; width: 290px; height: 290px; right: -118px; bottom: -178px; border: 42px solid rgba(255,255,255,.07); border-radius: 999px; }
++.install-kicker { position: relative; z-index: 1; margin: 0 0 12px; color: #a7f3d0; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
++.install-title { position: relative; z-index: 1; max-width: 630px; margin: 0; font-size: clamp(29px, 5vw, 48px); line-height: 1.12; letter-spacing: -.03em; }
++.install-lead { position: relative; z-index: 1; max-width: 630px; margin: 18px 0 0; color: #d1fae5; font-size: 16px; line-height: 1.7; }
++.install-action-row { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 26px; }
++.install-primary { border: 0; border-radius: 14px; padding: 13px 20px; background: #fff; color: #065f46; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,.17); }
++.install-primary:hover { background: #ecfdf5; }
++.install-primary:focus-visible,.install-secondary:focus-visible { outline: 3px solid #fef08a; outline-offset: 3px; }
++.install-secondary { border: 1px solid rgba(255,255,255,.35); border-radius: 14px; padding: 12px 17px; background: rgba(255,255,255,.08); color: #fff; font: inherit; font-weight: 750; cursor: pointer; }
++.install-secondary:hover { background: rgba(255,255,255,.16); }
++.install-status { flex-basis: 100%; min-height: 20px; color: #d1fae5; font-size: 13px; }
++.install-grid { display: grid; grid-template-columns: minmax(0, 1.22fr) minmax(280px, .78fr); gap: 22px; margin-top: 24px; }
++.install-panel { border: 1px solid #dbe7e2; border-radius: 22px; background: #fff; padding: clamp(20px, 3vw, 30px); box-shadow: 0 10px 25px rgba(15,23,42,.045); }
++.install-brand { display: flex; align-items: center; gap: 14px; }
++.install-brand img { width: 64px; height: 64px; border-radius: 18px; box-shadow: 0 8px 18px rgba(15,23,42,.14); }
++.install-brand strong { display: block; color: #0f172a; font-size: 19px; }
++.install-brand span { display: block; margin-top: 3px; color: #64748b; font-size: 13px; }
++.install-device-list { display: grid; gap: 14px; margin: 25px 0 0; }
++.install-device { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; }
++.install-device-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 11px; background: #ecfdf5; color: #047857; font-size: 18px; font-weight: 800; }
++.install-device h2 { margin: 1px 0 4px; color: #0f172a; font-size: 15px; }
++.install-device p { margin: 0; color: #475569; font-size: 14px; line-height: 1.55; }
++.install-qr-panel { display: flex; flex-direction: column; align-items: center; text-align: center; }
++.install-qr-panel h2 { margin: 18px 0 8px; color: #0f172a; font-size: 18px; }
++.install-qr-panel p { max-width: 310px; margin: 0; color: #475569; font-size: 14px; line-height: 1.58; }
++.install-qr { width: min(100%, 220px); margin-top: 20px; border: 10px solid #fff; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(15,23,42,.12); image-rendering: pixelated; }
++.install-link { width: 100%; margin-top: 18px; overflow: auto; border: 1px solid #dbe7e2; border-radius: 10px; padding: 10px; background: #f8fafc; color: #334155; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 12px; white-space: nowrap; }
++.install-copy { margin-top: 12px; border: 1px solid #94a3b8; border-radius: 10px; padding: 10px 14px; background: #fff; color: #334155; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
++.install-copy:hover { background: #f8fafc; }
++@media (max-width: 760px) { .install-page { padding-top: 22px; } .install-grid { grid-template-columns: 1fr; } .install-hero { border-radius: 22px; } }
++</style>
++
++<main class="install-page" data-install-page data-install-url="{{ $installUrl }}">
++    <section class="install-hero" aria-labelledby="install-title">
++        <p class="install-kicker">{{ __('pwa.install_page_eyebrow') }}</p>
++        <h1 id="install-title" class="install-title">{{ __('pwa.install_page_title', ['name' => $appName]) }}</h1>
++        <p class="install-lead">{{ __('pwa.install_page_body') }}</p>
++        <div class="install-action-row">
++            <button type="button" class="install-primary" data-install-primary>{{ __('pwa.install_primary') }}</button>
++            <button type="button" class="install-secondary" data-install-share>{{ __('pwa.install_share') }}</button>
++            <p class="install-status" aria-live="polite" data-install-status>{{ __('pwa.install_status_manual') }}</p>
++        </div>
++    </section>
++
++    <div class="install-grid">
++        <section class="install-panel" aria-label="{{ __('pwa.install_primary') }}">
++            <div class="install-brand">
++                <img src="{{ $appIcon }}" alt="" width="64" height="64">
++                <div>
++                    <strong>{{ $appName }}</strong>
++                    <span>{{ __('pwa.install_ready') }}</span>
++                </div>
++            </div>
++
++            <div class="install-device-list">
++                <article class="install-device">
++                    <span class="install-device-icon" aria-hidden="true">▣</span>
++                    <div>
++                        <h2>{{ __('pwa.install_android_title') }}</h2>
++                        <p>{{ __('pwa.install_android_body') }}</p>
++                    </div>
++                </article>
++                <article class="install-device">
++                    <span class="install-device-icon" aria-hidden="true">□↑</span>
++                    <div>
++                        <h2>{{ __('pwa.install_ios_title') }}</h2>
++                        <p>{{ __('pwa.install_ios_body') }}</p>
++                    </div>
++                </article>
++                <article class="install-device">
++                    <span class="install-device-icon" aria-hidden="true">⌘</span>
++                    <div>
++                        <h2>{{ __('pwa.install_desktop_title') }}</h2>
++                        <p>{{ __('pwa.install_desktop_body') }}</p>
++                    </div>
++                </article>
++            </div>
++        </section>
++
++        <aside class="install-panel install-qr-panel" aria-labelledby="install-share-title">
++            <img class="install-qr" src="{{ route('pwa.install.qr') }}" alt="{{ __('pwa.install_qr_alt') }}" width="220" height="220">
++            <h2 id="install-share-title">{{ __('pwa.install_share_title') }}</h2>
++            <p>{{ __('pwa.install_share_body') }}</p>
++            <code class="install-link" data-install-link>{{ $installUrl }}</code>
++            <button type="button" class="install-copy" data-install-copy>{{ __('pwa.install_copy') }}</button>
++        </aside>
++    </div>
++</main>
++@endsection
++
++@push('scripts')
++<script>
++(() => {
++    const page = document.querySelector('[data-install-page]');
++    if (!page) return;
++
++    const installUrl = page.dataset.installUrl;
++    const install = page.querySelector('[data-install-primary]');
++    const share = page.querySelector('[data-install-share]');
++    const copy = page.querySelector('[data-install-copy]');
++    const status = page.querySelector('[data-install-status]');
++    const defaultInstall = install.textContent;
++    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
++    let promptEvent = null;
++
++    const setStatus = (text) => { status.textContent = text; };
++    const copyLink = async () => {
++        try {
++            if (navigator.clipboard && window.isSecureContext) {
++                await navigator.clipboard.writeText(installUrl);
++            } else {
++                const field = document.createElement('textarea');
++                field.value = installUrl;
++                field.setAttribute('readonly', '');
++                field.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
++                document.body.appendChild(field);
++                field.select();
++                document.execCommand('copy');
++                field.remove();
++            }
++            setStatus(@json(__('pwa.install_copied')));
++        } catch (error) {
++            setStatus(installUrl);
++        }
++    };
++
++    if (standalone) {
++        install.disabled = true;
++        install.textContent = @json(__('pwa.install_open'));
++        install.style.opacity = '.7';
++        install.style.cursor = 'default';
++        setStatus(@json(__('pwa.install_open')));
++    }
++
++    window.addEventListener('beforeinstallprompt', (event) => {
++        event.preventDefault();
++        promptEvent = event;
++        if (!standalone) {
++            setStatus(@json(__('pwa.install_ready')));
++        }
++    });
++
++    install.addEventListener('click', async () => {
++        if (standalone) return;
++        if (!promptEvent) {
++            setStatus(@json(__('pwa.install_status_manual')));
++            return;
++        }
++
++        promptEvent.prompt();
++        const choice = await promptEvent.userChoice;
++        promptEvent = null;
++        if (choice.outcome === 'accepted') {
++            setStatus(@json(__('pwa.install_ready')));
++        } else {
++            setStatus(@json(__('pwa.install_status_declined')));
++            install.textContent = defaultInstall;
++        }
++    });
++
++    copy.addEventListener('click', copyLink);
++    share.addEventListener('click', async () => {
++        if (navigator.share) {
++            try {
++                await navigator.share({ title: @json($appName), text: @json(__('pwa.install_page_title', ['name' => $appName])), url: installUrl });
++                return;
++            } catch (error) {
++                if (error && error.name === 'AbortError') return;
++            }
++        }
++        await copyLink();
++    });
++})();
++</script>
++@endpush
+diff --git a/routes/web.php b/routes/web.php
+index 25caf56..e8a346a 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -5,11 +5,15 @@
+ use App\Http\Controllers\HomeController;
+ use App\Http\Controllers\IssueController;
+ use App\Http\Controllers\IssueListController;
++use App\Http\Controllers\PwaInstallController;
+ use App\Http\Controllers\ReportController;
+ use Illuminate\Support\Facades\Route;
+ 
+ Route::get('/', [HomeController::class, 'index'])->name('home');
+ Route::view('/offline', 'offline')->name('offline');
++// A public, shareable entry point for PWA installation and its matching QR code.
++Route::get('/install', [PwaInstallController::class, 'show'])->name('pwa.install');
++Route::get('/install/qr.svg', [PwaInstallController::class, 'qr'])->name('pwa.install.qr');
+ 
+ Route::get('/issues', [IssueListController::class, 'index'])->name('issues.index');
+ Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
+diff --git a/tests/Feature/PwaInstallLinkTest.php b/tests/Feature/PwaInstallLinkTest.php
+new file mode 100644
+index 0000000..f4c8bba
+--- /dev/null
++++ b/tests/Feature/PwaInstallLinkTest.php
+@@ -0,0 +1,52 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Support\QrCodeSvg;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use InvalidArgumentException;
++use Tests\TestCase;
++
++class PwaInstallLinkTest extends TestCase
++{
++    use RefreshDatabase;
++
++    public function test_public_install_landing_page_has_native_install_and_share_controls(): void
++    {
++        $this->get(route('pwa.install'))
++            ->assertOk()
++            ->assertSee('data-install-page', false)
++            ->assertSee('data-install-primary', false)
++            ->assertSee('data-install-copy', false)
++            ->assertSee(route('pwa.install.qr'), false)
++            ->assertSee(__('pwa.install_android_title'))
++            ->assertSee(__('pwa.install_ios_title'));
++    }
++
++    public function test_install_qr_is_a_same_origin_svg(): void
++    {
++        $response = $this->get(route('pwa.install.qr'))
++            ->assertOk()
++            ->assertHeader('Content-Type', 'image/svg+xml; charset=UTF-8')
++            ->assertSee('<svg', false)
++            ->assertSee('role="img"', false)
++            ->assertSee('shape-rendering="crispEdges"', false);
++
++        $this->assertStringContainsString('<path d="M', $response->getContent());
++    }
++
++    public function test_qr_matrix_uses_a_valid_size_for_short_install_urls(): void
++    {
++        $matrix = QrCodeSvg::matrix('https://example.test/install');
++
++        $this->assertCount(25, $matrix); // version 2: 17 + 4×2 modules
++        $this->assertCount(25, $matrix[0]);
++    }
++
++    public function test_qr_rejects_a_payload_beyond_its_public_link_limit(): void
++    {
++        $this->expectException(InvalidArgumentException::class);
++
++        QrCodeSvg::matrix('https://example.test/install?' . str_repeat('a', 280));
++    }
++}
+-- 
+2.47.3
+

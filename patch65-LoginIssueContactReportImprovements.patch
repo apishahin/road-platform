@@ -1,0 +1,1813 @@
+From 52e3a23c7b3abe62a0d75f70b684a074b0086cb9 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 15:28:53 +0000
+Subject: [PATCH] Improve login, issue links, contacts and report flow
+
+---
+ .../Admin/AuthorityContactController.php      | 270 ++++++++++++------
+ .../Admin/IssueAdminController.php            |   3 +-
+ .../Admin/IssueNotifyController.php           |   3 +-
+ .../Controllers/Api/PublicApiController.php   |   2 +-
+ app/Http/Controllers/AuthController.php       |  13 +-
+ .../IssueObservationController.php            |   2 +-
+ .../Controllers/IssueVerifyController.php     |   8 +-
+ app/Http/Controllers/SitemapController.php    |   5 +-
+ app/Models/AuthorityContact.php               |   3 +
+ app/Models/IssueNotification.php              |   3 +-
+ app/Services/FollowNotifier.php               |   2 +-
+ app/Services/OtpService.php                   |  12 +
+ app/Services/SocialPoster.php                 |   2 +-
+ app/Support/IssuePresenter.php                |  14 +-
+ ...ft_deletes_to_authority_contacts_table.php |  23 ++
+ lang/bn/authcontact.php                       |  19 +-
+ lang/bn/issues.php                            |   3 +-
+ lang/bn/login.php                             |   2 +
+ lang/en/authcontact.php                       |  19 +-
+ lang/en/issues.php                            |   3 +-
+ lang/en/login.php                             |   2 +
+ resources/js/firebase-login.js                |   3 +
+ .../views/admin/contacts/_form.blade.php      | 180 ++++++++++++
+ resources/views/admin/contacts/edit.blade.php |  26 ++
+ .../views/admin/contacts/index.blade.php      |  86 ++----
+ resources/views/admin/issues/index.blade.php  |   2 +-
+ resources/views/admin/issues/notify.blade.php |   2 +-
+ resources/views/auth/verify.blade.php         |  30 +-
+ .../views/components/issue-card.blade.php     |   2 +-
+ resources/views/home/modern.blade.php         |   4 +-
+ resources/views/issues/photo-review.blade.php |   2 +-
+ resources/views/issues/show.blade.php         |   9 +-
+ resources/views/issues/verify-queue.blade.php |   2 +-
+ resources/views/layouts/app.blade.php         |   2 +
+ resources/views/reports/create.blade.php      |   2 +
+ resources/views/reports/success.blade.php     |   2 +
+ routes/web.php                                |  13 +-
+ tests/Feature/AuthorityContactCrudTest.php    | 133 +++++++++
+ tests/Feature/EngagementTest.php              |  14 +-
+ tests/Feature/IssueVerifyTest.php             |  11 +-
+ tests/Feature/LoginOtpResendCooldownTest.php  |  20 +-
+ tests/Feature/PwaOfflineReportTest.php        |   3 +-
+ 42 files changed, 748 insertions(+), 213 deletions(-)
+ create mode 100644 database/migrations/2026_11_21_120000_add_soft_deletes_to_authority_contacts_table.php
+ create mode 100644 resources/views/admin/contacts/_form.blade.php
+ create mode 100644 resources/views/admin/contacts/edit.blade.php
+ create mode 100644 tests/Feature/AuthorityContactCrudTest.php
+
+diff --git a/app/Http/Controllers/Admin/AuthorityContactController.php b/app/Http/Controllers/Admin/AuthorityContactController.php
+index 8afedd7..6a02f82 100644
+--- a/app/Http/Controllers/Admin/AuthorityContactController.php
++++ b/app/Http/Controllers/Admin/AuthorityContactController.php
+@@ -9,6 +9,7 @@
+ use App\Support\ModerationScope;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Validator;
++use Illuminate\Validation\ValidationException;
+ 
+ class AuthorityContactController extends Controller
+ {
+@@ -16,51 +17,36 @@ public function __construct(private AuditService $audit)
+     {
+     }
+ 
+-    private function guard(Request $r): void
++    private function guard(Request $request): void
+     {
+-        abort_unless($r->user()?->isModerator(), 403);
++        abort_unless($request->user()?->isModerator(), 403);
+     }
+ 
+-    private function adminOnly(Request $r): void
++    private function adminOnly(Request $request): void
+     {
+-        abort_unless($r->user()?->role === 'admin', 403);
++        abort_unless($request->user()?->role === 'admin', 403);
+     }
+ 
+-    private function clean(?string $v): ?string
++    /** Admins may manage every entry; moderators may manage only entries they added. */
++    private function manage(Request $request, AuthorityContact $contact): void
+     {
+-        $v = preg_replace('/[^0-9+]/', '', (string) $v);
+-
+-        return $v === '' ? null : $v;
++        $this->guard($request);
++        abort_unless(
++            $request->user()->role === 'admin' || (int) $contact->added_by === (int) $request->user()->id,
++            403
++        );
+     }
+ 
+-    public function index(Request $request)
++    private function clean(?string $value): ?string
+     {
+-        $this->guard($request);
+-        $user = $request->user();
+-        $isAdmin = $user->role === 'admin';
+-        $status = in_array($request->query('status'), ['pending', 'approved', 'disabled'], true)
+-            ? $request->query('status') : null;
+-
+-        $q = AuthorityContact::with(['area.parent.parent.parent','addedBy'])->orderByDesc('id');
+-        if (! $isAdmin) {
+-            $q->where('added_by', $user->id);
+-        }
+-        if ($status) {
+-            $q->where('status', $status);
+-        }
++        $value = preg_replace('/[^0-9+]/', '', (string) $value);
+ 
+-        return view('admin.contacts.index', [
+-            'contacts' => $q->paginate(30)->withQueryString(),
+-            'status' => $status,
+-            'isAdmin' => $isAdmin,
+-            'pendingCount' => $isAdmin ? AuthorityContact::where('status', 'pending')->count() : 0,
+-        ]);
++        return $value === '' ? null : $value;
+     }
+ 
+-    public function store(Request $request)
++    /** @return array{admin_area_id:int,name:string,position:?string,phone:?string,email:?string,whatsapp:?string} */
++    private function contactData(Request $request): array
+     {
+-        $this->guard($request);
+-        $user = $request->user();
+         $data = $request->validate([
+             'admin_area_id' => ['required', 'integer', 'exists:admin_areas,id'],
+             'name' => ['required', 'string', 'max:150'],
+@@ -72,36 +58,135 @@ public function store(Request $request)
+ 
+         $phone = $this->clean($data['phone'] ?? null);
+         $whatsapp = $this->clean($data['whatsapp'] ?? null);
+-        $email = ! empty($data['email']) ? $data['email'] : null;
++        $email = ! empty($data['email']) ? trim((string) $data['email']) : null;
+         if (! $phone && ! $whatsapp && ! $email) {
+-            return back()->withInput()->withErrors(['phone' => __('authcontact.need_one')]);
++            throw ValidationException::withMessages(['phone' => __('authcontact.need_one')]);
+         }
+ 
+-        ModerationScope::authorizeArea($user, (int) $data['admin_area_id']);
+-
+-        $isAdmin = $user->role === 'admin';
+-        $c = AuthorityContact::create([
++        return [
+             'admin_area_id' => (int) $data['admin_area_id'],
+             'name' => trim($data['name']),
+             'position' => ! empty($data['position']) ? trim($data['position']) : null,
+             'phone' => $phone,
+             'email' => $email,
+             'whatsapp' => $whatsapp,
++        ];
++    }
++
++    /** The selected area's complete Division → District → Upazila → Union chain. */
++    private function areaFormData(?AuthorityContact $contact = null): array
++    {
++        $oldArea = old('admin_area_id');
++        $areaId = $oldArea !== null ? (int) $oldArea : (int) ($contact?->admin_area_id ?? 0);
++        $area = $areaId ? AdminArea::find($areaId) : null;
++        $selection = [];
++        $node = $area;
++        while ($node) {
++            $selection[$node->level] = $node->id;
++            $node = $node->parent;
++        }
++
++        return [
++            'divisions' => AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn')->get(),
++            'areaSelection' => $selection,
++            'areaLabel' => $area ? AuthorityContact::pathOf($area) : '',
++        ];
++    }
++
++    public function index(Request $request)
++    {
++        $this->guard($request);
++        $user = $request->user();
++        $isAdmin = $user->role === 'admin';
++        $status = in_array($request->query('status'), ['pending', 'approved', 'disabled'], true)
++            ? $request->query('status') : null;
++
++        $query = AuthorityContact::with(['area.parent.parent.parent', 'addedBy'])->orderByDesc('id');
++        if (! $isAdmin) {
++            $query->where('added_by', $user->id);
++        }
++        if ($status) {
++            $query->where('status', $status);
++        }
++
++        return view('admin.contacts.index', array_merge([
++            'contacts' => $query->paginate(30)->withQueryString(),
++            'status' => $status,
++            'isAdmin' => $isAdmin,
++            'pendingCount' => $isAdmin ? AuthorityContact::where('status', 'pending')->count() : 0,
++        ], $this->areaFormData()));
++    }
++
++    public function store(Request $request)
++    {
++        $this->guard($request);
++        $user = $request->user();
++        $data = $this->contactData($request);
++        ModerationScope::authorizeArea($user, $data['admin_area_id']);
++
++        $isAdmin = $user->role === 'admin';
++        $contact = AuthorityContact::create($data + [
+             'status' => $isAdmin ? 'approved' : 'pending',
+             'added_by' => $user->id,
+             'approved_by' => $isAdmin ? $user->id : null,
+             'approved_at' => $isAdmin ? now() : null,
+         ]);
+-        $this->audit->log($user, 'authority_contact.add', 'authority_contact', (string) $c->id, [
+-            'area_id' => $c->admin_area_id,
+-            'status' => $c->status,
++        $this->audit->log($user, 'authority_contact.add', 'authority_contact', (string) $contact->id, [
++            'area_id' => $contact->admin_area_id,
++            'status' => $contact->status,
+         ]);
+ 
+         return redirect()->route('admin.contacts.index')
+             ->with('status', __($isAdmin ? 'authcontact.added_ok' : 'authcontact.added_pending'));
+     }
+ 
+-    private function setStatus(Request $request, AuthorityContact $contact, string $to, string $action, string $msg)
++    public function edit(Request $request, AuthorityContact $contact)
++    {
++        $this->manage($request, $contact);
++
++        return view('admin.contacts.edit', array_merge([
++            'contact' => $contact,
++        ], $this->areaFormData($contact)));
++    }
++
++    public function update(Request $request, AuthorityContact $contact)
++    {
++        $this->manage($request, $contact);
++        $user = $request->user();
++        $data = $this->contactData($request);
++        ModerationScope::authorizeArea($user, $data['admin_area_id']);
++
++        $before = ['area_id' => $contact->admin_area_id, 'status' => $contact->status];
++        if ($user->role !== 'admin' && $contact->status === 'approved') {
++            // A moderator's material change is reviewed again before it can receive notifications.
++            $data['status'] = 'pending';
++            $data['approved_by'] = null;
++            $data['approved_at'] = null;
++        }
++        $contact->forceFill($data)->save();
++
++        $this->audit->log($user, 'authority_contact.update', 'authority_contact', (string) $contact->id, [
++            'before' => $before,
++            'area_id' => $contact->admin_area_id,
++            'status' => $contact->status,
++        ]);
++
++        return redirect()->route('admin.contacts.index')->with('status', __('authcontact.updated_msg'));
++    }
++
++    /** Soft deletion preserves linked notification history and prevents foreign-key failures. */
++    public function destroy(Request $request, AuthorityContact $contact)
++    {
++        $this->manage($request, $contact);
++        $user = $request->user();
++        $details = ['area_id' => $contact->admin_area_id, 'status' => $contact->status];
++        $contact->delete();
++        $this->audit->log($user, 'authority_contact.delete', 'authority_contact', (string) $contact->id, $details);
++
++        return redirect()->route('admin.contacts.index')->with('status', __('authcontact.deleted_msg'));
++    }
++
++    private function setStatus(Request $request, AuthorityContact $contact, string $to, string $action, string $message)
+     {
+         $this->adminOnly($request);
+         if ($contact->status !== $to) {
+@@ -115,7 +200,7 @@ private function setStatus(Request $request, AuthorityContact $contact, string $
+             ]);
+         }
+ 
+-        return back()->with('status', __($msg));
++        return back()->with('status', __($message));
+     }
+ 
+     public function approve(Request $request, AuthorityContact $contact)
+@@ -133,23 +218,24 @@ public function enable(Request $request, AuthorityContact $contact)
+         return $this->setStatus($request, $contact, 'approved', 'authority_contact.enable', 'authcontact.enabled_msg');
+     }
+ 
++    /** Kept for integrations using the original text-search picker. */
+     public function areaSearch(Request $request)
+     {
+         $this->guard($request);
+-        $q = trim((string) $request->query('q'));
+-        if (mb_strlen($q) < 2) {
++        $query = trim((string) $request->query('q'));
++        if (mb_strlen($query) < 2) {
+             return response()->json([]);
+         }
+-        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
++        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $query) . '%';
+         $rows = AdminArea::with('parent.parent.parent')
+-            ->where(function ($w) use ($like) {
+-                $w->where('name_bn', 'like', $like)->orWhere('name_en', 'like', $like);
++            ->where(function ($where) use ($like) {
++                $where->where('name_bn', 'like', $like)->orWhere('name_en', 'like', $like);
+             })
+             ->orderBy('level')->orderBy('name_bn')->limit(20)->get();
+ 
+-        return response()->json($rows->map(fn ($a) => [
+-            'id' => $a->id,
+-            'label' => AuthorityContact::pathOf($a),
++        return response()->json($rows->map(fn ($area) => [
++            'id' => $area->id,
++            'label' => AuthorityContact::pathOf($area),
+         ])->values());
+     }
+ 
+@@ -159,12 +245,12 @@ public function template(Request $request)
+         $id = AdminArea::where('level', 'division')->value('id') ?? 1;
+ 
+         return response()->streamDownload(function () use ($id) {
+-            $o = fopen('php://output', 'w');
+-            fwrite($o, "\xEF\xBB\xBF");
+-            fputcsv($o, ['area_id', 'name', 'position', 'phone', 'email', 'whatsapp'], ',', '"', '');
+-            fputcsv($o, [$id, '[Demo] Divisional Commissioner', 'Commissioner', '01700000001', 'demo1@example.com', '01700000001'], ',', '"', '');
+-            fputcsv($o, [$id, '[Demo] Deputy Commissioner', 'DC', '01700000002', 'demo2@example.com', ''], ',', '"', '');
+-            fclose($o);
++            $output = fopen('php://output', 'w');
++            fwrite($output, "\xEF\xBB\xBF");
++            fputcsv($output, ['area_id', 'name', 'position', 'phone', 'email', 'whatsapp'], ',', '"', '');
++            fputcsv($output, [$id, '[Demo] Divisional Commissioner', 'Commissioner', '01700000001', 'demo1@example.com', '01700000001'], ',', '"', '');
++            fputcsv($output, [$id, '[Demo] Deputy Commissioner', 'DC', '01700000002', 'demo2@example.com', ''], ',', '"', '');
++            fclose($output);
+         }, 'authority-contacts-demo.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+     }
+ 
+@@ -173,15 +259,15 @@ public function areasCsv(Request $request)
+         $this->adminOnly($request);
+ 
+         return response()->streamDownload(function () {
+-            $o = fopen('php://output', 'w');
+-            fwrite($o, "\xEF\xBB\xBF");
+-            fputcsv($o, ['area_id', 'level', 'area_name'], ',', '"', '');
+-            AdminArea::with('parent.parent.parent')->chunkById(500, function ($rows) use ($o) {
+-                foreach ($rows as $a) {
+-                    fputcsv($o, [$a->id, $a->level, AuthorityContact::pathOf($a)], ',', '"', '');
++            $output = fopen('php://output', 'w');
++            fwrite($output, "\xEF\xBB\xBF");
++            fputcsv($output, ['area_id', 'level', 'area_name'], ',', '"', '');
++            AdminArea::with('parent.parent.parent')->chunkById(500, function ($rows) use ($output) {
++                foreach ($rows as $area) {
++                    fputcsv($output, [$area->id, $area->level, AuthorityContact::pathOf($area)], ',', '"', '');
+                 }
+             });
+-            fclose($o);
++            fclose($output);
+         }, 'area-ids.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+     }
+ 
+@@ -191,20 +277,20 @@ public function import(Request $request)
+         $request->validate(['file' => ['required', 'file', 'max:1024', 'mimes:csv,txt']]);
+         $user = $request->user();
+ 
+-        $h = fopen($request->file('file')->getRealPath(), 'r');
++        $handle = fopen($request->file('file')->getRealPath(), 'r');
+         $header = null;
+         $row = 0;
+         $ok = 0;
+         $skip = 0;
+         $errors = [];
+ 
+-        while (($cols = fgetcsv($h, 0, ',', '"', '')) !== false) {
++        while (($cols = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+             $row++;
+             if ($row === 1) {
+                 $cols[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) ($cols[0] ?? ''));
+-                $header = array_map(fn ($c) => strtolower(trim((string) $c)), $cols);
++                $header = array_map(fn ($column) => strtolower(trim((string) $column)), $cols);
+                 if (! in_array('area_id', $header, true) || ! in_array('name', $header, true)) {
+-                    fclose($h);
++                    fclose($handle);
+ 
+                     return back()->with('import_errors', [__('authcontact.bad_header')]);
+                 }
+@@ -214,7 +300,7 @@ public function import(Request $request)
+                 $errors[] = __('authcontact.too_many');
+                 break;
+             }
+-            if (! array_filter($cols, fn ($c) => trim((string) $c) !== '')) {
++            if (! array_filter($cols, fn ($column) => trim((string) $column) !== '')) {
+                 continue;
+             }
+             if (! mb_check_encoding(implode('', array_map('strval', $cols)), 'UTF-8')) {
+@@ -225,18 +311,18 @@ public function import(Request $request)
+                 continue;
+             }
+ 
+-            $rec = [];
+-            foreach ($header as $i => $k) {
+-                $rec[$k] = trim((string) ($cols[$i] ?? ''));
++            $record = [];
++            foreach ($header as $i => $key) {
++                $record[$key] = trim((string) ($cols[$i] ?? ''));
+             }
+-            $phone = $this->clean($rec['phone'] ?? null);
+-            $whatsapp = $this->clean($rec['whatsapp'] ?? null);
+-            $email = ($rec['email'] ?? '') !== '' ? $rec['email'] : null;
+-
+-            $v = Validator::make([
+-                'area_id' => $rec['area_id'] ?? '',
+-                'name' => $rec['name'] ?? '',
+-                'position' => $rec['position'] ?? '',
++            $phone = $this->clean($record['phone'] ?? null);
++            $whatsapp = $this->clean($record['whatsapp'] ?? null);
++            $email = ($record['email'] ?? '') !== '' ? $record['email'] : null;
++
++            $validator = Validator::make([
++                'area_id' => $record['area_id'] ?? '',
++                'name' => $record['name'] ?? '',
++                'position' => $record['position'] ?? '',
+                 'email' => $email,
+             ], [
+                 'area_id' => ['required', 'integer', 'exists:admin_areas,id'],
+@@ -244,36 +330,36 @@ public function import(Request $request)
+                 'position' => ['nullable', 'max:150'],
+                 'email' => ['nullable', 'email', 'max:150'],
+             ]);
+-            if ($v->fails() || (! $phone && ! $whatsapp && ! $email)) {
++            if ($validator->fails() || (! $phone && ! $whatsapp && ! $email)) {
+                 $skip++;
+                 if (count($errors) < 10) {
+-                    $errors[] = "#$row: " . ($v->fails() ? $v->errors()->first() : __('authcontact.need_one'));
++                    $errors[] = "#$row: " . ($validator->fails() ? $validator->errors()->first() : __('authcontact.need_one'));
+                 }
+                 continue;
+             }
+ 
+-            $areaId = (int) $rec['area_id'];
+-            $dup = AuthorityContact::where('admin_area_id', $areaId)
+-                ->where(function ($q) use ($phone, $email, $whatsapp) {
++            $areaId = (int) $record['area_id'];
++            $duplicate = AuthorityContact::where('admin_area_id', $areaId)
++                ->where(function ($query) use ($phone, $email, $whatsapp) {
+                     if ($phone) {
+-                        $q->orWhere('phone', $phone);
++                        $query->orWhere('phone', $phone);
+                     }
+                     if ($email) {
+-                        $q->orWhere('email', $email);
++                        $query->orWhere('email', $email);
+                     }
+                     if ($whatsapp) {
+-                        $q->orWhere('whatsapp', $whatsapp);
++                        $query->orWhere('whatsapp', $whatsapp);
+                     }
+                 })->exists();
+-            if ($dup) {
++            if ($duplicate) {
+                 $skip++;
+                 continue;
+             }
+ 
+             AuthorityContact::create([
+                 'admin_area_id' => $areaId,
+-                'name' => $rec['name'],
+-                'position' => ($rec['position'] ?? '') !== '' ? $rec['position'] : null,
++                'name' => $record['name'],
++                'position' => ($record['position'] ?? '') !== '' ? $record['position'] : null,
+                 'phone' => $phone,
+                 'email' => $email,
+                 'whatsapp' => $whatsapp,
+@@ -284,7 +370,7 @@ public function import(Request $request)
+             ]);
+             $ok++;
+         }
+-        fclose($h);
++        fclose($handle);
+ 
+         $this->audit->log($user, 'authority_contact.import', 'authority_contact', 'bulk', [
+             'imported' => $ok,
+@@ -294,4 +380,4 @@ public function import(Request $request)
+         return back()->with('status', __('authcontact.import_done', ['ok' => $ok, 'skip' => $skip]))
+             ->with('import_errors', $errors);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/Http/Controllers/Admin/IssueAdminController.php b/app/Http/Controllers/Admin/IssueAdminController.php
+index aa276ac..8f05fe4 100644
+--- a/app/Http/Controllers/Admin/IssueAdminController.php
++++ b/app/Http/Controllers/Admin/IssueAdminController.php
+@@ -5,6 +5,7 @@
+ use App\Http\Controllers\Controller;
+ use App\Models\Issue;
+ use App\Services\IssuePublishService;
++use App\Support\IssuePresenter;
+ use Illuminate\Http\Request;
+ 
+ class IssueAdminController extends Controller
+@@ -125,7 +126,7 @@ public function export(Request $request)
+                         $i->lng,
+                         $i->published_at,
+                         $i->created_at,
+-                        route('issues.show', $i->public_id),
++                        IssuePresenter::url($i),
+                     ]);
+                 }
+             });
+diff --git a/app/Http/Controllers/Admin/IssueNotifyController.php b/app/Http/Controllers/Admin/IssueNotifyController.php
+index ae87837..1c68594 100644
+--- a/app/Http/Controllers/Admin/IssueNotifyController.php
++++ b/app/Http/Controllers/Admin/IssueNotifyController.php
+@@ -9,6 +9,7 @@
+ use App\Models\IssueNotification;
+ use App\Models\User;
+ use App\Services\AuditService;
++use App\Support\IssuePresenter;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Collection;
+ use Illuminate\Support\Facades\Mail;
+@@ -91,7 +92,7 @@ private function defaultMessage(Issue $issue): string
+             '',
+             __('notify.tpl_title') . ': ' . $issue->title,
+             __('notify.tpl_place') . ': ' . $place,
+-            __('notify.tpl_link') . ': ' . route('issues.show', $issue->public_id),
++            __('notify.tpl_link') . ': ' . IssuePresenter::url($issue),
+             '',
+             __('notify.tpl_ask'),
+             '',
+diff --git a/app/Http/Controllers/Api/PublicApiController.php b/app/Http/Controllers/Api/PublicApiController.php
+index d5cf69a..0d7859a 100644
+--- a/app/Http/Controllers/Api/PublicApiController.php
++++ b/app/Http/Controllers/Api/PublicApiController.php
+@@ -140,7 +140,7 @@ private function issueArray(Issue $i, bool $full = false): array
+             'reports_count' => (int) $i->reports_count,
+             'reported_at'  => $i->first_reported_at?->toIso8601String(),
+             'updated_at'   => $i->last_activity_at?->toIso8601String(),
+-            'url'          => url('/issues/' . $i->public_id),
++            'url'          => IssuePresenter::url($i),
+         ];
+         if ($full) {
+             $row['photos'] = $i->evidence()
+diff --git a/app/Http/Controllers/AuthController.php b/app/Http/Controllers/AuthController.php
+index c74c60f..2fccfbc 100644
+--- a/app/Http/Controllers/AuthController.php
++++ b/app/Http/Controllers/AuthController.php
+@@ -84,9 +84,18 @@ private function dispatchCode(string $phone, Request $request)
+         }
+ 
+         if ($result === 'wait') {
+-            $request->session()->put('otp_phone', $phone);
++            // The OTP service owns the rate limit so repeated requests get a useful
++            // screen and countdown instead of Laravel's generic 429 response.
++            $seconds = max(1, $this->otp->waitSeconds($phone, (string) $request->ip()));
++            $request->session()->put([
++                'otp_phone' => $phone,
++                self::OTP_RESEND_AT => now()->addSeconds($seconds)->timestamp,
++            ]);
+ 
+-            return redirect()->route('login.verify')->withErrors(['code' => __('login.wait')]);
++            return redirect()->route('login.verify')->with(
++                'otp_resend_notice',
++                __('login.resend_wait_notice', ['seconds' => \App\Support\IssuePresenter::num($seconds)])
++            );
+         }
+ 
+         $request->session()->put([
+diff --git a/app/Http/Controllers/IssueObservationController.php b/app/Http/Controllers/IssueObservationController.php
+index 9c341a3..ac01aad 100644
+--- a/app/Http/Controllers/IssueObservationController.php
++++ b/app/Http/Controllers/IssueObservationController.php
+@@ -38,7 +38,7 @@ public function store(Request $request, string $publicId, EvidenceService $evide
+             ['type' => $data['type'], 'note' => $data['note'] ?? null]
+         );
+ 
+-        $redirect = redirect(url('/issues/' . $issue->public_id) . '#confirm')->with('obs_done', true);
++        $redirect = redirect(\App\Support\IssuePresenter::url($issue) . '#confirm')->with('obs_done', true);
+ 
+         $photo = UpdatePhotos::enabled()
+             ? ($request->file('photo_camera') ?: $request->file('photo_gallery'))
+diff --git a/app/Http/Controllers/IssueVerifyController.php b/app/Http/Controllers/IssueVerifyController.php
+index 80185b3..2d3036d 100644
+--- a/app/Http/Controllers/IssueVerifyController.php
++++ b/app/Http/Controllers/IssueVerifyController.php
+@@ -45,12 +45,14 @@ public function store(Request $request, string $publicId, IssueStatusService $st
+ 
+         $data = $request->validate([
+             'type' => ['required', 'in:repaired,still_exists'],
+-            'note' => ['required', 'string', 'min:3', 'max:300'],
++            'note' => ['nullable', 'string', 'max:300'],
+             'seen' => ['accepted'],
+         ]);
+ 
+         $actor  = $request->user();
+-        $reason = trim($data['note']);
++        // Status events always need an auditable reason; a blank staff comment is
++        // represented by this neutral system text rather than blocking the update.
++        $reason = trim((string) ($data['note'] ?? '')) ?: __('issues.verify_no_note');
+         $before = (int) StatusEvent::where('issue_id', $issue->id)->max('id');
+ 
+         DB::transaction(function () use ($status, $issue, $actor, $reason, $data) {
+@@ -75,7 +77,7 @@ public function store(Request $request, string $publicId, IssueStatusService $st
+             }
+         });
+ 
+-        $redirect = redirect(url('/issues/' . $issue->public_id) . '#verify')->with('verify_done', true);
++        $redirect = redirect(\App\Support\IssuePresenter::url($issue) . '#verify')->with('verify_done', true);
+ 
+         $photo = UpdatePhotos::enabled()
+             ? ($request->file('photo_camera') ?: $request->file('photo_gallery'))
+diff --git a/app/Http/Controllers/SitemapController.php b/app/Http/Controllers/SitemapController.php
+index 9eb191e..f2e3cb3 100644
+--- a/app/Http/Controllers/SitemapController.php
++++ b/app/Http/Controllers/SitemapController.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Models\Issue;
+ use App\Models\Page;
++use App\Support\IssuePresenter;
+ use Illuminate\Support\Facades\Cache;
+ 
+ /**
+@@ -58,8 +59,8 @@ private function buildSitemap(): string
+         Issue::whereNotNull('published_at')
+             ->orderByDesc('published_at')
+             ->limit(5000)
+-            ->get(['public_id', 'published_at', 'last_activity_at'])
+-            ->each(fn ($i) => $add(route('issues.show', $i->public_id), $i->last_activity_at ?? $i->published_at, 'daily', '0.8'));
++            ->get(['id', 'public_id', 'published_at', 'last_activity_at'])
++            ->each(fn ($i) => $add(IssuePresenter::url($i), $i->last_activity_at ?? $i->published_at, 'daily', '0.8'));
+ 
+         return $x."</urlset>\n";
+     }
+diff --git a/app/Models/AuthorityContact.php b/app/Models/AuthorityContact.php
+index b4117e0..307711a 100644
+--- a/app/Models/AuthorityContact.php
++++ b/app/Models/AuthorityContact.php
+@@ -4,9 +4,12 @@
+ 
+ use Illuminate\Database\Eloquent\Model;
+ use Illuminate\Database\Eloquent\Relations\BelongsTo;
++use Illuminate\Database\Eloquent\SoftDeletes;
+ 
+ class AuthorityContact extends Model
+ {
++    use SoftDeletes;
++
+     protected $guarded = ['id'];
+ 
+     protected function casts(): array
+diff --git a/app/Models/IssueNotification.php b/app/Models/IssueNotification.php
+index 9599765..9186e11 100644
+--- a/app/Models/IssueNotification.php
++++ b/app/Models/IssueNotification.php
+@@ -16,7 +16,8 @@ public function issue(): BelongsTo
+ 
+     public function contact(): BelongsTo
+     {
+-        return $this->belongsTo(AuthorityContact::class, 'authority_contact_id');
++        // A removed directory entry must not erase or break the historic notification log.
++        return $this->belongsTo(AuthorityContact::class, 'authority_contact_id')->withTrashed();
+     }
+ 
+     public function sender(): BelongsTo
+diff --git a/app/Services/FollowNotifier.php b/app/Services/FollowNotifier.php
+index 7c3553c..3824f29 100644
+--- a/app/Services/FollowNotifier.php
++++ b/app/Services/FollowNotifier.php
+@@ -20,7 +20,7 @@ public static function dispatch(Issue $issue, StatusEvent $event, int $actorId):
+                 return;
+             }
+ 
+-            $url = url('/issues/' . $issue->public_id);
++            $url = \App\Support\IssuePresenter::url($issue);
+             $now = now();
+             $rows = [];
+             foreach ($userIds as $uid) {
+diff --git a/app/Services/OtpService.php b/app/Services/OtpService.php
+index 55995f0..026ad26 100644
+--- a/app/Services/OtpService.php
++++ b/app/Services/OtpService.php
+@@ -67,6 +67,18 @@ public function send(string $phone, string $ip, int $resendSeconds = 60): string
+         return ($smsOk === false && \App\Support\LoginSettings::provider() === 'gateway') ? 'failed' : 'sent';
+     }
+ 
++    /** Seconds until the next permitted login OTP request for this phone/IP pair. */
++    public function waitSeconds(string $phone, string $ip): int
++    {
++        $keys = [
++            'otp-cool:' . sha1($phone),
++            'otp-phone:' . sha1($phone),
++            'otp-ip:' . sha1($ip),
++        ];
++
++        return max(0, ...array_map(fn (string $key) => RateLimiter::availableIn($key), $keys));
++    }
++
+     /** @return 'ok'|'invalid'|'locked' */
+     public function verify(string $phone, string $code): string
+     {
+diff --git a/app/Services/SocialPoster.php b/app/Services/SocialPoster.php
+index 1c6b094..4d1ab5c 100644
+--- a/app/Services/SocialPoster.php
++++ b/app/Services/SocialPoster.php
+@@ -31,7 +31,7 @@ public static function afterStatusChange(Issue $issue, StatusEvent $event): void
+                 'https://graph.facebook.com/v21.0/' . $s['fb_page_id'] . '/feed',
+                 [
+                     'message'      => __('issues.share_repaired_msg', ['title' => $issue->title]),
+-                    'link'         => url('/issues/' . $issue->public_id),
++                    'link'         => \App\Support\IssuePresenter::url($issue),
+                     'access_token' => $token,
+                 ]
+             );
+diff --git a/app/Support/IssuePresenter.php b/app/Support/IssuePresenter.php
+index 6897686..d31797c 100644
+--- a/app/Support/IssuePresenter.php
++++ b/app/Support/IssuePresenter.php
+@@ -36,13 +36,25 @@ public static function map(Issue $issue): array
+             'color'    => $d['color'],
+             'status'   => $d['label'],
+             'category' => $issue->category?->name(),
+-            'url'      => url('/issues/' . $issue->public_id),
++            'url'      => self::url($issue),
+             'group'    => self::group($issue),
+             'notified' => (bool) $issue->getAttribute('authority_notified'),
+             'meters'   => isset($issue->meters) ? (int) round($issue->meters) : null,
+         ];
+     }
+ 
++    /**
++     * Public issue URL. It retains the opaque public ID and adds a short, human
++     * reference based on the issue's database ID for support and sharing.
++     */
++    public static function url(Issue $issue): string
++    {
++        return route('issues.show', [
++            'issue' => $issue->public_id,
++            'reference' => 'issue-' . $issue->id,
++        ]);
++    }
++
+     /** Filter group used by the home page chips: new, started or repaired. */
+     public static function group(Issue $issue): string
+     {
+diff --git a/database/migrations/2026_11_21_120000_add_soft_deletes_to_authority_contacts_table.php b/database/migrations/2026_11_21_120000_add_soft_deletes_to_authority_contacts_table.php
+new file mode 100644
+index 0000000..334cef5
+--- /dev/null
++++ b/database/migrations/2026_11_21_120000_add_soft_deletes_to_authority_contacts_table.php
+@@ -0,0 +1,23 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('authority_contacts', function (Blueprint $table) {
++            // Keep historic issue-notification records intact when a contact is removed.
++            $table->softDeletes();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('authority_contacts', function (Blueprint $table) {
++            $table->dropSoftDeletes();
++        });
++    }
++};
+diff --git a/lang/bn/authcontact.php b/lang/bn/authcontact.php
+index fd2330e..ebee140 100644
+--- a/lang/bn/authcontact.php
++++ b/lang/bn/authcontact.php
+@@ -5,13 +5,28 @@
+     'title' => 'কর্তৃপক্ষের যোগাযোগ',
+     'private_note' => 'ফোন ও ইমেইল শুধু অ্যাডমিন ও মডারেটর দেখতে পান। পাবলিক পেজে কখনো দেখানো হয় না।',
+     'add_title' => 'নতুন যোগাযোগ যোগ করুন',
+-    'f_area' => 'এলাকা (নাম লিখে খুঁজুন)',
++    'f_area' => 'এলাকা',
++    'location_title' => 'কর্তৃপক্ষের কর্মএলাকা বাছুন',
++    'location_hint' => 'বিভাগ দিয়ে শুরু করুন। জেলা, উপজেলা ও ইউনিয়ন থাকলে ধাপে ধাপে বাছুন; শেষ বাছাই করা এলাকাতেই যোগাযোগটি যুক্ত হবে।',
++    'f_division' => 'বিভাগ',
++    'f_district' => 'জেলা',
++    'f_upazila' => 'উপজেলা',
++    'f_union' => 'ইউনিয়ন',
+     'f_name' => 'নাম',
+     'f_position' => 'পদ',
+     'f_phone' => 'ফোন',
+     'f_email' => 'ইমেইল',
+     'f_whatsapp' => 'হোয়াটসঅ্যাপ নম্বর',
+     'add_btn' => 'যোগ করুন',
++    'edit_title' => 'যোগাযোগ সম্পাদনা করুন',
++    'edit' => 'সম্পাদনা',
++    'update_btn' => 'পরিবর্তন সংরক্ষণ করুন',
++    'updated_msg' => 'যোগাযোগের তথ্য হালনাগাদ হয়েছে।',
++    'delete' => 'মুছুন',
++    'delete_confirm' => 'এই যোগাযোগটি মুছে ফেলবেন? পুরোনো নোটিফিকেশন ইতিহাস অক্ষত থাকবে।',
++    'deleted_msg' => 'যোগাযোগটি মুছে ফেলা হয়েছে।',
++    'cancel' => 'বাতিল',
++    'back_to_list' => 'সব যোগাযোগে ফিরুন',
+     'need_one' => 'ফোন, ইমেইল বা হোয়াটসঅ্যাপের অন্তত একটা দিন।',
+     'added_pending' => 'যোগাযোগ যোগ হয়েছে। অ্যাডমিন অনুমোদন করলে চালু হবে।',
+     'added_ok' => 'যোগাযোগ যোগ ও অনুমোদন হয়েছে।',
+@@ -26,7 +41,7 @@
+     'disabled_msg' => 'যোগাযোগ বন্ধ করা হয়েছে।',
+     'enabled_msg' => 'যোগাযোগ আবার চালু হয়েছে।',
+     'none' => 'কোনো যোগাযোগ নেই।',
+-    'no_area' => 'এলাকা বাছাই হয়নি। খুঁজে একটা এলাকা বাছুন।',
++    'no_area' => 'এলাকা বাছাই হয়নি। বিভাগ থেকে শুরু করে একটি এলাকা বাছুন।',
+     'import_title' => 'একসাথে অনেক যোগাযোগ আপলোড (CSV)',
+     'import_hint' => 'কলাম: area_id, name, position, phone, email, whatsapp। ফাইল CSV UTF-8 হিসেবে সেভ করুন। সর্বোচ্চ ১০০০ সারি।',
+     'import_btn' => 'আপলোড',
+diff --git a/lang/bn/issues.php b/lang/bn/issues.php
+index a115177..a5a3d49 100644
+--- a/lang/bn/issues.php
++++ b/lang/bn/issues.php
+@@ -96,7 +96,8 @@
+     'verify_claims'        => ':count জন নাগরিক বলছেন সমস্যাটি ঠিক হয়েছে। অনুগ্রহ করে সরেজমিনে দেখুন।',
+     'verify_repaired'      => 'আমি দেখেছি: মেরামত হয়েছে',
+     'verify_still'         => 'আমি দেখেছি: সমস্যাটি এখনো আছে',
+-    'verify_note_label'    => 'কী দেখলেন? (১-২ লাইন, সবাইকে দেখানো হবে)',
++    'verify_note_label'    => 'কী দেখলেন? (ঐচ্ছিক, ১-২ লাইন; সবাইকে দেখানো হবে)',
++    'verify_no_note'       => 'সরাসরি পরিদর্শনের ভিত্তিতে হালনাগাদ করা হয়েছে।',
+     'verify_seen'          => 'আমি নিজে জায়গাটি দেখেছি',
+     'verify_submit'        => 'আমার দেখা সংরক্ষণ করুন',
+     'verify_done'          => 'সংরক্ষণ হয়েছে। ধন্যবাদ।',
+diff --git a/lang/bn/login.php b/lang/bn/login.php
+index f7bdbf4..5898bbd 100644
+--- a/lang/bn/login.php
++++ b/lang/bn/login.php
+@@ -21,6 +21,8 @@
+     'verify'       => 'যাচাই করুন',
+     'resend'       => 'আবার কোড পাঠান',
+     'resend_wait_seconds' => 'নতুন কোড চাইতে আরও :seconds সেকেন্ড অপেক্ষা করুন।',
++    'resend_wait_title' => 'আরেকটি কোড এখনই পাঠানো যাবে না',
++    'resend_wait_notice' => 'নিরাপত্তার জন্য নতুন কোড পাঠাতে আরও :seconds সেকেন্ড অপেক্ষা করুন।',
+     'change_phone' => 'নম্বর বদলান',
+     'sent'         => 'কোড পাঠানো হয়েছে।',
+     'welcome'      => 'লগইন সফল হয়েছে।',
+diff --git a/lang/en/authcontact.php b/lang/en/authcontact.php
+index 53bc48d..080e85c 100644
+--- a/lang/en/authcontact.php
++++ b/lang/en/authcontact.php
+@@ -5,13 +5,28 @@
+     'title' => 'Authority contacts',
+     'private_note' => 'Phone and email are visible only to admins and moderators. They are never shown on public pages.',
+     'add_title' => 'Add a contact',
+-    'f_area' => 'Area (type a name to search)',
++    'f_area' => 'Area',
++    'location_title' => 'Choose the authority service area',
++    'location_hint' => 'Start with a division, then choose a district, upazila and union where available. The most specific selected area is saved.',
++    'f_division' => 'Division',
++    'f_district' => 'District',
++    'f_upazila' => 'Upazila',
++    'f_union' => 'Union',
+     'f_name' => 'Name',
+     'f_position' => 'Position',
+     'f_phone' => 'Phone',
+     'f_email' => 'Email',
+     'f_whatsapp' => 'WhatsApp number',
+     'add_btn' => 'Add',
++    'edit_title' => 'Edit contact',
++    'edit' => 'Edit',
++    'update_btn' => 'Save changes',
++    'updated_msg' => 'Contact details updated.',
++    'delete' => 'Delete',
++    'delete_confirm' => 'Delete this contact? Historic notification records will stay intact.',
++    'deleted_msg' => 'Contact deleted.',
++    'cancel' => 'Cancel',
++    'back_to_list' => 'Back to all contacts',
+     'need_one' => 'Give at least one of phone, email or WhatsApp.',
+     'added_pending' => 'Contact added. It will work after the admin approves it.',
+     'added_ok' => 'Contact added and approved.',
+@@ -26,7 +41,7 @@
+     'disabled_msg' => 'Contact disabled.',
+     'enabled_msg' => 'Contact enabled.',
+     'none' => 'No contacts.',
+-    'no_area' => 'No area chosen. Search and pick an area.',
++    'no_area' => 'No area chosen. Start with a division and choose an area.',
+     'import_title' => 'Upload many contacts (CSV)',
+     'import_hint' => 'Columns: area_id, name, position, phone, email, whatsapp. Save the file as CSV UTF-8. Up to 1000 rows.',
+     'import_btn' => 'Upload',
+diff --git a/lang/en/issues.php b/lang/en/issues.php
+index b6aa25f..d07e745 100644
+--- a/lang/en/issues.php
++++ b/lang/en/issues.php
+@@ -96,7 +96,8 @@
+     'verify_claims'        => ':count citizen(s) say it has been fixed. Please check on site.',
+     'verify_repaired'      => 'I saw it: the repair is done',
+     'verify_still'         => 'I saw it: the problem is still there',
+-    'verify_note_label'    => 'What did you see? (1-2 lines, shown publicly)',
++    'verify_note_label'    => 'What did you see? (optional, 1-2 lines; shown publicly)',
++    'verify_no_note'       => 'Updated after an on-site visit.',
+     'verify_seen'          => 'I visited the place myself',
+     'verify_submit'        => 'Save my visit',
+     'verify_done'          => 'Saved. Thank you.',
+diff --git a/lang/en/login.php b/lang/en/login.php
+index 4c70a6a..4ab439b 100644
+--- a/lang/en/login.php
++++ b/lang/en/login.php
+@@ -21,6 +21,8 @@
+     'verify'       => 'Verify',
+     'resend'       => 'Send a new code',
+     'resend_wait_seconds' => 'You can request another code in :seconds seconds.',
++    'resend_wait_title' => 'A new code is not available yet',
++    'resend_wait_notice' => 'For security, please wait :seconds seconds before requesting a new code.',
+     'change_phone' => 'Change number',
+     'sent'         => 'Code sent.',
+     'welcome'      => 'You are logged in.',
+diff --git a/resources/js/firebase-login.js b/resources/js/firebase-login.js
+index f112f5a..78de3ff 100644
+--- a/resources/js/firebase-login.js
++++ b/resources/js/firebase-login.js
+@@ -45,10 +45,12 @@ if (root) {
+         const update = () => {
+             if (seconds <= 0) {
+                 sendBtn.disabled = false;
++                sendBtn.hidden = false;
+                 say('textSent');
+                 return true;
+             }
+             sendBtn.disabled = true;
++            sendBtn.hidden = true;
+             const wait = (d.textResendWait || '').replace('__seconds__', String(seconds));
+             status.textContent = [d.textSent || '', wait].filter(Boolean).join(' ');
+             status.style.color = '#334155';
+@@ -107,6 +109,7 @@ if (root) {
+             resetVerifier();
+             say(e && e.code === 'auth/too-many-requests' ? 'textTooMany' : 'textError', true);
+             sendBtn.disabled = false;
++            sendBtn.hidden = false;
+         }
+     });
+ 
+diff --git a/resources/views/admin/contacts/_form.blade.php b/resources/views/admin/contacts/_form.blade.php
+new file mode 100644
+index 0000000..c23dc8d
+--- /dev/null
++++ b/resources/views/admin/contacts/_form.blade.php
+@@ -0,0 +1,180 @@
++@php
++    /** @var \App\Models\AuthorityContact|null $contact */
++    $contact ??= null;
++    $editing = $contact !== null;
++    $selectedAreaId = (int) old('admin_area_id', $contact?->admin_area_id);
++    $areaSelection ??= [];
++    $areaLabel ??= '';
++@endphp
++
++<form method="POST" action="{{ $editing ? route('admin.contacts.update', $contact) : route('admin.contacts.store') }}"
++      class="mt-4 space-y-5" data-contact-form
++      data-children-url="{{ url('/admin/areas') }}"
++      data-selection='@json($areaSelection)'>
++    @csrf
++    @if ($editing) @method('PUT') @endif
++
++    <fieldset class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
++        <legend class="px-1 text-sm font-bold text-slate-800">{{ __('authcontact.location_title') }}</legend>
++        <p class="mb-3 text-xs leading-5 text-slate-500">{{ __('authcontact.location_hint') }}</p>
++        <input type="hidden" name="admin_area_id" value="{{ $selectedAreaId }}" data-area-id>
++        <p data-area-error class="mb-3 hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ __('authcontact.no_area') }}</p>
++
++        <div class="grid gap-3 sm:grid-cols-2">
++            <label class="block text-sm font-semibold text-slate-700">
++                {{ __('authcontact.f_division') }}
++                <select data-area-level="division" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm">
++                    <option value="">{{ __('areas.all_divisions') }}</option>
++                    @foreach ($divisions as $division)
++                        <option value="{{ $division->id }}" @selected((string) ($areaSelection['division'] ?? '') === (string) $division->id)>
++                            {{ app()->getLocale() === 'bn' ? ($division->name_bn ?: $division->name_en) : ($division->name_en ?: $division->name_bn) }}
++                        </option>
++                    @endforeach
++                </select>
++            </label>
++            <label class="block text-sm font-semibold text-slate-700">
++                {{ __('authcontact.f_district') }}
++                <select data-area-level="district" disabled class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                    <option value="">{{ __('areas.all_districts') }}</option>
++                </select>
++            </label>
++            <label class="block text-sm font-semibold text-slate-700">
++                {{ __('authcontact.f_upazila') }}
++                <select data-area-level="upazila" disabled class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                    <option value="">{{ __('areas.all_upazilas') }}</option>
++                </select>
++            </label>
++            <label class="block text-sm font-semibold text-slate-700">
++                {{ __('authcontact.f_union') }}
++                <select data-area-level="union" disabled class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                    <option value="">{{ __('areas.all_unions') }}</option>
++                </select>
++            </label>
++        </div>
++        <p data-area-chosen class="mt-3 text-xs font-semibold text-green-700">{{ $areaLabel }}</p>
++    </fieldset>
++
++    <div class="grid gap-4 sm:grid-cols-2">
++        <label class="block text-sm font-semibold text-slate-700">{{ __('authcontact.f_name') }}
++            <input type="text" name="name" value="{{ old('name', $contact?->name) }}" maxlength="150" required
++                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
++        </label>
++        <label class="block text-sm font-semibold text-slate-700">{{ __('authcontact.f_position') }}
++            <input type="text" name="position" value="{{ old('position', $contact?->position) }}" maxlength="150"
++                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
++        </label>
++        <label class="block text-sm font-semibold text-slate-700">{{ __('authcontact.f_phone') }}
++            <input type="text" inputmode="tel" name="phone" value="{{ old('phone', $contact?->phone) }}" maxlength="30"
++                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
++        </label>
++        <label class="block text-sm font-semibold text-slate-700">{{ __('authcontact.f_email') }}
++            <input type="email" name="email" value="{{ old('email', $contact?->email) }}" maxlength="150"
++                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
++        </label>
++        <label class="block text-sm font-semibold text-slate-700 sm:col-span-2">{{ __('authcontact.f_whatsapp') }}
++            <input type="text" inputmode="tel" name="whatsapp" value="{{ old('whatsapp', $contact?->whatsapp) }}" maxlength="30"
++                   class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm">
++        </label>
++    </div>
++
++    <div class="flex flex-wrap gap-3">
++        <button type="submit" class="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-700">
++            {{ $editing ? __('authcontact.update_btn') : __('authcontact.add_btn') }}
++        </button>
++        @if ($editing)
++            <a href="{{ route('admin.contacts.index') }}" class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">{{ __('authcontact.cancel') }}</a>
++        @endif
++    </div>
++</form>
++
++@push('scripts')
++<script>
++(() => {
++    const form = document.querySelector('[data-contact-form]');
++    if (!form) return;
++
++    const byLevel = (level) => form.querySelector('[data-area-level="' + level + '"]');
++    const division = byLevel('division');
++    const district = byLevel('district');
++    const upazila = byLevel('upazila');
++    const union = byLevel('union');
++    const hidden = form.querySelector('[data-area-id]');
++    const chosen = form.querySelector('[data-area-chosen]');
++    const error = form.querySelector('[data-area-error]');
++    const endpoint = form.dataset.childrenUrl;
++    let seed = {};
++    try { seed = JSON.parse(form.dataset.selection || '{}') || {}; } catch (e) { seed = {}; }
++
++    const labels = {
++        district: @json(__('areas.all_districts')),
++        upazila: @json(__('areas.all_upazilas')),
++        union: @json(__('areas.all_unions')),
++    };
++    const text = (select) => select.options[select.selectedIndex]?.text || '';
++    const update = () => {
++        const selected = union.value || upazila.value || district.value || division.value || '';
++        hidden.value = selected;
++        const names = [division, district, upazila, union].filter((select) => select.value).map(text);
++        chosen.textContent = names.length ? names.join(' / ') : '';
++        if (selected) error.classList.add('hidden');
++    };
++    const reset = (select, placeholder) => {
++        select.innerHTML = '';
++        select.append(new Option(placeholder, ''));
++        select.disabled = true;
++    };
++    const load = async (parentId, select, level, value = '') => {
++        reset(select, labels[level]);
++        if (!parentId) return;
++        try {
++            const response = await fetch(endpoint + '/' + encodeURIComponent(parentId) + '/children', {
++                headers: { 'Accept': 'application/json' }, credentials: 'same-origin'
++            });
++            if (!response.ok) return;
++            const rows = await response.json();
++            rows.forEach((row) => select.append(new Option(row.label, String(row.id))));
++            select.disabled = false;
++            if (value && Array.from(select.options).some((option) => option.value === String(value))) {
++                select.value = String(value);
++            }
++        } catch (e) { /* the parent selection remains usable if a request fails */ }
++    };
++    const clearAfterDivision = () => { reset(district, labels.district); reset(upazila, labels.upazila); reset(union, labels.union); };
++    const clearAfterDistrict = () => { reset(upazila, labels.upazila); reset(union, labels.union); };
++    const clearAfterUpazila = () => { reset(union, labels.union); };
++
++    division.addEventListener('change', async () => {
++        clearAfterDivision(); update();
++        await load(division.value, district, 'district');
++    });
++    district.addEventListener('change', async () => {
++        clearAfterDistrict(); update();
++        await load(district.value, upazila, 'upazila');
++    });
++    upazila.addEventListener('change', async () => {
++        clearAfterUpazila(); update();
++        await load(upazila.value, union, 'union');
++    });
++    union.addEventListener('change', update);
++    form.addEventListener('submit', (event) => {
++        if (hidden.value) return;
++        event.preventDefault();
++        error.classList.remove('hidden');
++        division.focus();
++    });
++
++    (async () => {
++        if (!division.value) { update(); return; }
++        update();
++        await load(division.value, district, 'district', seed.district);
++        if (!district.value) { update(); return; }
++        update();
++        await load(district.value, upazila, 'upazila', seed.upazila);
++        if (!upazila.value) { update(); return; }
++        update();
++        await load(upazila.value, union, 'union', seed.union);
++        update();
++    })();
++})();
++</script>
++@endpush
+diff --git a/resources/views/admin/contacts/edit.blade.php b/resources/views/admin/contacts/edit.blade.php
+new file mode 100644
+index 0000000..b66a643
+--- /dev/null
++++ b/resources/views/admin/contacts/edit.blade.php
+@@ -0,0 +1,26 @@
++@extends('layouts.app')
++
++@section('title', __('authcontact.edit_title'))
++
++@section('content')
++<div class="mx-auto max-w-3xl px-4 py-8">
++    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
++        <div>
++            <h1 class="text-2xl font-bold text-slate-900">{{ __('authcontact.edit_title') }}</h1>
++            <p class="mt-1 text-sm text-slate-500">{{ __('authcontact.private_note') }}</p>
++        </div>
++        <a href="{{ route('admin.contacts.index') }}" class="text-sm font-semibold text-brand-700 underline">{{ __('authcontact.back_to_list') }}</a>
++    </div>
++
++    @if ($errors->any())
++        <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
++            {{ $errors->first() }}
++        </div>
++    @endif
++
++    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
++        <h2 class="text-lg font-bold text-slate-900">{{ $contact->name }}</h2>
++        @include('admin.contacts._form', ['contact' => $contact])
++    </section>
++</div>
++@endsection
+diff --git a/resources/views/admin/contacts/index.blade.php b/resources/views/admin/contacts/index.blade.php
+index 119056e..de8544e 100644
+--- a/resources/views/admin/contacts/index.blade.php
++++ b/resources/views/admin/contacts/index.blade.php
+@@ -21,36 +21,9 @@
+         <div class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ $errors->first() }}</div>
+     @endif
+ 
+-    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+-        <h2 class="font-semibold text-slate-900">{{ __('authcontact.add_title') }}</h2>
+-        <form method="POST" action="{{ route('admin.contacts.store') }}" class="mt-3 space-y-3">
+-            @csrf
+-            <div>
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_area') }}</label>
+-                <input type="text" id="area-q" autocomplete="off" placeholder="{{ __('authcontact.search_hint') }}" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                <input type="hidden" name="admin_area_id" id="area-id" value="{{ old('admin_area_id') }}">
+-                <div id="area-pick" style="margin-top:4px;border-radius:8px;overflow:hidden;"></div>
+-                <div id="area-chosen" style="margin-top:4px;font-size:13px;font-weight:600;color:#0f172a;"></div>
+-            </div>
+-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_name') }}
+-                    <input type="text" name="name" value="{{ old('name') }}" maxlength="150" required style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                </label>
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_position') }}
+-                    <input type="text" name="position" value="{{ old('position') }}" maxlength="150" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                </label>
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_phone') }}
+-                    <input type="text" name="phone" value="{{ old('phone') }}" maxlength="30" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                </label>
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_email') }}
+-                    <input type="email" name="email" value="{{ old('email') }}" maxlength="150" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                </label>
+-                <label class="block text-sm font-medium text-slate-700">{{ __('authcontact.f_whatsapp') }}
+-                    <input type="text" name="whatsapp" value="{{ old('whatsapp') }}" maxlength="30" style="display:block;width:100%;margin-top:4px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;">
+-                </label>
+-            </div>
+-            <button type="submit" style="background:#0f172a;color:#fff;border:0;border-radius:8px;padding:8px 18px;cursor:pointer;">{{ __('authcontact.add_btn') }}</button>
+-        </form>
++    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
++        <h2 class="text-lg font-bold text-slate-900">{{ __('authcontact.add_title') }}</h2>
++        @include('admin.contacts._form')
+     </div>
+ 
+     @if ($isAdmin)
+@@ -90,24 +63,31 @@
+                     @if ($c->email) &middot; {{ $c->email }} @endif
+                     @if ($c->whatsapp) &middot; WhatsApp: {{ $c->whatsapp }} @endif
+                 </div>
+-                @if ($isAdmin)
+-                    <div class="mt-3 flex gap-2">
++                <div class="mt-3 flex flex-wrap gap-2">
++                    @if ($isAdmin)
+                         @if ($c->status === 'pending')
+                             <form method="POST" action="{{ route('admin.contacts.approve', ['contact' => $c->id]) }}">@csrf
+-                                <button type="submit" style="background:#15803d;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.approve') }}</button>
++                                <button type="submit" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-800">{{ __('authcontact.approve') }}</button>
+                             </form>
+                         @endif
+                         @if ($c->status === 'disabled')
+                             <form method="POST" action="{{ route('admin.contacts.enable', ['contact' => $c->id]) }}">@csrf
+-                                <button type="submit" style="background:#15803d;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.enable') }}</button>
++                                <button type="submit" class="rounded-md bg-green-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-800">{{ __('authcontact.enable') }}</button>
+                             </form>
+                         @else
+                             <form method="POST" action="{{ route('admin.contacts.disable', ['contact' => $c->id]) }}">@csrf
+-                                <button type="submit" style="background:#dc2626;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('authcontact.disable') }}</button>
++                                <button type="submit" class="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100">{{ __('authcontact.disable') }}</button>
+                             </form>
+                         @endif
+-                    </div>
+-                @endif
++                    @endif
++                    @if ($isAdmin || (int) $c->added_by === (int) auth()->id())
++                        <a href="{{ route('admin.contacts.edit', $c) }}" class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50">{{ __('authcontact.edit') }}</a>
++                        <form method="POST" action="{{ route('admin.contacts.destroy', $c) }}" onsubmit="return confirm(@js(__('authcontact.delete_confirm')));">
++                            @csrf @method('DELETE')
++                            <button type="submit" class="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50">{{ __('authcontact.delete') }}</button>
++                        </form>
++                    @endif
++                </div>
+             </div>
+         @empty
+             <p class="text-sm text-slate-500">{{ __('authcontact.none') }}</p>
+@@ -117,35 +97,3 @@
+     <div class="mt-6">{{ $contacts->links() }}</div>
+ </div>
+ @endsection
+-
+-@push('scripts')
+-<script>
+-(function () {
+-  var q = document.getElementById('area-q'), box = document.getElementById('area-pick');
+-  var hid = document.getElementById('area-id'), chosen = document.getElementById('area-chosen'), t = null;
+-  var url = @json(route('admin.contacts.areas'));
+-  q.addEventListener('input', function () {
+-    clearTimeout(t);
+-    var v = q.value.trim();
+-    if (v.length < 2) { box.innerHTML = ''; return; }
+-    t = setTimeout(function () {
+-      fetch(url + '?q=' + encodeURIComponent(v), { headers: { 'Accept': 'application/json' } })
+-        .then(function (r) { return r.json(); })
+-        .then(function (list) {
+-          box.innerHTML = '';
+-          list.forEach(function (a) {
+-            var b = document.createElement('button');
+-            b.type = 'button';
+-            b.textContent = a.label;
+-            b.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:13px;';
+-            b.addEventListener('click', function () {
+-              hid.value = a.id; chosen.textContent = a.label; box.innerHTML = ''; q.value = '';
+-            });
+-            box.appendChild(b);
+-          });
+-        });
+-    }, 250);
+-  });
+-})();
+-</script>
+-@endpush
+\ No newline at end of file
+diff --git a/resources/views/admin/issues/index.blade.php b/resources/views/admin/issues/index.blade.php
+index 9310c7d..bc42c10 100644
+--- a/resources/views/admin/issues/index.blade.php
++++ b/resources/views/admin/issues/index.blade.php
+@@ -118,7 +118,7 @@ function init(i) {
+ 
+                 <div class="mt-3 flex flex-wrap items-center gap-2">
+                     @if ($tab === 'published')
+-                        <a href="{{ route('issues.show', $issue->public_id) }}" target="_blank" rel="noopener" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.view') }}</a>
++                        <a href="{{ \App\Support\IssuePresenter::url($issue) }}" target="_blank" rel="noopener" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.view') }}</a>
+                     @endif
+                     @if($issue->published_at && ! $issue->unpublished_at)<a href="{{ route('admin.issues.notify', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;margin-right:10px;">{{ __('notify.button') }}</a> @endif <a href="{{ route('admin.issues.edit', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.edit') }}</a>
+ 
+diff --git a/resources/views/admin/issues/notify.blade.php b/resources/views/admin/issues/notify.blade.php
+index f26c838..a73f33a 100644
+--- a/resources/views/admin/issues/notify.blade.php
++++ b/resources/views/admin/issues/notify.blade.php
+@@ -6,7 +6,7 @@
+ <div class="mx-auto max-w-3xl px-4 py-8">
+     <h1 class="text-2xl font-bold text-slate-900">{{ __('notify.title') }}</h1>
+     <p class="mt-1 text-sm text-slate-600">{{ __('notify.issue') }}: <strong>{{ $issue->title }}</strong>
+-        <a href="{{ route('issues.show', $issue->public_id) }}" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px;text-decoration:underline;">#{{ $issue->id }}</a>
++        <a href="{{ \App\Support\IssuePresenter::url($issue) }}" target="_blank" rel="noopener" style="margin-left:8px;font-size:13px;text-decoration:underline;">#{{ $issue->id }}</a>
+     </p>
+     <p style="margin-top:4px;"><a href="{{ route('admin.issues.index') }}" style="font-size:13px;text-decoration:underline;">{{ __('notify.back') }}</a></p>
+ 
+diff --git a/resources/views/auth/verify.blade.php b/resources/views/auth/verify.blade.php
+index a4d7c1b..2466ae1 100644
+--- a/resources/views/auth/verify.blade.php
++++ b/resources/views/auth/verify.blade.php
+@@ -32,16 +32,23 @@ class="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-whi
+             </button>
+         </form>
+ 
++        @if (session('otp_resend_notice'))
++            <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status" aria-live="polite">
++                <p class="font-bold">{{ __('login.resend_wait_title') }}</p>
++                <p class="mt-0.5">{{ session('otp_resend_notice') }}</p>
++            </div>
++        @endif
++
+         <div class="mt-4 flex items-center justify-between gap-3 text-sm">
+-            <div>
+-                <form method="POST" action="{{ route('login.resend') }}">
++            <div class="min-w-0">
++                <form id="otp-resend-form" method="POST" action="{{ route('login.resend') }}" @if ($resendWaitSeconds > 0) hidden data-resend-hidden @endif>
+                     @csrf
+-                    <button id="otp-resend-button" type="submit" @disabled($resendWaitSeconds > 0)
+-                            class="text-brand-700 underline disabled:cursor-not-allowed disabled:opacity-50">{{ __('login.resend') }}</button>
++                    <button id="otp-resend-button" type="submit" class="font-semibold text-brand-700 underline hover:text-brand-800">{{ __('login.resend') }}</button>
+                 </form>
+-                <p id="otp-resend-countdown" class="mt-1 text-xs text-slate-500" aria-live="polite"
+-                   data-seconds="{{ $resendWaitSeconds }}"
+-                   data-template="{{ __('login.resend_wait_seconds', ['seconds' => '__seconds__']) }}"></p>
++                <div id="otp-resend-countdown" @if ($resendWaitSeconds <= 0) hidden @endif
++                     class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600" aria-live="polite"
++                     data-seconds="{{ $resendWaitSeconds }}"
++                     data-template="{{ __('login.resend_wait_seconds', ['seconds' => '__seconds__']) }}"></div>
+             </div>
+             <a href="{{ route('login') }}" class="shrink-0 text-slate-600 underline">{{ __('login.change_phone') }}</a>
+         </div>
+@@ -50,17 +57,18 @@ class="text-brand-700 underline disabled:cursor-not-allowed disabled:opacity-50"
+             <script>
+             (() => {
+                 const note = document.getElementById('otp-resend-countdown');
+-                const button = document.getElementById('otp-resend-button');
+-                if (!note || !button) return;
++                const form = document.getElementById('otp-resend-form');
++                if (!note || !form) return;
+ 
+                 let seconds = Number(note.dataset.seconds) || 0;
+                 const render = () => {
+                     if (seconds <= 0) {
+-                        button.disabled = false;
++                        note.hidden = true;
+                         note.textContent = '';
++                        form.hidden = false;
+                         return true;
+                     }
+-                    button.disabled = true;
++                    note.hidden = false;
+                     note.textContent = (note.dataset.template || '').replace('__seconds__', String(seconds));
+                     seconds -= 1;
+                     return false;
+diff --git a/resources/views/components/issue-card.blade.php b/resources/views/components/issue-card.blade.php
+index 924385d..b6619b4 100644
+--- a/resources/views/components/issue-card.blade.php
++++ b/resources/views/components/issue-card.blade.php
+@@ -1,6 +1,6 @@
+ @props(['issue', 'photo' => null])
+ 
+-<a href="{{ url('/issues/' . $issue->public_id) }}"
++<a href="{{ \App\Support\IssuePresenter::url($issue) }}"
+    class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-500 hover:shadow">
+     <div class="flex items-start gap-3">
+     @if ($photo)
+diff --git a/resources/views/home/modern.blade.php b/resources/views/home/modern.blade.php
+index c2797a4..fd03091 100644
+--- a/resources/views/home/modern.blade.php
++++ b/resources/views/home/modern.blade.php
+@@ -67,7 +67,7 @@ class="rp-chip" style="{{ $key === 'all' ? 'background-color:#0f172a;color:#ffff
+             <div id="issue-list">
+                 @forelse ($recent->take(7) as $issue)
+                     @php $d = $P::display($issue); $ph = $photos[$issue->id] ?? null; @endphp
+-                    <a href="{{ url('/issues/' . $issue->public_id) }}" class="issue">
++                    <a href="{{ \App\Support\IssuePresenter::url($issue) }}" class="issue">
+                         @if ($ph)
+                             <img class="thumb" src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">
+                         @else
+@@ -158,7 +158,7 @@ class="rp-chip" style="{{ $key === 'all' ? 'background-color:#0f172a;color:#ffff
+     <div class="repairs">
+         @foreach ($repaired->take(8) as $issue)
+             @php $ph = $photos[$issue->id] ?? null; @endphp
+-            <a href="{{ url('/issues/' . $issue->public_id) }}" class="repair-card">
++            <a href="{{ \App\Support\IssuePresenter::url($issue) }}" class="repair-card">
+                 <div class="repair-image">
+                     @if ($ph)
+                         <img src="{{ $ph }}" alt="{{ $issue->title }}" loading="lazy">
+diff --git a/resources/views/issues/photo-review.blade.php b/resources/views/issues/photo-review.blade.php
+index f77fce0..6d1ed87 100644
+--- a/resources/views/issues/photo-review.blade.php
++++ b/resources/views/issues/photo-review.blade.php
+@@ -51,7 +51,7 @@
+                     @endif
+                 </div>
+                 <div style="margin-top:4px;font-size:13px">
+-                    <a href="{{ url('/issues/' . $iss->public_id) }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_review_open_issue') }}</a>
++                    <a href="{{ \App\Support\IssuePresenter::url($iss) }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_review_open_issue') }}</a>
+                     @if ($iss->lat && $iss->lng)
+                         &nbsp;&middot;&nbsp;
+                         <a href="https://www.openstreetmap.org/?mlat={{ $iss->lat }}&mlon={{ $iss->lng }}#map=17/{{ $iss->lat }}/{{ $iss->lng }}" target="_blank" rel="noopener" style="color:#1d4ed8">{{ __('issues.photo_map') }}</a>
+diff --git a/resources/views/issues/show.blade.php b/resources/views/issues/show.blade.php
+index 96eb413..38a4d43 100644
+--- a/resources/views/issues/show.blade.php
++++ b/resources/views/issues/show.blade.php
+@@ -2,12 +2,13 @@
+ 
+ @section('title', $issue->title)
+ @section('description', $explanation)
++@section('canonical', \App\Support\IssuePresenter::url($issue))
+ @if ($photos->isNotEmpty())
+ @section('og_image', url($photos->first()->url()))
+ @endif
+ 
+ @push('head')
+-    <meta property="og:url" content="{{ url()->current() }}">
++    <meta property="og:url" content="{{ \App\Support\IssuePresenter::url($issue) }}">
+ @endpush
+ 
+ @section('content')
+@@ -25,7 +26,7 @@
+         <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+             {{ __('issue.page.duplicate_notice') }}
+             @if ($issue->duplicateOf)
+-                <a href="{{ url('/issues/' . $issue->duplicateOf->public_id) }}" class="font-semibold underline">{{ __('issue.page.view_main') }}</a>
++                <a href="{{ \App\Support\IssuePresenter::url($issue->duplicateOf) }}" class="font-semibold underline">{{ __('issue.page.view_main') }}</a>
+             @endif
+         </div>
+     @elseif ($issue->disposition === 'rejected')
+@@ -336,7 +337,7 @@ class="h-56 w-full border-0"></iframe>
+ 
+ {{-- Share --}}
+             <section class="rounded-xl border border-slate-200 bg-white p-5"
+-                     x-data='{ copied: false, url: @js(url()->current()), title: @js($issue->title) }'>
++                     x-data='{ copied: false, url: @js(\App\Support\IssuePresenter::url($issue)), title: @js($issue->title) }'>
+                 <h2 class="font-semibold text-slate-900">{{ __('issue.page.share') }}</h2>
+                 <button type="button"
+                         class="mt-3 w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+@@ -396,7 +397,7 @@ class="mt-3 w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-med
+             <input type="radio" name="type" value="still_exists" required>
+             <span>{{ __('issues.verify_still') }}</span>
+         </label>
+-        <textarea name="note" rows="2" maxlength="300" required placeholder="{{ __('issues.verify_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
++        <textarea name="note" rows="2" maxlength="300" placeholder="{{ __('issues.verify_note_label') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"></textarea>
+         <label class="flex items-center gap-2 text-sm text-slate-800">
+             <input type="checkbox" name="seen" value="1" required>
+             <span>{{ __('issues.verify_seen') }}</span>
+diff --git a/resources/views/issues/verify-queue.blade.php b/resources/views/issues/verify-queue.blade.php
+index 2c958ce..83d7770 100644
+--- a/resources/views/issues/verify-queue.blade.php
++++ b/resources/views/issues/verify-queue.blade.php
+@@ -18,7 +18,7 @@
+                     @endif
+                 </p>
+                 <p class="mt-2 text-sm font-medium text-amber-800">{{ __('issues.verify_queue_claims', ['count' => \App\Support\IssuePresenter::num($i->fixed_count)]) }}</p>
+-                <a href="{{ url('/issues/' . $i->public_id) }}#verify" class="mt-2 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">{{ __('issues.verify_queue_open') }}</a>
++                <a href="{{ \App\Support\IssuePresenter::url($i) }}#verify" class="mt-2 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">{{ __('issues.verify_queue_open') }}</a>
+             </div>
+         @empty
+             <div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
+diff --git a/resources/views/layouts/app.blade.php b/resources/views/layouts/app.blade.php
+index 6c70d3b..ab5db63 100644
+--- a/resources/views/layouts/app.blade.php
++++ b/resources/views/layouts/app.blade.php
+@@ -196,6 +196,7 @@ class="rp-mobilemenu" @click.outside="open = false" @keydown.escape.window="open
+         }
+         $__socBg = ['facebook' => '#1765c1', 'youtube' => '#e32222', 'x' => '#0f1419', 'website' => '#347edb'];
+     @endphp
++    @if (trim($__env->yieldContent('hide_footer')) !== '1')
+     @include('partials.ad-slot', ['slot' => 'above_footer'])
+     <footer class="{{ $__fCls }}" @if ($__dark) data-footer-dark @endif>
+         <div style="max-width:1320px;margin-inline:auto;padding-inline:16px;">
+@@ -255,6 +256,7 @@ class="rp-mobilemenu" @click.outside="open = false" @keydown.escape.window="open
+     .rp-foot-light .footer-note{color:#53645b;}
+     .rp-foot-light .footer-bottom{border-top-color:#e0eae4;color:#819087;}
+     </style>
++    @endif
+ 
+     @stack('scripts')
+ @include('partials.pwa-install')
+diff --git a/resources/views/reports/create.blade.php b/resources/views/reports/create.blade.php
+index a0afee2..ca51e07 100644
+--- a/resources/views/reports/create.blade.php
++++ b/resources/views/reports/create.blade.php
+@@ -1,6 +1,8 @@
+ @extends('layouts.app')
+ 
+ @section('title', __('report.title'))
++{{-- The multi-step report form uses its own focused completion area. --}}
++@section('hide_footer', '1')
+ 
+ @push('head')
+ <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+diff --git a/resources/views/reports/success.blade.php b/resources/views/reports/success.blade.php
+index e08cd4b..06996ac 100644
+--- a/resources/views/reports/success.blade.php
++++ b/resources/views/reports/success.blade.php
+@@ -1,6 +1,8 @@
+ @extends('layouts.app')
+ 
+ @section('title', __('report.success_title'))
++{{-- Keep the report wizard's confirmation screen equally focused. --}}
++@section('hide_footer', '1')
+ 
+ @section('content')
+ <div class="mx-auto max-w-md px-4 py-12 text-center">
+diff --git a/routes/web.php b/routes/web.php
+index 937cb53..4010d39 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -32,7 +32,10 @@
+     \Illuminate\Support\Facades\Route::get('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'index'])->name('ads.index');
+     \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
+ });
+-Route::get('/issues/{issue:public_id}', [IssueController::class, 'show'])->name('issues.show');
++// The optional issue-N reference makes shared public links easier to quote; old links remain valid.
++Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'show'])
++    ->where('reference', 'issue-[0-9]+')
++    ->name('issues.show');
+ Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
+ Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
+ Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
+@@ -85,10 +88,11 @@
+ // Login with phone + OTP
+ Route::middleware('guest')->group(function () {
+     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+-    Route::post('/login', [AuthController::class, 'sendCode'])->middleware('throttle:10,1');
++    // OtpService provides phone/IP limits and a friendly cooldown screen (never a bare 429 page).
++    Route::post('/login', [AuthController::class, 'sendCode']);
+     Route::get('/login/verify', [AuthController::class, 'showVerify'])->name('login.verify');
+     Route::post('/login/verify', [AuthController::class, 'verify'])->middleware('throttle:10,1')->name('login.verify.submit');
+-    Route::post('/login/resend', [AuthController::class, 'resend'])->middleware('throttle:5,1')->name('login.resend');
++    Route::post('/login/resend', [AuthController::class, 'resend'])->name('login.resend');
+ });
+ 
+ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+@@ -183,6 +187,9 @@
+     Route::get('/authority-contacts/template.csv', [$c, 'template'])->name('admin.contacts.template');
+     Route::get('/authority-contacts/areas.csv', [$c, 'areasCsv'])->name('admin.contacts.areascsv');
+     Route::post('/authority-contacts/import', [$c, 'import'])->name('admin.contacts.import');
++    Route::get('/authority-contacts/{contact:id}/edit', [$c, 'edit'])->name('admin.contacts.edit');
++    Route::put('/authority-contacts/{contact:id}', [$c, 'update'])->name('admin.contacts.update');
++    Route::delete('/authority-contacts/{contact:id}', [$c, 'destroy'])->name('admin.contacts.destroy');
+     Route::post('/authority-contacts/{contact:id}/approve', [$c, 'approve'])->name('admin.contacts.approve');
+     Route::post('/authority-contacts/{contact:id}/disable', [$c, 'disable'])->name('admin.contacts.disable');
+     Route::post('/authority-contacts/{contact:id}/enable', [$c, 'enable'])->name('admin.contacts.enable');
+diff --git a/tests/Feature/AuthorityContactCrudTest.php b/tests/Feature/AuthorityContactCrudTest.php
+new file mode 100644
+index 0000000..619efcf
+--- /dev/null
++++ b/tests/Feature/AuthorityContactCrudTest.php
+@@ -0,0 +1,133 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\AdminArea;
++use App\Models\AuthorityContact;
++use App\Models\Category;
++use App\Models\Issue;
++use App\Models\IssueNotification;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Str;
++use Tests\TestCase;
++
++class AuthorityContactCrudTest extends TestCase
++{
++    use RefreshDatabase;
++
++    private function user(string $role, string $phone): User
++    {
++        return User::unguarded(fn () => User::create([
++            'public_id' => (string) Str::ulid(),
++            'phone' => $phone,
++            'display_name' => ucfirst($role),
++            'role' => $role,
++        ]));
++    }
++
++    /** @return array{0:AdminArea,1:AdminArea,2:AdminArea,3:AdminArea} */
++    private function areaTree(): array
++    {
++        $division = AdminArea::create(['level' => 'division', 'name_bn' => 'ঢাকা', 'name_en' => 'Dhaka']);
++        $district = AdminArea::create(['parent_id' => $division->id, 'level' => 'district', 'name_bn' => 'গাজীপুর', 'name_en' => 'Gazipur']);
++        $upazila = AdminArea::create(['parent_id' => $district->id, 'level' => 'upazila', 'name_bn' => 'কালীগঞ্জ', 'name_en' => 'Kaliganj']);
++        $union = AdminArea::create(['parent_id' => $upazila->id, 'level' => 'union', 'name_bn' => 'বাহাদুরসাদী', 'name_en' => 'Bahadursadi']);
++
++        return [$division, $district, $upazila, $union];
++    }
++
++    private function issue(User $user, AdminArea $area): Issue
++    {
++        $category = Category::create(['slug' => 'authority-crud', 'name_bn' => 'রাস্তা', 'name_en' => 'Road', 'sort' => 1, 'is_active' => true]);
++        $issue = Issue::create([
++            'title' => 'Authority contact history',
++            'category_id' => $category->id,
++            'lat' => 23.8,
++            'lng' => 90.4,
++            'admin_area_id' => $area->id,
++            'progress_status' => 'reported',
++            'verification_status' => 'unverified',
++            'disposition' => 'active',
++        ]);
++        $issue->forceFill(['published_at' => now()])->save();
++
++        return $issue;
++    }
++
++    public function test_admin_can_select_location_edit_and_soft_delete_a_contact_without_breaking_history(): void
++    {
++        $admin = $this->user('admin', '01700001001');
++        [$division, $district, $upazila, $union] = $this->areaTree();
++
++        $this->actingAs($admin)->post(route('admin.contacts.store'), [
++            'admin_area_id' => $union->id,
++            'name' => 'District Engineer',
++            'position' => 'Engineer',
++            'phone' => '01700-001-001',
++            'email' => '',
++            'whatsapp' => '',
++        ])->assertRedirect(route('admin.contacts.index'));
++
++        $contact = AuthorityContact::firstOrFail();
++        $this->assertSame($union->id, $contact->admin_area_id);
++        $this->assertSame('approved', $contact->status);
++
++        $this->actingAs($admin)->get(route('admin.contacts.edit', $contact))
++            ->assertOk()
++            ->assertSee('data-contact-form', false)
++            ->assertSee('data-area-level="division"', false)
++            ->assertSee('data-area-level="district"', false)
++            ->assertSee('data-area-level="upazila"', false)
++            ->assertSee('data-area-level="union"', false);
++
++        $this->actingAs($admin)->put(route('admin.contacts.update', $contact), [
++            'admin_area_id' => $district->id,
++            'name' => 'Updated Engineer',
++            'position' => 'Executive Engineer',
++            'phone' => '01800000000',
++            'email' => 'engineer@example.test',
++            'whatsapp' => '',
++        ])->assertRedirect(route('admin.contacts.index'));
++
++        $contact->refresh();
++        $this->assertSame($district->id, $contact->admin_area_id);
++        $this->assertSame('Updated Engineer', $contact->name);
++        $this->assertSame('approved', $contact->status);
++
++        $issue = $this->issue($admin, $district);
++        $history = IssueNotification::create([
++            'issue_id' => $issue->id,
++            'authority_contact_id' => $contact->id,
++            'channel' => 'email',
++            'status' => 'sent',
++            'sent_by' => $admin->id,
++        ]);
++
++        $this->actingAs($admin)->delete(route('admin.contacts.destroy', $contact))
++            ->assertRedirect(route('admin.contacts.index'));
++
++        $this->assertSoftDeleted('authority_contacts', ['id' => $contact->id]);
++        $this->assertDatabaseHas('issue_notifications', ['id' => $history->id, 'authority_contact_id' => $contact->id]);
++        $this->assertSame($contact->id, IssueNotification::with('contact')->findOrFail($history->id)->contact?->id);
++        $this->actingAs($admin)->get(route('admin.contacts.index'))->assertDontSee('Updated Engineer');
++    }
++
++    public function test_moderator_cannot_edit_or_delete_someone_elses_contact(): void
++    {
++        $admin = $this->user('admin', '01700001001');
++        $moderator = $this->user('moderator', '01700001002');
++        [, $district] = $this->areaTree();
++        $contact = AuthorityContact::create([
++            'admin_area_id' => $district->id,
++            'name' => 'Admin contact',
++            'phone' => '01700001003',
++            'status' => 'approved',
++            'added_by' => $admin->id,
++        ]);
++
++        $this->actingAs($moderator)->get(route('admin.contacts.edit', $contact))->assertForbidden();
++        $this->actingAs($moderator)->delete(route('admin.contacts.destroy', $contact))->assertForbidden();
++        $this->assertDatabaseHas('authority_contacts', ['id' => $contact->id, 'deleted_at' => null]);
++    }
++}
+diff --git a/tests/Feature/EngagementTest.php b/tests/Feature/EngagementTest.php
+index 32d0011..5d4eae7 100644
+--- a/tests/Feature/EngagementTest.php
++++ b/tests/Feature/EngagementTest.php
+@@ -3,6 +3,7 @@
+ namespace Tests\Feature;
+ 
+ use App\Models\{AdminArea, Category, Issue, IssueFollow, User};
++use App\Support\IssuePresenter;
+ use Illuminate\Foundation\Testing\RefreshDatabase;
+ use Illuminate\Support\Str;
+ use Tests\TestCase;
+@@ -50,13 +51,24 @@ public function test_issue_page_has_direct_share_links(): void
+             ->assertSee('wa.me/?text=', false);
+     }
+ 
++    public function test_public_issue_url_contains_a_human_issue_reference_and_old_links_still_work(): void
++    {
++        $issue = $this->makeIssue();
++        $url = IssuePresenter::url($issue);
++
++        $this->assertStringEndsWith('/issues/' . $issue->public_id . '/issue-' . $issue->id, $url);
++        $this->get($url)->assertOk();
++        $this->get('/issues/' . $issue->public_id)->assertOk();
++    }
++
+     public function test_report_success_page_shows_autofollow_note(): void
+     {
+         $this->actingAs($this->citizen())
+             ->withSession(['submitted' => true])
+             ->get(route('report.success'))
+             ->assertOk()
+-            ->assertSee('data-autofollow-note', false);
++            ->assertSee('data-autofollow-note', false)
++            ->assertDontSee('<footer', false);
+     }
+ 
+     public function test_reporter_auto_follows_the_issue(): void
+diff --git a/tests/Feature/IssueVerifyTest.php b/tests/Feature/IssueVerifyTest.php
+index 9897da5..866d257 100644
+--- a/tests/Feature/IssueVerifyTest.php
++++ b/tests/Feature/IssueVerifyTest.php
+@@ -186,13 +186,18 @@ public function test_still_exists_on_repaired_issue_reopens_it(): void
+         $this->assertSame('verified', $f->verification_status);
+     }
+ 
+-    public function test_note_is_required(): void
++    public function test_note_is_optional_and_a_neutral_audit_reason_is_recorded(): void
+     {
+         $mod   = $this->makeUser('01700000031', 'moderator');
+         $issue = $this->makeIssue();
+ 
+-        $this->actingAs($mod)->post($this->url($issue), $this->body(['note' => '']))->assertSessionHasErrors('note');
+-        $this->assertSame('reported', $issue->fresh()->progress_status);
++        $this->actingAs($mod)->post($this->url($issue), $this->body(['note' => '']))->assertRedirect();
++
++        $this->assertSame('repaired', $issue->fresh()->progress_status);
++        $this->assertDatabaseHas('status_events', [
++            'issue_id' => $issue->id,
++            'reason' => __('issues.verify_no_note'),
++        ]);
+     }
+ 
+     public function test_seen_checkbox_is_required(): void
+diff --git a/tests/Feature/LoginOtpResendCooldownTest.php b/tests/Feature/LoginOtpResendCooldownTest.php
+index 76857aa..94ab5b9 100644
+--- a/tests/Feature/LoginOtpResendCooldownTest.php
++++ b/tests/Feature/LoginOtpResendCooldownTest.php
+@@ -25,12 +25,30 @@ public function test_admin_configured_wait_is_rendered_and_enforced_for_gateway_
+ 
+         $this->post('/login/resend')
+             ->assertRedirect(route('login.verify'))
+-            ->assertSessionHasErrors('code');
++            ->assertSessionHas('otp_resend_notice');
++
++        $this->get('/login/verify')->assertOk()
++            ->assertSee('data-resend-hidden', false)
++            ->assertSee(__('login.resend_wait_title'));
+ 
+         // A blocked resend cannot replace the existing OTP row.
+         $this->assertDatabaseCount('otp_codes', 1);
+     }
+ 
++    public function test_repeated_gateway_resend_posts_stay_on_a_friendly_cooldown_flow_not_a_429_page(): void
++    {
++        LoginSettings::save(['otp_resend_seconds' => 60]);
++        $this->post('/login', ['phone' => self::PHONE])->assertRedirect(route('login.verify'));
++
++        for ($attempt = 0; $attempt < 7; $attempt++) {
++            $this->post('/login/resend')
++                ->assertRedirect(route('login.verify'))
++                ->assertSessionHas('otp_resend_notice');
++        }
++
++        $this->assertDatabaseCount('otp_codes', 1);
++    }
++
+     public function test_firebase_login_page_receives_the_same_admin_configured_wait(): void
+     {
+         LoginSettings::save([
+diff --git a/tests/Feature/PwaOfflineReportTest.php b/tests/Feature/PwaOfflineReportTest.php
+index cf039a6..ddcea89 100644
+--- a/tests/Feature/PwaOfflineReportTest.php
++++ b/tests/Feature/PwaOfflineReportTest.php
+@@ -47,7 +47,8 @@ public function test_report_page_carries_offline_queue(): void
+             ->assertSee('report-queue', false)      // SW sync registration
+             ->assertSee('rq-card', false)           // pending-queue card
+             ->assertSee('indexedDB', false)         // offline storage
+-            ->assertSee('SyncManager', false);
++            ->assertSee('SyncManager', false)
++            ->assertDontSee('<footer', false);       // focus stays on the report wizard
+     }
+ 
+     public function test_offline_page_exists_for_pwa_fallback(): void
+-- 
+2.47.3
+

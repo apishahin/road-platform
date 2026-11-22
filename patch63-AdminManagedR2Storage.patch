@@ -1,0 +1,604 @@
+From adc78432b93f722af95a93b446fd7e44c5a52088 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 13:14:07 +0000
+Subject: [PATCH] Manage R2 storage configuration from admin
+
+---
+ .../Controllers/Admin/StorageController.php   |  62 ++++++
+ app/Providers/AppServiceProvider.php          |   2 +
+ app/Support/StorageSettings.php               | 194 ++++++++++++++++--
+ resources/views/admin/storage.blade.php       |  66 +++++-
+ routes/web.php                                |   9 +-
+ tests/Feature/AdminR2StorageSettingsTest.php  | 123 +++++++++++
+ 6 files changed, 429 insertions(+), 27 deletions(-)
+ create mode 100644 tests/Feature/AdminR2StorageSettingsTest.php
+
+diff --git a/app/Http/Controllers/Admin/StorageController.php b/app/Http/Controllers/Admin/StorageController.php
+index 2782eb6..e0de4c2 100644
+--- a/app/Http/Controllers/Admin/StorageController.php
++++ b/app/Http/Controllers/Admin/StorageController.php
+@@ -7,6 +7,7 @@
+ use App\Services\AuditService;
+ use App\Support\StorageSettings;
+ use Illuminate\Http\Request;
++use Illuminate\Support\Facades\Validator;
+ 
+ class StorageController extends Controller
+ {
+@@ -23,6 +24,7 @@ public function index()
+             'choice'  => StorageSettings::choice(),
+             'keepOrig' => StorageSettings::keepOriginals(),
+             'encode'   => \App\Support\PhotoEncodeSettings::all(),
++            'r2'      => StorageSettings::r2ForForm(),
+             'r2Ready' => StorageSettings::r2Configured(),
+             'private' => StorageSettings::privateDisk(),
+             'public'  => StorageSettings::publicDisk(),
+@@ -46,6 +48,66 @@ public function check(Request $request)
+         return redirect()->route('admin.storage.index')->with('checks', $results);
+     }
+ 
++    /**
++     * Admin-only R2 credentials and bucket details. Sensitive values are
++     * encrypted by StorageSettings and are intentionally never returned to UI.
++     */
++    public function saveR2(Request $request, AuditService $audit)
++    {
++        $this->guard();
++
++        $validator = Validator::make($request->all(), [
++            'r2_endpoint' => ['required', 'url', 'starts_with:https://', 'max:255'],
++            'r2_private_bucket' => ['required', 'regex:/^[a-z0-9][a-z0-9.-]{1,61}$/'],
++            'r2_public_bucket' => ['required', 'regex:/^[a-z0-9][a-z0-9.-]{1,61}$/'],
++            'r2_public_url' => ['required', 'url', 'starts_with:https://', 'max:255'],
++            'r2_access_key_id' => ['nullable', 'string', 'max:300'],
++            'r2_secret_access_key' => ['nullable', 'string', 'max:300'],
++            'clear_r2_access_key_id' => ['nullable', 'boolean'],
++            'clear_r2_secret_access_key' => ['nullable', 'boolean'],
++        ]);
++        if ($validator->fails()) {
++            return back()
++                ->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
++                ->withErrors($validator);
++        }
++        $data = $validator->validated();
++
++        $current = StorageSettings::r2ForForm();
++        $clearKey = $request->boolean('clear_r2_access_key_id');
++        $clearSecret = $request->boolean('clear_r2_secret_access_key');
++        $accessKeyId = trim((string) ($data['r2_access_key_id'] ?? ''));
++        $secretAccessKey = trim((string) ($data['r2_secret_access_key'] ?? ''));
++
++        if ($accessKeyId === '' && ! $current['has_access_key_id'] && ! $clearKey) {
++            return back()->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
++                ->withErrors(['r2_access_key_id' => 'R2 Access Key ID দিন।']);
++        }
++        if ($secretAccessKey === '' && ! $current['has_secret_access_key'] && ! $clearSecret) {
++            return back()->withInput($request->except(['r2_access_key_id', 'r2_secret_access_key']))
++                ->withErrors(['r2_secret_access_key' => 'R2 Secret Access Key দিন।']);
++        }
++
++        StorageSettings::saveR2([
++            'endpoint' => $data['r2_endpoint'],
++            'private_bucket' => $data['r2_private_bucket'],
++            'public_bucket' => $data['r2_public_bucket'],
++            'public_url' => $data['r2_public_url'],
++        ], $accessKeyId, $secretAccessKey, $clearKey, $clearSecret);
++
++        $audit->log($request->user(), 'storage.r2_saved', 'setting', 'r2_storage', [
++            'endpoint' => rtrim($data['r2_endpoint'], '/'),
++            'private_bucket' => $data['r2_private_bucket'],
++            'public_bucket' => $data['r2_public_bucket'],
++            'public_url' => rtrim($data['r2_public_url'], '/'),
++            'access_key_changed' => $accessKeyId !== '' || $clearKey,
++            'secret_key_changed' => $secretAccessKey !== '' || $clearSecret,
++        ]);
++
++        return redirect()->route('admin.storage.index')
++            ->with('status', 'R2-এর সেটিং এনক্রিপ্ট করে সংরক্ষণ হয়েছে। এখন “পরীক্ষা করুন” চাপুন।');
++    }
++
+     /** Admin only: keep or discard the untouched original upload. */
+     public function keepOriginals(Request $request, AuditService $audit)
+     {
+diff --git a/app/Providers/AppServiceProvider.php b/app/Providers/AppServiceProvider.php
+index c227f52..4b215cd 100644
+--- a/app/Providers/AppServiceProvider.php
++++ b/app/Providers/AppServiceProvider.php
+@@ -20,6 +20,8 @@ public function register(): void
+     public function boot(): void
+     {
+         \App\Support\MailSettings::apply();
++        // Database-backed R2 settings override legacy .env values per request.
++        \App\Support\StorageSettings::apply();
+         \App\Support\PlatformHooks::register();
+         //
+     }
+diff --git a/app/Support/StorageSettings.php b/app/Support/StorageSettings.php
+index 5a3defc..c19069b 100644
+--- a/app/Support/StorageSettings.php
++++ b/app/Support/StorageSettings.php
+@@ -2,44 +2,43 @@
+ 
+ namespace App\Support;
+ 
++use Illuminate\Support\Facades\Crypt;
+ use Illuminate\Support\Facades\DB;
+ use Illuminate\Support\Facades\Schema;
+ use Illuminate\Support\Facades\Storage;
+ use Illuminate\Support\Str;
+ 
+ /**
+- * Which disks hold evidence photos. The choice (local / r2) is stored in the
+- * settings table. Credentials are never stored here; they stay in .env.
++ * Which disks hold evidence photos and the optional Cloudflare R2 connection.
++ *
++ * The active destination and R2 values are stored in the settings table so an
++ * administrator can operate them without editing .env. R2 credentials are
++ * encrypted with APP_KEY before they reach the database. Existing .env values
++ * remain a safe legacy fallback until the Admin form is saved.
+  */
+ class StorageSettings
+ {
+     public const OPTIONS = [
+-        'local' => ['private' => 'private',    'public' => 'public'],
+-        'r2'    => ['private' => 'r2_private', 'public' => 'r2_public'],
++        'local' => ['private' => 'private', 'public' => 'public'],
++        'r2' => ['private' => 'r2_private', 'public' => 'r2_public'],
+     ];
+ 
+-    private static ?string $stored = null;
+-    private static bool $loaded = false;
++    public const R2_KEY = 'r2_storage_settings';
+ 
+     private static function stored(): ?string
+     {
+-        if (self::$loaded) {
+-            return self::$stored;
+-        }
+-        self::$loaded = true;
+-
+         try {
+             if (Schema::hasTable('settings')) {
+                 $value = DB::table('settings')->where('key', 'evidence_storage')->value('value');
+                 if ($value !== null && isset(self::OPTIONS[$value])) {
+-                    self::$stored = $value;
++                    return $value;
+                 }
+             }
+         } catch (\Throwable) {
+-            // database not ready: fall back to .env
++            // Database not ready: fall back to configuration values.
+         }
+ 
+-        return self::$stored;
++        return null;
+     }
+ 
+     public static function choice(): string
+@@ -100,21 +99,172 @@ public static function set(string $choice): void
+             ['key' => 'evidence_storage'],
+             ['value' => $choice, 'updated_at' => now(), 'created_at' => now()]
+         );
+-        self::$stored = $choice;
+-        self::$loaded = true;
+     }
+ 
+-    /** True only if every R2 setting exists in .env. Never exposes the values. */
++    /**
++     * The non-secret R2 values from .env/config. These form the fallback for
++     * existing installations which have not yet saved the Admin form.
++     */
++    private static function r2Defaults(): array
++    {
++        return [
++            'endpoint' => (string) config('filesystems.disks.r2_private.endpoint', ''),
++            'private_bucket' => (string) config('filesystems.disks.r2_private.bucket', ''),
++            'public_bucket' => (string) config('filesystems.disks.r2_public.bucket', ''),
++            'public_url' => (string) config('filesystems.disks.r2_public.url', ''),
++            'access_key_id' => (string) config('filesystems.disks.r2_private.key', ''),
++            'secret_access_key' => (string) config('filesystems.disks.r2_private.secret', ''),
++        ];
++    }
++
++    private static function r2Raw(): ?array
++    {
++        try {
++            if (! Schema::hasTable('settings')) {
++                return null;
++            }
++            $raw = DB::table('settings')->where('key', self::R2_KEY)->value('value');
++        } catch (\Throwable) {
++            return null;
++        }
++
++        $data = json_decode((string) $raw, true);
++
++        return is_array($data) ? $data : null;
++    }
++
++    private static function decryptR2Value(array $raw, string $key, string $fallback): string
++    {
++        if (! array_key_exists($key, $raw)) {
++            return $fallback;
++        }
++        if ((string) $raw[$key] === '') {
++            return '';
++        }
++
++        try {
++            return Crypt::decryptString((string) $raw[$key]);
++        } catch (\Throwable) {
++            // APP_KEY may have changed, so never try an unreadable credential.
++            return '';
++        }
++    }
++
++    /**
++     * Effective R2 configuration. The credentials are only returned to server
++     * code; views must use r2ForForm(), which deliberately excludes them.
++     */
++    public static function r2(): array
++    {
++        $settings = self::r2Defaults();
++        $raw = self::r2Raw();
++        if (! $raw) {
++            return $settings;
++        }
++
++        foreach (['endpoint', 'private_bucket', 'public_bucket', 'public_url'] as $field) {
++            if (array_key_exists($field, $raw)) {
++                $settings[$field] = trim((string) $raw[$field]);
++            }
++        }
++        $settings['access_key_id'] = self::decryptR2Value($raw, 'access_key_id', $settings['access_key_id']);
++        $settings['secret_access_key'] = self::decryptR2Value($raw, 'secret_access_key', $settings['secret_access_key']);
++
++        return $settings;
++    }
++
++    /** Values safe to put in the Admin page — credentials are never exposed. */
++    public static function r2ForForm(): array
++    {
++        $r2 = self::r2();
++
++        return [
++            'endpoint' => $r2['endpoint'],
++            'private_bucket' => $r2['private_bucket'],
++            'public_bucket' => $r2['public_bucket'],
++            'public_url' => $r2['public_url'],
++            'has_access_key_id' => $r2['access_key_id'] !== '',
++            'has_secret_access_key' => $r2['secret_access_key'] !== '',
++            'stored_in_database' => self::r2Raw() !== null,
++        ];
++    }
++
++    public static function hasStoredR2(): bool
++    {
++        return self::r2Raw() !== null;
++    }
++
++    /**
++     * Persist all R2 fields. Empty credential fields retain their effective
++     * current value, unless the Admin explicitly selected their clear option.
++     */
++    public static function saveR2(
++        array $values,
++        string $accessKeyId = '',
++        string $secretAccessKey = '',
++        bool $clearAccessKeyId = false,
++        bool $clearSecretAccessKey = false,
++    ): void {
++        $current = self::r2();
++        $accessKeyId = trim($accessKeyId);
++        $secretAccessKey = trim($secretAccessKey);
++
++        if ($clearAccessKeyId) {
++            $current['access_key_id'] = '';
++        } elseif ($accessKeyId !== '') {
++            $current['access_key_id'] = $accessKeyId;
++        }
++        if ($clearSecretAccessKey) {
++            $current['secret_access_key'] = '';
++        } elseif ($secretAccessKey !== '') {
++            $current['secret_access_key'] = $secretAccessKey;
++        }
++
++        $data = [
++            'endpoint' => rtrim(trim((string) $values['endpoint']), '/'),
++            'private_bucket' => trim((string) $values['private_bucket']),
++            'public_bucket' => trim((string) $values['public_bucket']),
++            'public_url' => rtrim(trim((string) $values['public_url']), '/'),
++            'access_key_id' => $current['access_key_id'] === '' ? '' : Crypt::encryptString($current['access_key_id']),
++            'secret_access_key' => $current['secret_access_key'] === '' ? '' : Crypt::encryptString($current['secret_access_key']),
++        ];
++
++        DB::table('settings')->updateOrInsert(
++            ['key' => self::R2_KEY],
++            ['value' => json_encode($data), 'updated_at' => now()]
++        );
++    }
++
++    /** Apply encrypted database settings to Laravel's R2 disks for this request. */
++    public static function apply(): void
++    {
++        $r2 = self::r2();
++
++        config([
++            'filesystems.disks.r2_private.key' => $r2['access_key_id'] !== '' ? $r2['access_key_id'] : null,
++            'filesystems.disks.r2_private.secret' => $r2['secret_access_key'] !== '' ? $r2['secret_access_key'] : null,
++            'filesystems.disks.r2_private.bucket' => $r2['private_bucket'] !== '' ? $r2['private_bucket'] : null,
++            'filesystems.disks.r2_private.endpoint' => $r2['endpoint'] !== '' ? $r2['endpoint'] : null,
++            'filesystems.disks.r2_public.key' => $r2['access_key_id'] !== '' ? $r2['access_key_id'] : null,
++            'filesystems.disks.r2_public.secret' => $r2['secret_access_key'] !== '' ? $r2['secret_access_key'] : null,
++            'filesystems.disks.r2_public.bucket' => $r2['public_bucket'] !== '' ? $r2['public_bucket'] : null,
++            'filesystems.disks.r2_public.endpoint' => $r2['endpoint'] !== '' ? $r2['endpoint'] : null,
++            'filesystems.disks.r2_public.url' => $r2['public_url'] !== '' ? $r2['public_url'] : null,
++        ]);
++    }
++
++    /** True only if every R2 setting has a usable value. Never exposes them. */
+     public static function r2Configured(): bool
+     {
+-        foreach (['r2_private', 'r2_public'] as $disk) {
+-            $c = config("filesystems.disks.$disk");
+-            if (! $c || empty($c['bucket']) || empty($c['key']) || empty($c['secret']) || empty($c['endpoint'])) {
++        $r2 = self::r2();
++
++        foreach (['access_key_id', 'secret_access_key', 'endpoint', 'private_bucket', 'public_bucket', 'public_url'] as $field) {
++            if ($r2[$field] === '') {
+                 return false;
+             }
+         }
+ 
+-        return ! empty(config('filesystems.disks.r2_public.url'));
++        return true;
+     }
+ 
+     /** Write, read back and delete a tiny file. */
+@@ -137,4 +287,4 @@ public static function check(string $disk): array
+             return ['ok' => false, 'message' => Str::limit(class_basename($e) . ': ' . $e->getMessage(), 160)];
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/resources/views/admin/storage.blade.php b/resources/views/admin/storage.blade.php
+index a5759b2..815b56d 100644
+--- a/resources/views/admin/storage.blade.php
++++ b/resources/views/admin/storage.blade.php
+@@ -3,7 +3,7 @@
+ @section('content')
+ <div class="mx-auto max-w-3xl px-4 py-8">
+     <h1 class="text-2xl font-bold">ছবির স্টোরেজ</h1>
+-    <p class="mt-1 text-sm text-slate-600">ছবি কোথায় জমা হবে তা এখান থেকে বাছুন। R2-এর পাসওয়ার্ড/key এখানে বসে না, শুধু সার্ভারের .env ফাইলে থাকে।</p>
++    <p class="mt-1 text-sm text-slate-600">ছবি কোথায় জমা হবে তা এখান থেকে বাছুন। Cloudflare R2-এর endpoint, bucket ও access key-ও এখান থেকে সেট করা যায়; গোপন key database-এ APP_KEY দিয়ে এনক্রিপ্ট করে রাখা হয়।</p>
+ 
+     @if (session('status'))
+         <div class="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{{ session('status') }}</div>
+@@ -43,13 +43,71 @@
+             <p class="mt-1 text-sm text-slate-600">
+                 @if ($key === 'local')
+                     ছবি এই সার্ভারের storage ফোল্ডারে থাকে। পরীক্ষার জন্য ভালো।
++                @elseif ($r2['stored_in_database'])
++                    R2-এর তথ্য Admin settings-এ এনক্রিপ্ট করে সংরক্ষিত আছে।
+                 @elseif ($r2Ready)
+-                    .env-এ R2-এর তথ্য সেট করা আছে।
++                    পুরনো .env-এ R2-এর তথ্য আছে। নিচের form একবার save করলে সেগুলো নিরাপদে Admin settings-এ চলে আসবে; এরপর .env edit করার দরকার হবে না।
+                 @else
+-                    .env-এ R2-এর তথ্য এখনো সম্পূর্ণ সেট করা নেই।
++                    নিচের form-এ R2-এর সব তথ্য দিন, save করুন, তারপর সংযোগ পরীক্ষা করুন।
+                 @endif
+             </p>
+-            <div class="mt-3 flex gap-2">
++
++            @if ($key === 'r2')
++                <form method="POST" action="{{ route('admin.storage.r2') }}" autocomplete="off" class="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4">
++                    @csrf
++                    <div class="flex flex-wrap items-center justify-between gap-2">
++                        <div class="font-semibold text-slate-900">Cloudflare R2 সংযোগ সেটআপ</div>
++                        <span class="text-xs text-slate-600">Secret key কখনো এখানে দেখানো হবে না।</span>
++                    </div>
++                    <p class="mt-1 text-xs leading-5 text-slate-600">Cloudflare Dashboard → R2 → Manage R2 API Tokens থেকে Access Key ID, Secret Access Key এবং account endpoint নিন। Private bucket-এ মূল/অপেক্ষমাণ ছবি, public bucket-এ অনুমোদিত ছোট কপি রাখা হবে।</p>
++
++                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
++                        <div class="sm:col-span-2">
++                            <label for="r2_endpoint" class="text-xs font-semibold text-slate-700">S3 API endpoint</label>
++                            <input id="r2_endpoint" name="r2_endpoint" type="url" required placeholder="https://ACCOUNT_ID.r2.cloudflarestorage.com"
++                                   value="{{ old('r2_endpoint', $r2['endpoint']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                        </div>
++                        <div>
++                            <label for="r2_private_bucket" class="text-xs font-semibold text-slate-700">Private bucket</label>
++                            <input id="r2_private_bucket" name="r2_private_bucket" type="text" required maxlength="63" autocapitalize="none"
++                                   value="{{ old('r2_private_bucket', $r2['private_bucket']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                            <p class="mt-1 text-xs text-slate-500">Original ও pending ছবি; public URL থাকবে না।</p>
++                        </div>
++                        <div>
++                            <label for="r2_public_bucket" class="text-xs font-semibold text-slate-700">Public bucket</label>
++                            <input id="r2_public_bucket" name="r2_public_bucket" type="text" required maxlength="63" autocapitalize="none"
++                                   value="{{ old('r2_public_bucket', $r2['public_bucket']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                            <p class="mt-1 text-xs text-slate-500">শুধু অনুমোদিত, processed ছবি।</p>
++                        </div>
++                        <div class="sm:col-span-2">
++                            <label for="r2_public_url" class="text-xs font-semibold text-slate-700">Public bucket URL বা custom domain</label>
++                            <input id="r2_public_url" name="r2_public_url" type="url" required placeholder="https://images.example.com"
++                                   value="{{ old('r2_public_url', $r2['public_url']) }}" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                        </div>
++                        <div>
++                            <label for="r2_access_key_id" class="text-xs font-semibold text-slate-700">R2 Access Key ID</label>
++                            <input id="r2_access_key_id" name="r2_access_key_id" type="password" maxlength="300" autocomplete="new-password"
++                                   placeholder="{{ $r2['has_access_key_id'] ? 'সংরক্ষিত আছে — বদলাতে চাইলে দিন' : 'Access Key ID দিন' }}"
++                                   class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                            @if ($r2['has_access_key_id'])
++                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-rose-700"><input type="checkbox" name="clear_r2_access_key_id" value="1"> Access Key ID মুছে দিন</label>
++                            @endif
++                        </div>
++                        <div>
++                            <label for="r2_secret_access_key" class="text-xs font-semibold text-slate-700">R2 Secret Access Key</label>
++                            <input id="r2_secret_access_key" name="r2_secret_access_key" type="password" maxlength="300" autocomplete="new-password"
++                                   placeholder="{{ $r2['has_secret_access_key'] ? 'সংরক্ষিত আছে — বদলাতে চাইলে দিন' : 'Secret Access Key দিন' }}"
++                                   class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
++                            @if ($r2['has_secret_access_key'])
++                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-rose-700"><input type="checkbox" name="clear_r2_secret_access_key" value="1"> Secret Access Key মুছে দিন</label>
++                            @endif
++                        </div>
++                    </div>
++                    <button type="submit" class="mt-4 rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800">R2 সেটিং সংরক্ষণ করুন</button>
++                </form>
++            @endif
++
++            <div class="mt-3 flex flex-wrap gap-2">
+                 <form method="POST" action="{{ route('admin.storage.check') }}">
+                     @csrf
+                     <input type="hidden" name="target" value="{{ $key }}">
+diff --git a/routes/web.php b/routes/web.php
+index c843311..937cb53 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -99,7 +99,14 @@
+ 
+     return back();
+ })->name('lang');
+-Route::middleware('auth')->prefix('admin')->group(function () { Route::get('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'index'])->name('admin.storage.index'); Route::post('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'update'])->name('admin.storage.update'); Route::post('/storage/check', [\App\Http\Controllers\Admin\StorageController::class, 'check'])->name('admin.storage.check'); Route::post('/storage/keep-originals', [\App\Http\Controllers\Admin\StorageController::class, 'keepOriginals'])->name('admin.storage.keep-originals'); Route::post('/storage/encode', [\App\Http\Controllers\Admin\StorageController::class, 'saveEncode'])->name('admin.storage.encode'); });
++Route::middleware('auth')->prefix('admin')->group(function () {
++    Route::get('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'index'])->name('admin.storage.index');
++    Route::post('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'update'])->name('admin.storage.update');
++    Route::post('/storage/check', [\App\Http\Controllers\Admin\StorageController::class, 'check'])->name('admin.storage.check');
++    Route::post('/storage/r2', [\App\Http\Controllers\Admin\StorageController::class, 'saveR2'])->name('admin.storage.r2');
++    Route::post('/storage/keep-originals', [\App\Http\Controllers\Admin\StorageController::class, 'keepOriginals'])->name('admin.storage.keep-originals');
++    Route::post('/storage/encode', [\App\Http\Controllers\Admin\StorageController::class, 'saveEncode'])->name('admin.storage.encode');
++});
+ 
+ Route::middleware('auth')->prefix('admin')->group(function () {
+     $c = \App\Http\Controllers\Admin\ApiAccessController::class;
+diff --git a/tests/Feature/AdminR2StorageSettingsTest.php b/tests/Feature/AdminR2StorageSettingsTest.php
+new file mode 100644
+index 0000000..2dcedd2
+--- /dev/null
++++ b/tests/Feature/AdminR2StorageSettingsTest.php
+@@ -0,0 +1,123 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\User;
++use App\Support\StorageSettings;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Storage;
++use Illuminate\Support\Str;
++use Tests\TestCase;
++
++class AdminR2StorageSettingsTest extends TestCase
++{
++    use RefreshDatabase;
++
++    private function user(string $role = 'admin'): User
++    {
++        return User::unguarded(fn () => User::create([
++            'public_id' => (string) Str::ulid(),
++            'phone' => '0181' . random_int(1000000, 9999999),
++            'role' => $role,
++        ]));
++    }
++
++    private function payload(array $overrides = []): array
++    {
++        return array_merge([
++            'r2_endpoint' => 'https://abc123.r2.cloudflarestorage.com',
++            'r2_private_bucket' => 'road-private',
++            'r2_public_bucket' => 'road-public',
++            'r2_public_url' => 'https://images.example.test',
++            'r2_access_key_id' => 'access-key-id-for-test',
++            'r2_secret_access_key' => 'secret-key-for-test',
++        ], $overrides);
++    }
++
++    public function test_admin_can_save_encrypted_r2_configuration_without_exposing_credentials(): void
++    {
++        $admin = $this->user();
++
++        $this->actingAs($admin)
++            ->post(route('admin.storage.r2'), $this->payload())
++            ->assertRedirect(route('admin.storage.index'))
++            ->assertSessionHasNoErrors();
++
++        $stored = (string) DB::table('settings')->where('key', StorageSettings::R2_KEY)->value('value');
++        $this->assertNotSame('', $stored);
++        $this->assertStringNotContainsString('access-key-id-for-test', $stored);
++        $this->assertStringNotContainsString('secret-key-for-test', $stored);
++
++        $r2 = StorageSettings::r2();
++        $this->assertSame('https://abc123.r2.cloudflarestorage.com', $r2['endpoint']);
++        $this->assertSame('road-private', $r2['private_bucket']);
++        $this->assertSame('road-public', $r2['public_bucket']);
++        $this->assertSame('https://images.example.test', $r2['public_url']);
++        $this->assertSame('access-key-id-for-test', $r2['access_key_id']);
++        $this->assertSame('secret-key-for-test', $r2['secret_access_key']);
++        $this->assertTrue(StorageSettings::r2Configured());
++
++        StorageSettings::apply();
++        $this->assertSame('road-private', config('filesystems.disks.r2_private.bucket'));
++        $this->assertSame('road-public', config('filesystems.disks.r2_public.bucket'));
++        $this->assertSame('access-key-id-for-test', config('filesystems.disks.r2_private.key'));
++        $this->assertSame('secret-key-for-test', config('filesystems.disks.r2_public.secret'));
++
++        $this->actingAs($admin)->get(route('admin.storage.index'))
++            ->assertOk()
++            ->assertSee('Cloudflare R2 সংযোগ সেটআপ')
++            ->assertDontSee('access-key-id-for-test')
++            ->assertDontSee('secret-key-for-test');
++    }
++
++    public function test_admin_can_test_then_select_database_configured_r2(): void
++    {
++        $admin = $this->user();
++        $this->actingAs($admin)->post(route('admin.storage.r2'), $this->payload())
++            ->assertSessionHasNoErrors();
++
++        Storage::fake('r2_private');
++        Storage::fake('r2_public');
++
++        $this->actingAs($admin)->post(route('admin.storage.check'), ['target' => 'r2'])
++            ->assertRedirect(route('admin.storage.index'))
++            ->assertSessionHas('checks');
++
++        $this->actingAs($admin)->post(route('admin.storage.update'), ['storage' => 'r2'])
++            ->assertRedirect(route('admin.storage.index'))
++            ->assertSessionHasNoErrors();
++        $this->assertSame('r2', StorageSettings::choice());
++    }
++
++    public function test_blank_credential_fields_keep_the_existing_encrypted_values(): void
++    {
++        $admin = $this->user();
++        $this->actingAs($admin)->post(route('admin.storage.r2'), $this->payload())
++            ->assertSessionHasNoErrors();
++
++        $this->actingAs($admin)->post(route('admin.storage.r2'), $this->payload([
++            'r2_public_url' => 'https://cdn.example.test',
++            'r2_access_key_id' => '',
++            'r2_secret_access_key' => '',
++        ]))->assertSessionHasNoErrors();
++
++        $r2 = StorageSettings::r2();
++        $this->assertSame('https://cdn.example.test', $r2['public_url']);
++        $this->assertSame('access-key-id-for-test', $r2['access_key_id']);
++        $this->assertSame('secret-key-for-test', $r2['secret_access_key']);
++    }
++
++    public function test_non_admin_cannot_change_r2_settings_and_required_credentials_are_validated(): void
++    {
++        $citizen = $this->user('citizen');
++        $this->actingAs($citizen)->post(route('admin.storage.r2'), $this->payload())
++            ->assertForbidden();
++
++        $admin = $this->user();
++        $this->actingAs($admin)->post(route('admin.storage.r2'), $this->payload([
++            'r2_access_key_id' => '',
++            'r2_secret_access_key' => '',
++        ]))->assertSessionHasErrors('r2_access_key_id');
++    }
++}
+-- 
+2.47.3
+

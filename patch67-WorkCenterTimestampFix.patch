@@ -1,0 +1,44 @@
+From 4cd75958247bddb35cdd0680ca42bd343e9c9461 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 17:12:55 +0000
+Subject: [PATCH] Cast issue lifecycle timestamps for Work Center
+
+---
+ app/Models/Issue.php             | 3 +++
+ tests/Feature/WorkCenterTest.php | 6 ++++++
+ 2 files changed, 9 insertions(+)
+
+diff --git a/app/Models/Issue.php b/app/Models/Issue.php
+index a08c77f..d19784a 100644
+--- a/app/Models/Issue.php
++++ b/app/Models/Issue.php
+@@ -39,6 +39,9 @@ protected function casts(): array
+             'reports_count'     => 'integer',
+             'first_reported_at' => 'datetime',
+             'last_activity_at'  => 'datetime',
++            // Work Center and administration display these lifecycle moments.
++            'published_at'      => 'datetime',
++            'unpublished_at'    => 'datetime',
+         ];
+     }
+ 
+diff --git a/tests/Feature/WorkCenterTest.php b/tests/Feature/WorkCenterTest.php
+index 46684c6..30624ee 100644
+--- a/tests/Feature/WorkCenterTest.php
++++ b/tests/Feature/WorkCenterTest.php
+@@ -112,6 +112,12 @@ public function test_admin_sees_one_unified_location_filterable_work_center_and_
+             ->assertSee('data-work-area="upazila"', false)
+             ->assertSee('data-work-area="union"', false);
+ 
++        // Lifecycle timestamps are hydrated as dates, so the Issue Management
++        // tab can safely format the publication time for existing DB records.
++        $this->actingAs($admin)->get(route('admin.work-center', ['tab' => 'issues']))
++            ->assertOk()
++            ->assertSee('Gazipur bridge repair');
++
+         $this->actingAs($admin)->withHeaders(['Accept' => 'application/json', 'X-Work-Center' => '1'])
+             ->get(route('admin.work-center', [
+                 'tab' => 'all',
+-- 
+2.47.3
+

@@ -1,0 +1,42 @@
+From 870c2b6108c79a4d580deb396acbe7913a16cf40 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 17:49:57 +0000
+Subject: [PATCH] Stabilize Work Center tests across default locales
+
+---
+ phpunit.xml                      | 3 +++
+ tests/Feature/WorkCenterTest.php | 4 +++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/phpunit.xml b/phpunit.xml
+index e7f0a48..c6d31e3 100644
+--- a/phpunit.xml
++++ b/phpunit.xml
+@@ -27,6 +27,9 @@
+         <env name="DB_DATABASE" value=":memory:"/>
+         <env name="DB_URL" value=""/>
+         <env name="MAIL_MAILER" value="array"/>
++        <!-- Keep assertions deterministic even when the local site default is Bangla. -->
++        <env name="APP_LOCALE" value="en"/>
++        <env name="APP_FALLBACK_LOCALE" value="en"/>
+         <env name="QUEUE_CONNECTION" value="sync"/>
+         <env name="SESSION_DRIVER" value="array"/>
+         <env name="PULSE_ENABLED" value="false"/>
+diff --git a/tests/Feature/WorkCenterTest.php b/tests/Feature/WorkCenterTest.php
+index 85b684e..082dbea 100644
+--- a/tests/Feature/WorkCenterTest.php
++++ b/tests/Feature/WorkCenterTest.php
+@@ -154,7 +154,9 @@ public function test_volunteer_sees_only_its_branch_and_the_child_selector_does_
+             ->assertOk()
+             ->assertSee('Only my union bridge')
+             ->assertDontSee('Another division bridge')
+-            ->assertDontSee(__('workcenter.tab_issues'));
++            // The title text is also mentioned in the general description in Bangla;
++            // assert the tab control itself is absent rather than translated prose.
++            ->assertDontSee('data-work-tab="issues"', false);
+ 
+         $this->actingAs($volunteer)->getJson(route('admin.areas.children', $division))
+             ->assertOk()
+-- 
+2.47.3
+

@@ -1,0 +1,1724 @@
+From df310b74659b1e137e00f44ec4bb699eadb13993 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sat, 21 Nov 2026 16:22:42 +0000
+Subject: [PATCH] Unify staff work queues and shorten issue URLs
+
+---
+ .../Admin/AreaChildrenController.php          |   6 +
+ .../Admin/AuthorityContactController.php      |   8 +-
+ .../Admin/WorkCenterController.php            | 404 ++++++++++++++++++
+ app/Http/Controllers/IssueController.php      |  10 +
+ app/Models/Evidence.php                       |   5 +
+ app/Models/Report.php                         |   5 +
+ app/Support/IssuePresenter.php                |  10 +-
+ app/Support/ModerationScope.php               |  25 ++
+ ...2_000000_add_work_center_queue_indexes.php |  25 ++
+ lang/bn/workcenter.php                        |  49 +++
+ lang/en/workcenter.php                        |  49 +++
+ resources/views/admin/dashboard.blade.php     |   4 +-
+ .../admin/work-center/_results.blade.php      |  96 +++++
+ .../views/admin/work-center/index.blade.php   | 242 +++++++++++
+ resources/views/issues/photo-review.blade.php |   2 +-
+ resources/views/partials/nav-staff.blade.php  |  10 +-
+ routes/web.php                                |  14 +-
+ .../Feature/CameraCompressLeaderboardTest.php |   2 +-
+ tests/Feature/EngagementTest.php              |  10 +-
+ tests/Feature/FollowNotifyTest.php            |   6 +-
+ tests/Feature/IntegrationsTest.php            |   2 +-
+ tests/Feature/IssueGlanceTest.php             |  12 +-
+ tests/Feature/IssueGlanceWhoTest.php          |   8 +-
+ tests/Feature/IssueNotifiedBlockTest.php      |   6 +-
+ tests/Feature/IssueVerifyTest.php             |   6 +-
+ tests/Feature/NavAndHomeTest.php              |  15 +-
+ tests/Feature/SeoExportTest.php               |   6 +-
+ tests/Feature/UpdatePhotoTest.php             |   8 +-
+ tests/Feature/WorkCenterTest.php              | 162 +++++++
+ 29 files changed, 1150 insertions(+), 57 deletions(-)
+ create mode 100644 app/Http/Controllers/Admin/WorkCenterController.php
+ create mode 100644 database/migrations/2026_11_22_000000_add_work_center_queue_indexes.php
+ create mode 100644 lang/bn/workcenter.php
+ create mode 100644 lang/en/workcenter.php
+ create mode 100644 resources/views/admin/work-center/_results.blade.php
+ create mode 100644 resources/views/admin/work-center/index.blade.php
+ create mode 100644 tests/Feature/WorkCenterTest.php
+
+diff --git a/app/Http/Controllers/Admin/AreaChildrenController.php b/app/Http/Controllers/Admin/AreaChildrenController.php
+index 9ff4aee..0122e48 100644
+--- a/app/Http/Controllers/Admin/AreaChildrenController.php
++++ b/app/Http/Controllers/Admin/AreaChildrenController.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Http\Controllers\Controller;
+ use App\Models\AdminArea;
++use App\Support\ModerationScope;
+ use Illuminate\Http\JsonResponse;
+ 
+ class AreaChildrenController extends Controller
+@@ -13,8 +14,13 @@ public function __invoke(AdminArea $area): JsonResponse
+         abort_unless(auth()->user()?->canModerate(), 403);
+ 
+         $isBn = app()->getLocale() === 'bn';
++        $branchIds = ModerationScope::branchIds(auth()->user());
++        if ($branchIds !== null) {
++            abort_unless(in_array((int) $area->id, $branchIds, true), 403);
++        }
+ 
+         $items = AdminArea::where('parent_id', $area->id)
++            ->when($branchIds !== null, fn ($query) => $query->whereIn('id', $branchIds))
+             ->orderBy('name_en')
+             ->get()
+             ->map(fn ($a) => [
+diff --git a/app/Http/Controllers/Admin/AuthorityContactController.php b/app/Http/Controllers/Admin/AuthorityContactController.php
+index 6a02f82..9c67bf8 100644
+--- a/app/Http/Controllers/Admin/AuthorityContactController.php
++++ b/app/Http/Controllers/Admin/AuthorityContactController.php
+@@ -86,8 +86,14 @@ private function areaFormData(?AuthorityContact $contact = null): array
+             $node = $node->parent;
+         }
+ 
++        $branchIds = ModerationScope::branchIds(auth()->user());
++        $divisions = AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn');
++        if ($branchIds !== null) {
++            $divisions->whereIn('id', $branchIds);
++        }
++
+         return [
+-            'divisions' => AdminArea::where('level', 'division')->orderBy('name_en')->orderBy('name_bn')->get(),
++            'divisions' => $divisions->get(),
+             'areaSelection' => $selection,
+             'areaLabel' => $area ? AuthorityContact::pathOf($area) : '',
+         ];
+diff --git a/app/Http/Controllers/Admin/WorkCenterController.php b/app/Http/Controllers/Admin/WorkCenterController.php
+new file mode 100644
+index 0000000..8d6dace
+--- /dev/null
++++ b/app/Http/Controllers/Admin/WorkCenterController.php
+@@ -0,0 +1,404 @@
++<?php
++
++namespace App\Http\Controllers\Admin;
++
++use App\Http\Controllers\Controller;
++use App\Models\AdminArea;
++use App\Models\AuthorityContact;
++use App\Models\Evidence;
++use App\Models\Issue;
++use App\Models\Observation;
++use App\Models\Report;
++use App\Models\StatusEvent;
++use App\Models\User;
++use App\Support\IssuePresenter;
++use App\Support\ModerationScope;
++use Illuminate\Database\Eloquent\Builder;
++use Illuminate\Http\JsonResponse;
++use Illuminate\Http\Request;
++use Illuminate\Support\Collection;
++
++/**
++ * One role-aware inbox for moderation, repair checks, update-photo review and
++ * issue administration. The old specialist pages remain available as drill-down
++ * screens for their more involved tools.
++ */
++class WorkCenterController extends Controller
++{
++    private const TABS = ['all', 'moderation', 'verify', 'photos', 'issues'];
++
++    public function index(Request $request)
++    {
++        $user = $request->user();
++        abort_unless($user && $user->canModerate(), 403);
++
++        $tab = (string) $request->query('tab', 'all');
++        if (! in_array($tab, self::TABS, true) || ($tab === 'issues' && ! $user->isModerator())) {
++            $tab = 'all';
++        }
++
++        $search = trim((string) $request->query('q', ''));
++        $search = mb_substr($search, 0, 100);
++        $issueState = $request->query('issue_state') === 'unpublished' ? 'unpublished' : 'published';
++        $branchIds = ModerationScope::branchIds($user);
++        [$selection, $selectedAreaIds] = $this->selectedLocation($request, $branchIds);
++        $scopeIds = ModerationScope::areaIds($user);
++
++        $reports = $this->reportsQuery($user, $selectedAreaIds, $search);
++        $verify = $this->verifyQuery($scopeIds, $selectedAreaIds, $search);
++        $photos = $this->photosQuery($scopeIds, $selectedAreaIds, $search);
++        $issues = $user->isModerator()
++            ? $this->issuesQuery($selectedAreaIds, $search, $issueState)
++            : null;
++
++        $counts = [
++            'moderation' => (clone $reports)->count(),
++            'verify'     => (clone $verify)->count(),
++            'photos'     => (clone $photos)->count(),
++            'issues'     => $issues ? (clone $issues)->count() : 0,
++        ];
++        $counts['all'] = $counts['moderation'] + $counts['verify'] + $counts['photos'];
++
++        $cards = match ($tab) {
++            'moderation' => $this->moderationCards($reports->limit(30)->get()),
++            'verify' => $this->verifyCards($verify->limit(30)->get()),
++            'photos' => $this->photoCards($photos->limit(30)->get()),
++            'issues' => $this->issueCards(($issues ?: Issue::query()->whereRaw('1 = 0'))->limit(30)->get(), $issueState),
++            default => $this->allCards($reports, $verify, $photos),
++        };
++
++        $viewData = [
++            'tab' => $tab,
++            'cards' => $cards,
++            'counts' => $counts,
++            'issueState' => $issueState,
++            'canManageIssues' => $user->isModerator(),
++        ];
++
++        if ($request->expectsJson() || $request->header('X-Work-Center') === '1') {
++            return response()->json([
++                'html' => view('admin.work-center._results', $viewData)->render(),
++                'counts' => $counts,
++                'title' => __('workcenter.tab_' . $tab),
++            ]);
++        }
++
++        return view('admin.work-center.index', $viewData + [
++            'selection' => $selection,
++            'divisions' => $this->divisions($branchIds),
++        ]);
++    }
++
++    /** @return Builder<Report> */
++    private function reportsQuery(User $user, ?array $selectedAreaIds, string $search): Builder
++    {
++        $query = Report::query()
++            ->with([
++                'issue.category',
++                'issue.adminArea.parent.parent.parent',
++                'suggestedArea.parent.parent.parent',
++            ])
++            ->withCount('evidence')
++            ->where('moderation', 'pending')
++            ->tap(fn (Builder $q) => ModerationScope::restrict($q, $user));
++
++        if ($selectedAreaIds !== null) {
++            $this->applyReportArea($query, $selectedAreaIds);
++        }
++
++        if ($search !== '') {
++            $this->applyReportSearch($query, $search);
++        }
++
++        return $query->orderBy('created_at')->orderBy('id');
++    }
++
++    /** @return Builder<Issue> */
++    private function verifyQuery(?array $scopeIds, ?array $selectedAreaIds, string $search): Builder
++    {
++        $query = Issue::query()
++            ->active()
++            ->where('progress_status', '!=', 'repaired')
++            ->whereHas('observations', fn (Builder $q) => $q->where('type', 'fixed'))
++            ->withCount(['observations as fixed_count' => fn (Builder $q) => $q->where('type', 'fixed')])
++            ->with(['category', 'adminArea.parent.parent.parent']);
++
++        $this->applyIssueScope($query, $scopeIds, $selectedAreaIds, $search);
++
++        return $query->orderByDesc('fixed_count')->orderBy('last_activity_at')->orderBy('id');
++    }
++
++    /** @return Builder<Evidence> */
++    private function photosQuery(?array $scopeIds, ?array $selectedAreaIds, string $search): Builder
++    {
++        $issueIds = Issue::query()->select('id');
++        $this->applyIssueScope($issueIds, $scopeIds, $selectedAreaIds, $search);
++
++        $observationIds = Observation::query()
++            ->select('id')
++            ->whereIn('issue_id', clone $issueIds);
++        $eventIds = StatusEvent::query()
++            ->select('id')
++            ->whereIn('issue_id', clone $issueIds);
++
++        return Evidence::query()
++            ->where('moderation', 'pending')
++            ->where(function (Builder $query) use ($observationIds, $eventIds) {
++                $query->whereIn('observation_id', $observationIds)
++                    ->orWhereIn('status_event_id', $eventIds);
++            })
++            ->with([
++                'observation.issue.category',
++                'observation.issue.adminArea.parent.parent.parent',
++                'statusEvent.issue.category',
++                'statusEvent.issue.adminArea.parent.parent.parent',
++            ])
++            ->orderBy('created_at')
++            ->orderBy('id');
++    }
++
++    /** @return Builder<Issue> */
++    private function issuesQuery(?array $selectedAreaIds, string $search, string $state): Builder
++    {
++        $query = Issue::query()->with(['category', 'adminArea.parent.parent.parent']);
++        if ($selectedAreaIds !== null) {
++            $query->whereIn('admin_area_id', $selectedAreaIds);
++        }
++        $this->applyIssueSearch($query, $search);
++
++        if ($state === 'unpublished') {
++            return $query->whereNull('published_at')->whereNotNull('unpublished_at')
++                ->orderByDesc('unpublished_at')->orderByDesc('id');
++        }
++
++        return $query->whereNotNull('published_at')->orderByDesc('published_at')->orderByDesc('id');
++    }
++
++    /** @param Builder<Issue> $query */
++    private function applyIssueScope(Builder $query, ?array $scopeIds, ?array $selectedAreaIds, string $search): void
++    {
++        if ($scopeIds !== null) {
++            $scopeIds ? $query->whereIn('admin_area_id', $scopeIds) : $query->whereRaw('1 = 0');
++        }
++        if ($selectedAreaIds !== null) {
++            $query->whereIn('admin_area_id', $selectedAreaIds);
++        }
++        $this->applyIssueSearch($query, $search);
++    }
++
++    /** @param Builder<Issue> $query */
++    private function applyIssueSearch(Builder $query, string $search): void
++    {
++        if ($search === '') {
++            return;
++        }
++
++        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
++        $numeric = ctype_digit(ltrim($search, '#')) ? (int) ltrim($search, '#') : null;
++        $query->where(function (Builder $where) use ($like, $numeric) {
++            $where->where('title', 'like', $like)
++                ->orWhere('road_name', 'like', $like)
++                ->orWhere('landmark', 'like', $like);
++            if ($numeric) {
++                $where->orWhere('id', $numeric);
++            }
++        });
++    }
++
++    /** @param Builder<Report> $query */
++    private function applyReportArea(Builder $query, array $areaIds): void
++    {
++        $query->where(function (Builder $where) use ($areaIds) {
++            $where->whereHas('issue', fn (Builder $issue) => $issue->whereIn('admin_area_id', $areaIds))
++                ->orWhere(function (Builder $suggested) use ($areaIds) {
++                    $suggested->whereIn('suggested_area_id', $areaIds)
++                        ->whereDoesntHave('issue', fn (Builder $issue) => $issue->whereNotNull('admin_area_id'));
++                });
++        });
++    }
++
++    /** @param Builder<Report> $query */
++    private function applyReportSearch(Builder $query, string $search): void
++    {
++        if ($search === '') {
++            return;
++        }
++
++        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $search) . '%';
++        $numeric = ctype_digit(ltrim($search, '#')) ? (int) ltrim($search, '#') : null;
++        $query->where(function (Builder $where) use ($like, $numeric) {
++            $where->where('description', 'like', $like)
++                ->orWhereHas('issue', function (Builder $issue) use ($like, $numeric) {
++                    $issue->where('title', 'like', $like)
++                        ->orWhere('road_name', 'like', $like)
++                        ->orWhere('landmark', 'like', $like);
++                    if ($numeric) {
++                        $issue->orWhere('id', $numeric);
++                    }
++                });
++        });
++    }
++
++    /** @return Collection<int, array<string, mixed>> */
++    private function allCards(Builder $reports, Builder $verify, Builder $photos): Collection
++    {
++        return $this->moderationCards($reports->limit(12)->get())
++            ->concat($this->verifyCards($verify->limit(12)->get()))
++            ->concat($this->photoCards($photos->limit(12)->get()))
++            ->sortBy('sort_at')
++            ->take(30)
++            ->values();
++    }
++
++    /** @param Collection<int, Report> $rows @return Collection<int, array<string, mixed>> */
++    private function moderationCards(Collection $rows): Collection
++    {
++        return $rows->map(function (Report $report) {
++            $issue = $report->issue;
++            $area = $issue?->adminArea ?: $report->suggestedArea;
++
++            return [
++                'type' => 'moderation',
++                'record' => $report,
++                'issue' => $issue,
++                'title' => $issue ? $issue->title : __('workcenter.unknown_issue'),
++                'issue_no' => $issue?->id,
++                'area' => $this->areaLabel($area),
++                'meta' => __('workcenter.report_meta', ['photos' => IssuePresenter::num((int) $report->evidence_count)]),
++                'sort_at' => $report->created_at ?: now(),
++                'when' => $report->created_at?->diffForHumans() ?? '',
++                'approve_area_id' => (int) ($issue?->admin_area_id ?: $report->suggested_area_id),
++                'detail_url' => route('admin.moderation.index') . '#report-' . $report->id,
++            ];
++        });
++    }
++
++    /** @param Collection<int, Issue> $rows @return Collection<int, array<string, mixed>> */
++    private function verifyCards(Collection $rows): Collection
++    {
++        return $rows->map(function (Issue $issue) {
++            return [
++                'type' => 'verify',
++                'record' => $issue,
++                'issue' => $issue,
++                'title' => $issue->title,
++                'issue_no' => $issue->id,
++                'area' => $this->areaLabel($issue->adminArea),
++                'meta' => __('workcenter.fixed_claims', ['count' => IssuePresenter::num((int) $issue->fixed_count)]),
++                'sort_at' => $issue->last_activity_at ?: $issue->created_at ?: now(),
++                'when' => ($issue->last_activity_at ?: $issue->created_at)?->diffForHumans() ?? '',
++                'detail_url' => IssuePresenter::url($issue) . '#verify',
++            ];
++        });
++    }
++
++    /** @param Collection<int, Evidence> $rows @return Collection<int, array<string, mixed>> */
++    private function photoCards(Collection $rows): Collection
++    {
++        return $rows->map(function (Evidence $evidence) {
++            $observation = $evidence->observation;
++            $event = $evidence->statusEvent;
++            $issue = $observation?->issue ?: $event?->issue;
++
++            return [
++                'type' => 'photos',
++                'record' => $evidence,
++                'issue' => $issue,
++                'title' => $issue?->title ?: __('workcenter.unknown_issue'),
++                'issue_no' => $issue?->id,
++                'area' => $this->areaLabel($issue?->adminArea),
++                'meta' => $observation
++                    ? __('workcenter.photo_from_citizen', ['type' => __('issues.obs_' . $observation->type)])
++                    : __('workcenter.photo_from_visit'),
++                'sort_at' => $evidence->created_at ?: now(),
++                'when' => $evidence->created_at?->diffForHumans() ?? '',
++                'image_url' => route('photoreview.image', $evidence),
++                'detail_url' => route('photoreview.index') . '#photo-' . $evidence->id,
++            ];
++        })->filter(fn (array $card) => $card['issue'] !== null)->values();
++    }
++
++    /** @param Collection<int, Issue> $rows @return Collection<int, array<string, mixed>> */
++    private function issueCards(Collection $rows, string $state): Collection
++    {
++        return $rows->map(function (Issue $issue) use ($state) {
++            $at = $state === 'unpublished' ? $issue->unpublished_at : $issue->published_at;
++
++            return [
++                'type' => 'issues',
++                'record' => $issue,
++                'issue' => $issue,
++                'title' => $issue->title,
++                'issue_no' => $issue->id,
++                'area' => $this->areaLabel($issue->adminArea),
++                'meta' => __('workcenter.issue_meta', ['reports' => IssuePresenter::num((int) $issue->reports_count)]),
++                'sort_at' => $at ?: $issue->created_at ?: now(),
++                'when' => $at?->diffForHumans() ?? '',
++                'detail_url' => $issue->published_at ? IssuePresenter::url($issue) : null,
++            ];
++        });
++    }
++
++    /** @return array{0: array<string, int>, 1: ?array<int, int>} */
++    private function selectedLocation(Request $request, ?array $branchIds): array
++    {
++        $levels = ['division', 'district', 'upazila', 'union'];
++        $selection = [];
++        $parentId = null;
++        $area = null;
++
++        foreach ($levels as $level) {
++            $id = (int) $request->query($level, 0);
++            if ($id < 1 || ($level !== 'division' && $parentId === null)) {
++                break;
++            }
++
++            $query = AdminArea::query()->whereKey($id)->where('level', $level);
++            if ($parentId !== null) {
++                $query->where('parent_id', $parentId);
++            }
++            if ($branchIds !== null) {
++                $query->whereIn('id', $branchIds);
++            }
++            $candidate = $query->first();
++            if (! $candidate) {
++                break;
++            }
++
++            $selection[$level] = $candidate->id;
++            $area = $candidate;
++            $parentId = $candidate->id;
++        }
++
++        return [$selection, $area ? $this->descendantIds($area->id) : null];
++    }
++
++    /** @return array<int, int> */
++    private function descendantIds(int $id): array
++    {
++        $ids = [$id];
++        $level = [$id];
++        for ($i = 0; $i < 6 && $level; $i++) {
++            $level = AdminArea::whereIn('parent_id', $level)->pluck('id')->map(fn ($v) => (int) $v)->all();
++            $ids = array_merge($ids, $level);
++        }
++
++        return array_values(array_unique($ids));
++    }
++
++    /** @return Collection<int, AdminArea> */
++    private function divisions(?array $branchIds): Collection
++    {
++        $query = AdminArea::query()->where('level', 'division')->orderBy('name_en')->orderBy('name_bn');
++        if ($branchIds !== null) {
++            $query->whereIn('id', $branchIds);
++        }
++
++        return $query->get();
++    }
++
++    private function areaLabel(?AdminArea $area): string
++    {
++        return $area ? AuthorityContact::pathOf($area) : __('workcenter.area_unknown');
++    }
++}
+diff --git a/app/Http/Controllers/IssueController.php b/app/Http/Controllers/IssueController.php
+index c2bd537..6510955 100644
+--- a/app/Http/Controllers/IssueController.php
++++ b/app/Http/Controllers/IssueController.php
+@@ -8,6 +8,16 @@
+ 
+ class IssueController extends Controller
+ {
++    /** Redirect pre-Patch66 public ULID links to the compact numeric canonical URL. */
++    public function legacy(Issue $issue)
++    {
++        if ($issue->published_at === null) {
++            abort_unless(auth()->user()?->isModerator(), 404);
++        }
++
++        return redirect()->to(IssuePresenter::url($issue), 301);
++    }
++
+     public function show(Issue $issue)
+     {
+         // Unpublished issues are visible only to moderators.
+diff --git a/app/Models/Evidence.php b/app/Models/Evidence.php
+index 0f180f8..011d130 100644
+--- a/app/Models/Evidence.php
++++ b/app/Models/Evidence.php
+@@ -28,6 +28,11 @@ public function statusEvent(): BelongsTo
+         return $this->belongsTo(StatusEvent::class);
+     }
+ 
++    public function observation(): BelongsTo
++    {
++        return $this->belongsTo(Observation::class);
++    }
++
+     public function uploader(): BelongsTo
+     {
+         return $this->belongsTo(User::class, 'uploader_id');
+diff --git a/app/Models/Report.php b/app/Models/Report.php
+index 83c4622..5210582 100644
+--- a/app/Models/Report.php
++++ b/app/Models/Report.php
+@@ -39,6 +39,11 @@ public function issue(): BelongsTo
+         return $this->belongsTo(Issue::class);
+     }
+ 
++    public function suggestedArea(): BelongsTo
++    {
++        return $this->belongsTo(AdminArea::class, 'suggested_area_id');
++    }
++
+     public function user(): BelongsTo
+     {
+         return $this->belongsTo(User::class);
+diff --git a/app/Support/IssuePresenter.php b/app/Support/IssuePresenter.php
+index d31797c..7526771 100644
+--- a/app/Support/IssuePresenter.php
++++ b/app/Support/IssuePresenter.php
+@@ -43,16 +43,10 @@ public static function map(Issue $issue): array
+         ];
+     }
+ 
+-    /**
+-     * Public issue URL. It retains the opaque public ID and adds a short, human
+-     * reference based on the issue's database ID for support and sharing.
+-     */
++    /** Short, stable public issue URL for sharing and support. */
+     public static function url(Issue $issue): string
+     {
+-        return route('issues.show', [
+-            'issue' => $issue->public_id,
+-            'reference' => 'issue-' . $issue->id,
+-        ]);
++        return route('issues.show', ['issue' => $issue->id]);
+     }
+ 
+     /** Filter group used by the home page chips: new, started or repaired. */
+diff --git a/app/Support/ModerationScope.php b/app/Support/ModerationScope.php
+index a5294f9..92e3982 100644
+--- a/app/Support/ModerationScope.php
++++ b/app/Support/ModerationScope.php
+@@ -42,6 +42,31 @@ public static function areaIds(?User $user): ?array
+         return array_values(array_unique(array_map('intval', $all)));
+     }
+ 
++    /**
++     * Area IDs which may appear in a cascading selector. For volunteers this
++     * contains both their permitted areas and the parent branches needed to
++     * reach those areas; moderator/admin remains unrestricted (null).
++     *
++     * @return array<int, int>|null
++     */
++    public static function branchIds(?User $user): ?array
++    {
++        $ids = self::areaIds($user);
++        if ($ids === null || $ids === []) {
++            return $ids;
++        }
++
++        $all = array_values(array_unique(array_map('intval', $ids)));
++        $level = $all;
++        for ($i = 0; $i < 6 && $level; $i++) {
++            $level = AdminArea::whereIn('id', $level)->pluck('parent_id')
++                ->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
++            $all = array_merge($all, $level);
++        }
++
++        return array_values(array_unique($all));
++    }
++
+     public static function restrict(Builder $query, ?User $user): Builder
+     {
+         $ids = self::areaIds($user);
+diff --git a/database/migrations/2026_11_22_000000_add_work_center_queue_indexes.php b/database/migrations/2026_11_22_000000_add_work_center_queue_indexes.php
+new file mode 100644
+index 0000000..fcdf4f7
+--- /dev/null
++++ b/database/migrations/2026_11_22_000000_add_work_center_queue_indexes.php
+@@ -0,0 +1,25 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        // The work center reads pending evidence by both possible issue links.
++        Schema::table('evidence', function (Blueprint $table) {
++            $table->index(['moderation', 'observation_id'], 'evidence_review_observation_idx');
++            $table->index(['moderation', 'status_event_id'], 'evidence_review_status_event_idx');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('evidence', function (Blueprint $table) {
++            $table->dropIndex('evidence_review_observation_idx');
++            $table->dropIndex('evidence_review_status_event_idx');
++        });
++    }
++};
+diff --git a/lang/bn/workcenter.php b/lang/bn/workcenter.php
+new file mode 100644
+index 0000000..9062933
+--- /dev/null
++++ b/lang/bn/workcenter.php
+@@ -0,0 +1,49 @@
++<?php
++
++return [
++    'menu' => 'কাজের কেন্দ্র',
++    'eyebrow' => 'স্টাফ ওয়ার্কস্পেস',
++    'title' => 'কাজের কেন্দ্র',
++    'subtitle' => 'মডারেশন, নাগরিকের মেরামত দাবি, ছবি অনুমোদন ও ইস্যু ব্যবস্থাপনা—নিজের অনুমোদিত এলাকার সব জরুরি কাজ এক জায়গায় দেখুন।',
++    'dashboard_link' => 'ড্যাশবোর্ডে ফিরুন',
++    'search_label' => 'ইস্যু নম্বর বা শিরোনাম খুঁজুন',
++    'search_placeholder' => 'যেমন: ৪৫ অথবা রাস্তার নাম',
++    'search_button' => 'খুঁজুন',
++    'clear' => 'ফিল্টার মুছুন',
++    'location_title' => 'এলাকা অনুযায়ী দেখুন',
++    'instant_hint' => 'বাছাই করলেই তালিকা বদলাবে',
++    'division' => 'বিভাগ',
++    'district' => 'জেলা',
++    'upazila' => 'উপজেলা',
++    'union' => 'ইউনিয়ন',
++    'issue_state' => 'ইস্যুর অবস্থা',
++    'published' => 'প্রকাশিত',
++    'unpublished' => 'অপ্রকাশিত',
++    'tab_all' => 'সব কাজ',
++    'tab_moderation' => 'মডারেশন',
++    'tab_verify' => 'দাবি যাচাই',
++    'tab_photos' => 'ছবি অনুমোদন',
++    'tab_issues' => 'ইস্যু ব্যবস্থাপনা',
++    'type_moderation' => 'মডারেশন',
++    'type_verify' => 'দাবি যাচাই',
++    'type_photos' => 'ছবি অনুমোদন',
++    'type_issues' => 'ইস্যু ব্যবস্থাপনা',
++    'issue_number' => 'ইস্যু #:number',
++    'report_meta' => ':photos টি নতুন ছবি/প্রমাণ',
++    'fixed_claims' => ':count জন নাগরিক মেরামত হয়েছে বলেছেন',
++    'photo_from_citizen' => 'নাগরিকের আপডেট: :type',
++    'photo_from_visit' => 'সরেজমিন যাচাইয়ের ছবি',
++    'issue_meta' => ':reports টি রিপোর্ট',
++    'unknown_issue' => 'ইস্যুর তথ্য পাওয়া যায়নি',
++    'area_unknown' => 'এলাকা নির্ধারিত হয়নি',
++    'approve' => 'অনুমোদন করুন',
++    'hide' => 'লুকান',
++    'hide_confirm' => 'এটি লুকাতে চান?',
++    'edit' => 'সম্পাদনা',
++    'review_detail' => 'বিস্তারিত দেখুন',
++    'open_verify' => 'সরেজমিন যাচাই খুলুন',
++    'empty_title' => 'এখানে এখন কোনো কাজ নেই',
++    'empty_help' => 'অন্য এলাকা বা ট্যাব বেছে দেখুন, অথবা পরে আবার দেখুন।',
++    'published_help' => 'প্রকাশিত ইস্যু সম্পাদনা, কর্তৃপক্ষকে জানানো বা প্রয়োজন হলে অপ্রকাশিত করুন।',
++    'unpublished_help' => 'আগে অপ্রকাশিত করা ইস্যুগুলো পর্যালোচনা করে আবার প্রকাশ করা যায়।',
++];
+diff --git a/lang/en/workcenter.php b/lang/en/workcenter.php
+new file mode 100644
+index 0000000..ae5362b
+--- /dev/null
++++ b/lang/en/workcenter.php
+@@ -0,0 +1,49 @@
++<?php
++
++return [
++    'menu' => 'Work center',
++    'eyebrow' => 'Staff workspace',
++    'title' => 'Work center',
++    'subtitle' => 'See moderation, repair claims, photo approvals and issue management tasks for your permitted areas in one place.',
++    'dashboard_link' => 'Back to dashboard',
++    'search_label' => 'Search by issue number or title',
++    'search_placeholder' => 'For example: 45 or a road name',
++    'search_button' => 'Search',
++    'clear' => 'Clear filters',
++    'location_title' => 'View by location',
++    'instant_hint' => 'The list updates as you choose',
++    'division' => 'Division',
++    'district' => 'District',
++    'upazila' => 'Upazila',
++    'union' => 'Union',
++    'issue_state' => 'Issue state',
++    'published' => 'Published',
++    'unpublished' => 'Unpublished',
++    'tab_all' => 'All tasks',
++    'tab_moderation' => 'Moderation',
++    'tab_verify' => 'Verify claims',
++    'tab_photos' => 'Photo approval',
++    'tab_issues' => 'Manage issues',
++    'type_moderation' => 'Moderation',
++    'type_verify' => 'Verify claim',
++    'type_photos' => 'Photo approval',
++    'type_issues' => 'Issue management',
++    'issue_number' => 'Issue #:number',
++    'report_meta' => ':photos new photo/evidence item(s)',
++    'fixed_claims' => ':count citizen(s) say the repair is complete',
++    'photo_from_citizen' => 'Citizen update: :type',
++    'photo_from_visit' => 'On-site visit photo',
++    'issue_meta' => ':reports report(s)',
++    'unknown_issue' => 'Issue information is unavailable',
++    'area_unknown' => 'Area has not been set',
++    'approve' => 'Approve',
++    'hide' => 'Hide',
++    'hide_confirm' => 'Hide this item?',
++    'edit' => 'Edit',
++    'review_detail' => 'Review details',
++    'open_verify' => 'Open site verification',
++    'empty_title' => 'There is no work here right now',
++    'empty_help' => 'Try another area or tab, or check again later.',
++    'published_help' => 'Edit published issues, notify authorities, or unpublish an issue when needed.',
++    'unpublished_help' => 'Review issues that were unpublished and publish them again when appropriate.',
++];
+diff --git a/resources/views/admin/dashboard.blade.php b/resources/views/admin/dashboard.blade.php
+index 8489f63..78cc5f4 100644
+--- a/resources/views/admin/dashboard.blade.php
++++ b/resources/views/admin/dashboard.blade.php
+@@ -5,13 +5,13 @@
+ @section('content')
+ @php
+     $cards = [
+-        ['key' => 'reports_pending',      'label' => 'admindash.card_reports_pending',      'url' => route('admin.moderation.index'),                       'accent' => 'amber',   'warm' => true],
++        ['key' => 'reports_pending',      'label' => 'admindash.card_reports_pending',      'url' => route('admin.work-center', ['tab' => 'moderation']),   'accent' => 'amber',   'warm' => true],
+         ['key' => 'applications_pending', 'label' => 'admindash.card_applications_pending', 'url' => route('admin.applications.index'),                     'accent' => 'amber',   'warm' => true],
+         ['key' => 'users_unverified',     'label' => 'admindash.card_users_unverified',     'url' => route('admin.users.index', ['v' => 'unverified']),       'accent' => 'amber',   'warm' => true],
+         ['key' => 'users_nophone',        'label' => 'admindash.card_users_nophone',        'url' => route('admin.users.index', ['v' => 'none']),             'accent' => 'slate',   'warm' => true],
+         ['key' => 'blocked_ips',          'label' => 'admindash.card_blocked_ips',          'url' => route('admin.users.index'),                              'accent' => 'rose',    'warm' => false],
+         ['key' => 'users_total',          'label' => 'admindash.card_users_total',          'url' => route('admin.users.index'),                              'accent' => 'brand',   'warm' => false],
+-        ['key' => 'issues_week',          'label' => 'admindash.card_issues_week',          'url' => route('admin.issues.index'),                             'accent' => 'emerald', 'warm' => false],
++        ['key' => 'issues_week',          'label' => 'admindash.card_issues_week',          'url' => route('admin.work-center', ['tab' => 'issues']),       'accent' => 'emerald', 'warm' => false],
+     ];
+     $accents = [
+         'amber'   => ['ring' => 'ring-amber-200',   'bg' => 'bg-amber-50',   'text' => 'text-amber-700',   'hot' => true],
+diff --git a/resources/views/admin/work-center/_results.blade.php b/resources/views/admin/work-center/_results.blade.php
+new file mode 100644
+index 0000000..b6e6b52
+--- /dev/null
++++ b/resources/views/admin/work-center/_results.blade.php
+@@ -0,0 +1,96 @@
++@php
++    /** @var \Illuminate\Support\Collection $cards */
++@endphp
++
++@if ($tab === 'issues')
++    <p class="mb-3 text-sm text-slate-600">{{ $issueState === 'unpublished' ? __('workcenter.unpublished_help') : __('workcenter.published_help') }}</p>
++@endif
++
++<div class="space-y-3" aria-live="polite">
++    @forelse ($cards as $card)
++        @php
++            $issue = $card['issue'];
++            $record = $card['record'];
++            $typeClass = match ($card['type']) {
++                'moderation' => 'border-amber-200 bg-amber-50/30',
++                'verify' => 'border-sky-200 bg-sky-50/30',
++                'photos' => 'border-violet-200 bg-violet-50/30',
++                default => 'border-emerald-200 bg-emerald-50/30',
++            };
++            $badgeClass = match ($card['type']) {
++                'moderation' => 'bg-amber-100 text-amber-900',
++                'verify' => 'bg-sky-100 text-sky-900',
++                'photos' => 'bg-violet-100 text-violet-900',
++                default => 'bg-emerald-100 text-emerald-900',
++            };
++        @endphp
++        <article class="rounded-2xl border {{ $typeClass }} p-4 shadow-sm sm:p-5" data-work-card="{{ $card['type'] }}-{{ $record->id }}">
++            <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
++                @if (! empty($card['image_url']))
++                    <a href="{{ $card['detail_url'] }}" class="block shrink-0" aria-label="{{ __('workcenter.review_detail') }}">
++                        <img src="{{ $card['image_url'] }}" alt="" class="size-20 rounded-xl border border-slate-200 object-cover sm:size-24">
++                    </a>
++                @endif
++                <div class="min-w-0 flex-1">
++                    <div class="flex flex-wrap items-center gap-2">
++                        <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $badgeClass }}">{{ __('workcenter.type_' . $card['type']) }}</span>
++                        @if ($card['issue_no'])
++                            <span class="text-xs font-bold text-slate-500">{{ __('workcenter.issue_number', ['number' => \App\Support\IssuePresenter::num($card['issue_no'])]) }}</span>
++                        @endif
++                        @if ($card['when'])
++                            <span class="text-xs text-slate-500">{{ $card['when'] }}</span>
++                        @endif
++                    </div>
++                    <h2 class="mt-2 text-base font-bold leading-6 text-slate-900">{{ $card['title'] }}</h2>
++                    <p class="mt-1 text-sm text-slate-600">{{ $card['area'] }}</p>
++                    <p class="mt-2 text-sm font-semibold text-slate-700">{{ $card['meta'] }}</p>
++                </div>
++            </div>
++
++            <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-3">
++                @if ($card['type'] === 'moderation')
++                    <form method="POST" action="{{ route('admin.moderation.approve', $record) }}">
++                        @csrf
++                        @if ($card['approve_area_id'])
++                            <input type="hidden" name="area_id" value="{{ $card['approve_area_id'] }}">
++                        @endif
++                        <button type="submit" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">{{ __('workcenter.approve') }}</button>
++                    </form>
++                    <form method="POST" action="{{ route('admin.moderation.hide', $record) }}" onsubmit="return confirm(@js(__('workcenter.hide_confirm')));">
++                        @csrf
++                        <button type="submit" class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">{{ __('workcenter.hide') }}</button>
++                    </form>
++                @elseif ($card['type'] === 'photos')
++                    <form method="POST" action="{{ route('photoreview.approve', $record) }}">
++                        @csrf
++                        <button type="submit" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800">{{ __('workcenter.approve') }}</button>
++                    </form>
++                    <form method="POST" action="{{ route('photoreview.hide', $record) }}" class="flex items-center gap-2" onsubmit="return confirm(@js(__('workcenter.hide_confirm')));">
++                        @csrf
++                        <select name="reason" class="rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs">
++                            @foreach (['face', 'plate', 'personal', 'other'] as $reason)
++                                <option value="{{ $reason }}">{{ __('issues.photo_reason_' . $reason) }}</option>
++                            @endforeach
++                        </select>
++                        <button type="submit" class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">{{ __('workcenter.hide') }}</button>
++                    </form>
++                @elseif ($card['type'] === 'issues')
++                    <a href="{{ route('admin.issues.edit', $record) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{{ __('workcenter.edit') }}</a>
++                    @if ($issue->published_at && ! $issue->unpublished_at)
++                        <a href="{{ route('admin.issues.notify', $record) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{{ __('notify.button') }}</a>
++                    @endif
++                @endif
++
++                @if ($card['detail_url'])
++                    <a href="{{ $card['detail_url'] }}" @if (in_array($card['type'], ['verify', 'issues'], true)) target="_blank" rel="noopener" @endif
++                       class="ml-auto rounded-lg px-2 py-2 text-xs font-bold text-brand-700 underline hover:text-brand-900">{{ $card['type'] === 'verify' ? __('workcenter.open_verify') : __('workcenter.review_detail') }}</a>
++                @endif
++            </div>
++        </article>
++    @empty
++        <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
++            <p class="text-base font-bold text-slate-700">{{ __('workcenter.empty_title') }}</p>
++            <p class="mt-1 text-sm text-slate-500">{{ __('workcenter.empty_help') }}</p>
++        </div>
++    @endforelse
++</div>
+diff --git a/resources/views/admin/work-center/index.blade.php b/resources/views/admin/work-center/index.blade.php
+new file mode 100644
+index 0000000..98f7080
+--- /dev/null
++++ b/resources/views/admin/work-center/index.blade.php
+@@ -0,0 +1,242 @@
++@extends('layouts.app')
++
++@section('title', __('workcenter.title'))
++
++@section('content')
++@php
++    $label = fn ($area) => app()->getLocale() === 'bn'
++        ? ($area->name_bn ?: $area->name_en)
++        : ($area->name_en ?: $area->name_bn);
++    $tabs = [
++        'all' => 'workcenter.tab_all',
++        'moderation' => 'workcenter.tab_moderation',
++        'verify' => 'workcenter.tab_verify',
++        'photos' => 'workcenter.tab_photos',
++    ];
++    if ($canManageIssues) {
++        $tabs['issues'] = 'workcenter.tab_issues';
++    }
++@endphp
++
++<div class="mx-auto max-w-6xl px-4 py-6 sm:py-8" data-work-center data-number-locale="{{ app()->getLocale() === 'bn' ? 'bn-BD' : 'en-US' }}">
++    <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-brand-950 px-5 py-6 text-white shadow-lg sm:px-8 sm:py-8">
++        <p class="text-xs font-bold uppercase tracking-[0.18em] text-brand-200">{{ __('workcenter.eyebrow') }}</p>
++        <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
++            <div>
++                <h1 class="text-2xl font-bold sm:text-3xl">{{ __('workcenter.title') }}</h1>
++                <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{{ __('workcenter.subtitle') }}</p>
++            </div>
++            <a href="{{ route('admin.dashboard') }}" class="shrink-0 text-sm font-semibold text-brand-100 underline hover:text-white">{{ __('workcenter.dashboard_link') }}</a>
++        </div>
++    </div>
++
++    <form method="GET" action="{{ route('admin.work-center') }}" class="sticky top-2 z-20 mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" data-work-filter
++          data-children-url="{{ url('/admin/areas') }}">
++        <input type="hidden" name="tab" value="{{ $tab }}" data-work-tab-input>
++        <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
++            <label class="block min-w-0 flex-1 text-sm font-bold text-slate-700">
++                {{ __('workcenter.search_label') }}
++                <input type="search" name="q" value="{{ request('q') }}" autocomplete="off" placeholder="{{ __('workcenter.search_placeholder') }}"
++                       class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" data-work-search>
++            </label>
++            <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700">{{ __('workcenter.search_button') }}</button>
++            <a href="{{ route('admin.work-center', ['tab' => $tab]) }}" class="px-2 py-2.5 text-center text-sm font-bold text-slate-600 underline hover:text-slate-900">{{ __('workcenter.clear') }}</a>
++        </div>
++
++        <div class="mt-4 border-t border-slate-100 pt-4">
++            <div class="mb-2 flex items-center justify-between gap-3">
++                <p class="text-sm font-bold text-slate-800">{{ __('workcenter.location_title') }}</p>
++                <p class="text-xs text-slate-500">{{ __('workcenter.instant_hint') }}</p>
++            </div>
++            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
++                <label class="block text-xs font-bold text-slate-600">
++                    {{ __('workcenter.division') }}
++                    <select name="division" data-work-area="division" class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
++                        <option value="">{{ __('areas.all_divisions') }}</option>
++                        @foreach ($divisions as $division)
++                            <option value="{{ $division->id }}" @selected((int) ($selection['division'] ?? 0) === $division->id)>{{ $label($division) }}</option>
++                        @endforeach
++                    </select>
++                </label>
++                <label class="block text-xs font-bold text-slate-600">
++                    {{ __('workcenter.district') }}
++                    <select name="district" data-work-area="district" disabled class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                        <option value="">{{ __('areas.all_districts') }}</option>
++                    </select>
++                </label>
++                <label class="block text-xs font-bold text-slate-600">
++                    {{ __('workcenter.upazila') }}
++                    <select name="upazila" data-work-area="upazila" disabled class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                        <option value="">{{ __('areas.all_upazilas') }}</option>
++                    </select>
++                </label>
++                <label class="block text-xs font-bold text-slate-600">
++                    {{ __('workcenter.union') }}
++                    <select name="union" data-work-area="union" disabled class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:bg-slate-100">
++                        <option value="">{{ __('areas.all_unions') }}</option>
++                    </select>
++                </label>
++            </div>
++        </div>
++
++        @if ($canManageIssues)
++            <label class="mt-4 max-w-xs text-xs font-bold text-slate-600" data-issue-state-wrap @if ($tab !== 'issues') hidden @endif>
++                {{ __('workcenter.issue_state') }}
++                <select name="issue_state" class="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm" data-issue-state>
++                    <option value="published" @selected($issueState === 'published')>{{ __('workcenter.published') }}</option>
++                    <option value="unpublished" @selected($issueState === 'unpublished')>{{ __('workcenter.unpublished') }}</option>
++                </select>
++            </label>
++        @endif
++    </form>
++
++    <nav class="mt-5 flex gap-2 overflow-x-auto pb-1" aria-label="{{ __('workcenter.title') }}" data-work-tabs>
++        @foreach ($tabs as $key => $translation)
++            <a href="{{ route('admin.work-center', array_filter(['tab' => $key, 'q' => request('q'), 'division' => $selection['division'] ?? null, 'district' => $selection['district'] ?? null, 'upazila' => $selection['upazila'] ?? null, 'union' => $selection['union'] ?? null, 'issue_state' => $key === 'issues' ? $issueState : null])) }}"
++               data-work-tab="{{ $key }}"
++               class="inline-flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-bold transition {{ $tab === $key ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50' }}">
++                {{ __($translation) }}
++                <span class="rounded-full px-2 py-0.5 text-xs {{ $tab === $key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}" data-work-count="{{ $key }}">{{ \App\Support\IssuePresenter::num($counts[$key]) }}</span>
++            </a>
++        @endforeach
++    </nav>
++
++    <section class="mt-5" data-work-results>
++        @include('admin.work-center._results')
++    </section>
++</div>
++@endsection
++
++@push('scripts')
++<script>
++(() => {
++    const root = document.querySelector('[data-work-center]');
++    if (!root) return;
++
++    const form = root.querySelector('[data-work-filter]');
++    const results = root.querySelector('[data-work-results]');
++    const tabInput = form.querySelector('[data-work-tab-input]');
++    const endpoint = form.dataset.childrenUrl;
++    const area = (level) => form.querySelector('[data-work-area="' + level + '"]');
++    const division = area('division');
++    const district = area('district');
++    const upazila = area('upazila');
++    const union = area('union');
++    const search = form.querySelector('[data-work-search]');
++    const issueState = form.querySelector('[data-issue-state]');
++    const issueStateWrap = form.querySelector('[data-issue-state-wrap]');
++    const placeholders = {
++        district: @json(__('areas.all_districts')),
++        upazila: @json(__('areas.all_upazilas')),
++        union: @json(__('areas.all_unions')),
++    };
++    const seed = @json($selection);
++    let typing = null;
++    let requestNo = 0;
++    const numberFormat = new Intl.NumberFormat(root.dataset.numberLocale || 'en-US');
++
++    const reset = (select, placeholder) => {
++        select.innerHTML = '';
++        select.append(new Option(placeholder, ''));
++        select.disabled = true;
++    };
++    const resetAfter = (level) => {
++        if (level === 'division') {
++            reset(district, placeholders.district);
++            reset(upazila, placeholders.upazila);
++            reset(union, placeholders.union);
++        } else if (level === 'district') {
++            reset(upazila, placeholders.upazila);
++            reset(union, placeholders.union);
++        } else if (level === 'upazila') {
++            reset(union, placeholders.union);
++        }
++    };
++    const load = async (parentId, select, level, selected = '') => {
++        reset(select, placeholders[level]);
++        if (!parentId) return;
++        try {
++            const response = await fetch(endpoint + '/' + encodeURIComponent(parentId) + '/children', {
++                headers: { Accept: 'application/json' }, credentials: 'same-origin'
++            });
++            if (!response.ok) return;
++            const rows = await response.json();
++            rows.forEach((row) => select.append(new Option(row.label, String(row.id))));
++            select.disabled = rows.length === 0;
++            if (selected && Array.from(select.options).some((option) => option.value === String(selected))) {
++                select.value = String(selected);
++            }
++        } catch (error) { /* a selected parent remains usable if the connection drops */ }
++    };
++    const params = () => {
++        const data = new FormData(form);
++        for (const [key, value] of Array.from(data.entries())) {
++            if (!String(value).trim()) data.delete(key);
++        }
++        return new URLSearchParams(data);
++    };
++    const setActiveTab = (tab) => {
++        root.querySelectorAll('[data-work-tab]').forEach((link) => {
++            const active = link.dataset.workTab === tab;
++            link.classList.toggle('border-slate-900', active);
++            link.classList.toggle('bg-slate-900', active);
++            link.classList.toggle('text-white', active);
++            link.classList.toggle('shadow-sm', active);
++            link.classList.toggle('border-slate-200', !active);
++            link.classList.toggle('bg-white', !active);
++            link.classList.toggle('text-slate-700', !active);
++        });
++        if (issueStateWrap) issueStateWrap.hidden = tab !== 'issues';
++    };
++    const refresh = async () => {
++        const serial = ++requestNo;
++        const query = params();
++        results.classList.add('opacity-50', 'pointer-events-none');
++        try {
++            const response = await fetch(form.action + '?' + query.toString(), {
++                headers: { Accept: 'application/json', 'X-Work-Center': '1' }, credentials: 'same-origin'
++            });
++            if (!response.ok) throw new Error('request failed');
++            const data = await response.json();
++            if (serial !== requestNo) return;
++            results.innerHTML = data.html;
++            Object.entries(data.counts || {}).forEach(([name, count]) => {
++                root.querySelectorAll('[data-work-count="' + name + '"]').forEach((node) => node.textContent = numberFormat.format(Number(count)));
++            });
++            history.replaceState({}, '', form.action + (query.toString() ? '?' + query.toString() : ''));
++        } catch (error) {
++            if (serial === requestNo) form.submit();
++        } finally {
++            if (serial === requestNo) results.classList.remove('opacity-50', 'pointer-events-none');
++        }
++    };
++
++    form.addEventListener('submit', (event) => { event.preventDefault(); refresh(); });
++    division.addEventListener('change', async () => { resetAfter('division'); await load(division.value, district, 'district'); refresh(); });
++    district.addEventListener('change', async () => { resetAfter('district'); await load(district.value, upazila, 'upazila'); refresh(); });
++    upazila.addEventListener('change', async () => { resetAfter('upazila'); await load(upazila.value, union, 'union'); refresh(); });
++    union.addEventListener('change', refresh);
++    if (issueState) issueState.addEventListener('change', refresh);
++    search.addEventListener('input', () => {
++        clearTimeout(typing);
++        typing = setTimeout(refresh, 280);
++    });
++    root.querySelectorAll('[data-work-tab]').forEach((link) => link.addEventListener('click', (event) => {
++        event.preventDefault();
++        tabInput.value = link.dataset.workTab;
++        setActiveTab(tabInput.value);
++        refresh();
++    }));
++
++    (async () => {
++        setActiveTab(tabInput.value);
++        if (!division.value) return;
++        await load(division.value, district, 'district', seed.district || '');
++        if (!district.value) return;
++        await load(district.value, upazila, 'upazila', seed.upazila || '');
++        if (!upazila.value) return;
++        await load(upazila.value, union, 'union', seed.union || '');
++    })();
++})();
++</script>
++@endpush
+diff --git a/resources/views/issues/photo-review.blade.php b/resources/views/issues/photo-review.blade.php
+index 6d1ed87..c22f41c 100644
+--- a/resources/views/issues/photo-review.blade.php
++++ b/resources/views/issues/photo-review.blade.php
+@@ -24,7 +24,7 @@
+     <div class="mt-4 space-y-5">
+         @forelse ($rows as $r)
+             @php $iss = $r['issue']; @endphp
+-            <div class="rounded-xl border border-slate-200 bg-white p-4" data-pr>
++            <div id="photo-{{ $r['ev']->id }}" class="rounded-xl border border-slate-200 bg-white p-4" data-pr>
+                 <div style="font-size:13px;color:#475569">
+                     @if ($r['kind'] === 'visit')
+                         {{ __('issues.photo_review_from_visit') }}
+diff --git a/resources/views/partials/nav-staff.blade.php b/resources/views/partials/nav-staff.blade.php
+index 3d3c87d..c582774 100644
+--- a/resources/views/partials/nav-staff.blade.php
++++ b/resources/views/partials/nav-staff.blade.php
+@@ -12,13 +12,12 @@
+             }
+         }
+         if ($u->canModerate()) {
+-            $pendingReports = \App\Models\Report::where('moderation', 'pending')->count();
+-            $review[] = [route('admin.moderation.index'), __('issues.nav_moderation'), $pendingReports, 'shield'];
+-            $review[] = [route('verify.queue'), __('issues.nav_verify'), 0, 'verify'];
+-            $review[] = [route('photoreview.index'), __('issues.nav_photos'), 0, 'photo'];
++            $pendingReports = \App\Models\Report::where('moderation', 'pending')
++                ->tap(fn ($query) => \App\Support\ModerationScope::restrict($query, $u))->count();
++            // One inbox replaces the former separate moderation, verification, photo and issue links.
++            $review[] = [route('admin.work-center'), __('workcenter.menu'), $pendingReports, 'inbox'];
+         }
+         if ($u->isModerator()) {
+-            $review[] = [route('admin.issues.index'), __('issueadmin.menu'), 0, 'doc'];
+             $review[] = [route('admin.contacts.index'), __('authcontact.menu'), 0, 'chat'];
+         }
+         if ($isAdmin) {
+@@ -51,6 +50,7 @@
+     }
+ 
+     $icons = [
++        'inbox'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5.5h16v13H4v-13Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M4 13h4l1.5 2h5L16 13h4"/></svg>',
+         'shield'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 2.5v5c0 4.6-3 8-7 10.5C8 18.5 5 15.1 5 10.5v-5L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9.5 12 1.8 1.8L15 10"/></svg>',
+         'verify'    => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="8.5"/></svg>',
+         'photo'     => '<svg class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path stroke-linecap="round" stroke-linejoin="round" d="m5 18 4.5-4.5 3 3 3.5-3.5L20.5 17"/></svg>',
+diff --git a/routes/web.php b/routes/web.php
+index 4010d39..25caf56 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -32,10 +32,13 @@
+     \Illuminate\Support\Facades\Route::get('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'index'])->name('ads.index');
+     \Illuminate\Support\Facades\Route::post('/ads', [\App\Http\Controllers\Admin\AdSettingsController::class, 'save'])->name('ads.save');
+ });
+-// The optional issue-N reference makes shared public links easier to quote; old links remain valid.
+-Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'show'])
+-    ->where('reference', 'issue-[0-9]+')
++// Short canonical public URL. The older ULID links redirect here so existing shares keep working.
++Route::get('/issue/{issue}', [IssueController::class, 'show'])
++    ->whereNumber('issue')
+     ->name('issues.show');
++Route::get('/issues/{issue:public_id}/{reference?}', [IssueController::class, 'legacy'])
++    ->where('reference', 'issue-[0-9]+')
++    ->name('issues.legacy');
+ Route::post('/issues/{issue:public_id}/follow', [\App\Http\Controllers\IssueFollowController::class, 'toggle'])->middleware('auth')->name('issues.follow');
+ Route::get('/notifications', [\App\Http\Controllers\NotificationsController::class, 'index'])->middleware('auth')->name('notifications.index');
+ Route::get('/impact', [\App\Http\Controllers\ImpactController::class, 'index'])->name('impact');
+@@ -168,6 +171,11 @@
+     \Illuminate\Support\Facades\Route::post('/{application}/reject', [$c, 'reject'])->name('reject');
+ });
+ 
++// Unified staff inbox, followed by the specialist management routes it brings together.
++Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
++    Route::get('/work-center', [\App\Http\Controllers\Admin\WorkCenterController::class, 'index'])->name('work-center');
++});
++
+ // Published issues: unpublish, publish again, edit (admin / moderator)
+ Route::middleware('auth')->prefix('admin')->group(function () {
+     Route::get('/issues', [\App\Http\Controllers\Admin\IssueAdminController::class, 'index'])->name('admin.issues.index');
+diff --git a/tests/Feature/CameraCompressLeaderboardTest.php b/tests/Feature/CameraCompressLeaderboardTest.php
+index 7db5b7f..9e4c5f3 100644
+--- a/tests/Feature/CameraCompressLeaderboardTest.php
++++ b/tests/Feature/CameraCompressLeaderboardTest.php
+@@ -56,7 +56,7 @@ public function test_issue_page_photo_inputs_compress_when_updates_enabled(): vo
+         UpdatePhotos::set(true);
+         $issue = $this->makeIssue();
+ 
+-        $this->actingAs($this->user())->get(route('issues.show', $issue->public_id))
++        $this->actingAs($this->user())->get(route('issues.show', $issue->id))
+             ->assertOk()
+             ->assertSee('data-compress', false)
+             ->assertSee('photo_camera', false);
+diff --git a/tests/Feature/EngagementTest.php b/tests/Feature/EngagementTest.php
+index 5d4eae7..a3bf811 100644
+--- a/tests/Feature/EngagementTest.php
++++ b/tests/Feature/EngagementTest.php
+@@ -44,21 +44,23 @@ public function test_issue_page_has_direct_share_links(): void
+     {
+         $issue = $this->makeIssue();
+ 
+-        $this->get(route('issues.show', $issue->public_id))
++        $this->get(route('issues.show', $issue->id))
+             ->assertOk()
+             ->assertSee('data-share-links', false)
+             ->assertSee('facebook.com/sharer/sharer.php', false)
+             ->assertSee('wa.me/?text=', false);
+     }
+ 
+-    public function test_public_issue_url_contains_a_human_issue_reference_and_old_links_still_work(): void
++    public function test_public_issue_url_uses_only_its_number_and_old_ulid_links_redirect(): void
+     {
+         $issue = $this->makeIssue();
+         $url = IssuePresenter::url($issue);
+ 
+-        $this->assertStringEndsWith('/issues/' . $issue->public_id . '/issue-' . $issue->id, $url);
++        $this->assertStringEndsWith('/issue/' . $issue->id, $url);
++        $this->assertStringNotContainsString($issue->public_id, $url);
+         $this->get($url)->assertOk();
+-        $this->get('/issues/' . $issue->public_id)->assertOk();
++        $this->get('/issues/' . $issue->public_id)->assertRedirect($url)->assertStatus(301);
++        $this->get('/issues/' . $issue->public_id . '/issue-' . $issue->id)->assertRedirect($url)->assertStatus(301);
+     }
+ 
+     public function test_report_success_page_shows_autofollow_note(): void
+diff --git a/tests/Feature/FollowNotifyTest.php b/tests/Feature/FollowNotifyTest.php
+index 6b9a589..e09d75d 100644
+--- a/tests/Feature/FollowNotifyTest.php
++++ b/tests/Feature/FollowNotifyTest.php
+@@ -62,12 +62,12 @@ public function test_issue_page_shows_follow_state(): void
+         $issue = $this->makeIssue();
+         $user  = $this->user();
+ 
+-        $this->actingAs($user)->get(route('issues.show', $issue->public_id))
++        $this->actingAs($user)->get(route('issues.show', $issue->id))
+             ->assertOk()->assertSee('data-follow-box', false)->assertSee(__('issues.follow_btn'));
+ 
+         IssueFollow::create(['issue_id' => $issue->id, 'user_id' => $user->id, 'created_at' => now()]);
+ 
+-        $this->actingAs($user)->get(route('issues.show', $issue->public_id))
++        $this->actingAs($user)->get(route('issues.show', $issue->id))
+             ->assertOk()->assertSee(__('issues.follow_following'));
+     }
+ 
+@@ -87,7 +87,7 @@ public function test_status_change_notifies_followers_not_actor(): void
+ 
+         $n = UserNotification::where('user_id', $follower->id)->first();
+         $this->assertNotNull($n->status_event_id);
+-        $this->assertStringContainsString('/issues/', (string) $n->url);
++        $this->assertStringContainsString('/issue/' . $issue->id, (string) $n->url);
+         $this->assertNull($n->read_at);
+     }
+ 
+diff --git a/tests/Feature/IntegrationsTest.php b/tests/Feature/IntegrationsTest.php
+index db4afcf..395217e 100644
+--- a/tests/Feature/IntegrationsTest.php
++++ b/tests/Feature/IntegrationsTest.php
+@@ -111,7 +111,7 @@ public function test_social_share_posts_when_repaired_and_on(): void
+         SocialPoster::afterStatusChange($issue, $event);
+         Http::assertSent(fn ($r) => str_contains($r->url(), 'graph.facebook.com/v21.0/123456/feed')
+             && $r['access_token'] === 'secret-token'
+-            && str_contains($r['link'], '/issues/'));
++            && str_contains($r['link'], '/issue/'));
+ 
+         // non-repaired events never post
+         Http::fake();
+diff --git a/tests/Feature/IssueGlanceTest.php b/tests/Feature/IssueGlanceTest.php
+index e5e056e..845b8da 100644
+--- a/tests/Feature/IssueGlanceTest.php
++++ b/tests/Feature/IssueGlanceTest.php
+@@ -101,7 +101,7 @@ public function test_default_page_is_simple(): void
+     {
+         $issue = $this->makeIssue();
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee(__('issues.glance_title'));
+     }
+@@ -113,7 +113,7 @@ public function test_simple_view_shows_position_for_sent_only(): void
+         $contact = $this->makeContact($staff);
+         $this->notify($issue, $contact, $staff, 'sent');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee('Executive Engineer')
+             ->assertDontSee(__('issuenotified.title'));
+@@ -128,7 +128,7 @@ public function test_simple_view_hides_logged_failed_opened(): void
+         $this->notify($issue, $contact, $staff, 'failed');
+         $this->notify($issue, $contact, $staff, 'opened');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee('Executive Engineer')
+             ->assertSee(__('issues.glance_not_notified'));
+@@ -141,7 +141,7 @@ public function test_contact_details_are_never_public_in_simple_view(): void
+         $contact = $this->makeContact($staff);
+         $this->notify($issue, $contact, $staff, 'sent');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee('SecretPersonName')
+             ->assertDontSee('01711122344')
+@@ -154,7 +154,7 @@ public function test_detailed_view_has_no_glance_box(): void
+         AppearanceSettings::save(['issue_view' => 'detailed']);
+         $issue = $this->makeIssue();
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee(__('issues.glance_title'));
+     }
+@@ -182,7 +182,7 @@ public function test_citizen_claim_is_counted_but_never_repairs(): void
+         $this->assertSame('fixed', Observation::first()->type);
+         $this->assertSame('reported', $issue->fresh()->progress_status);
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee(__('issues.glance_fixed_claims', ['count' => IssuePresenter::num(1)]))
+             ->assertSee(__('issues.glance_claim_note'))
+diff --git a/tests/Feature/IssueGlanceWhoTest.php b/tests/Feature/IssueGlanceWhoTest.php
+index fdb5361..7dfd9b0 100644
+--- a/tests/Feature/IssueGlanceWhoTest.php
++++ b/tests/Feature/IssueGlanceWhoTest.php
+@@ -106,7 +106,7 @@ public function test_reporters_are_counted_by_role_only(): void
+         $this->report($issue, $v, 'approved');
+         $this->report($issue, $p, 'pending');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee($this->role('citizen', 2))
+             ->assertSee($this->role('volunteer', 1))
+@@ -121,7 +121,7 @@ public function test_site_visit_by_volunteer_is_shown_as_role(): void
+         $v = $this->makeUser('01700000013', 'volunteer');
+         $this->visit($issue, $v, 'site_visit');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee($this->role('volunteer', 1))
+             ->assertDontSee('01700000013');
+@@ -131,7 +131,7 @@ public function test_no_site_visit_line_when_nobody_visited(): void
+     {
+         $issue = $this->makeIssue();
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee($this->role('volunteer', 1))
+             ->assertDontSee($this->role('moderator', 1));
+@@ -143,7 +143,7 @@ public function test_non_site_visit_source_is_not_counted(): void
+         $v = $this->makeUser('01700000013', 'volunteer');
+         $this->visit($issue, $v, 'platform');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee($this->role('volunteer', 1));
+     }
+diff --git a/tests/Feature/IssueNotifiedBlockTest.php b/tests/Feature/IssueNotifiedBlockTest.php
+index fc3e906..9569bd4 100644
+--- a/tests/Feature/IssueNotifiedBlockTest.php
++++ b/tests/Feature/IssueNotifiedBlockTest.php
+@@ -95,7 +95,7 @@ public function test_sent_email_shows_block_with_position(): void
+         [$issue, $contact, $user] = $this->makeData();
+         $this->addNotification($issue, $contact, $user, 'sent');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee(__('issuenotified.title'))
+             ->assertSee('Executive Engineer');
+@@ -108,7 +108,7 @@ public function test_logged_failed_and_opened_are_not_shown(): void
+         $this->addNotification($issue, $contact, $user, 'failed');
+         $this->addNotification($issue, $contact, $user, 'opened', 'whatsapp');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee(__('issuenotified.title'))
+             ->assertDontSee('Executive Engineer');
+@@ -119,7 +119,7 @@ public function test_contact_name_phone_email_are_never_public(): void
+         [$issue, $contact, $user] = $this->makeData();
+         $this->addNotification($issue, $contact, $user, 'sent');
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertDontSee('SecretPersonName')
+             ->assertDontSee('01711223344')
+diff --git a/tests/Feature/IssueVerifyTest.php b/tests/Feature/IssueVerifyTest.php
+index 866d257..164934d 100644
+--- a/tests/Feature/IssueVerifyTest.php
++++ b/tests/Feature/IssueVerifyTest.php
+@@ -128,7 +128,7 @@ public function test_volunteer_in_area_can_confirm_repair(): void
+         $this->assertSame(2, StatusEvent::where('issue_id', $issue->id)->where('source_type', 'site_visit')->count());
+         $this->assertSame('volunteer', StatusEvent::where('issue_id', $issue->id)->orderBy('id')->first()->actor_type);
+ 
+-        $this->get('/issues/' . $issue->public_id)
++        $this->get('/issue/' . $issue->id)
+             ->assertOk()
+             ->assertSee(__('issues.glance_role_volunteer', ['count' => IssuePresenter::num(1)]))
+             ->assertDontSee('01700000021');
+@@ -224,8 +224,8 @@ public function test_form_is_shown_to_moderator_only(): void
+         $citizen = $this->makeUser('01700000002', 'citizen');
+         $issue   = $this->makeIssue();
+ 
+-        $this->actingAs($mod)->get('/issues/' . $issue->public_id)->assertOk()->assertSee(__('issues.verify_title'));
+-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)->assertOk()->assertDontSee(__('issues.verify_title'));
++        $this->actingAs($mod)->get('/issue/' . $issue->id)->assertOk()->assertSee(__('issues.verify_title'));
++        $this->actingAs($citizen)->get('/issue/' . $issue->id)->assertOk()->assertDontSee(__('issues.verify_title'));
+     }
+ 
+     public function test_queue_lists_claims_for_moderator(): void
+diff --git a/tests/Feature/NavAndHomeTest.php b/tests/Feature/NavAndHomeTest.php
+index 81ed376..08eef31 100644
+--- a/tests/Feature/NavAndHomeTest.php
++++ b/tests/Feature/NavAndHomeTest.php
+@@ -34,7 +34,7 @@ public function test_guest_home_has_map_list_and_no_admin_links(): void
+     public function test_admin_menu_has_all_groups(): void
+     {
+         $r = $this->as('admin')->get('/')->assertOk();
+-        foreach (['admin.moderation.index', 'admin.issues.index', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
++        foreach (['admin.work-center', 'admin.contacts.index', 'admin.applications.index', 'admin.users.index', 'admin.moderators.index', 'admin.loginsettings.index', 'admin.mail.index', 'admin.storage.index', 'admin.site.index'] as $name) {
+             $r->assertSee(route($name), false);
+         }
+     }
+@@ -42,8 +42,10 @@ public function test_admin_menu_has_all_groups(): void
+     public function test_moderator_sees_only_moderation_links(): void
+     {
+         $this->as('moderator')->get('/')->assertOk()
+-            ->assertSee(route('admin.issues.index'), false)
++            ->assertSee(route('admin.work-center'), false)
+             ->assertSee(route('admin.contacts.index'), false)
++            ->assertDontSee(route('admin.moderation.index'), false)
++            ->assertDontSee(route('admin.issues.index'), false)
+             ->assertDontSee(route('admin.users.index'), false)
+             ->assertDontSee(route('admin.smsgateways.index'), false);
+     }
+@@ -60,7 +62,8 @@ public function test_mobile_staff_menu_has_grouped_touch_controls(): void
+ 
+         $response->assertSee('<details', false)
+             ->assertSee(route('admin.storage.index'), false)
+-            ->assertSee(route('admin.moderation.index'), false);
++            ->assertSee(route('admin.work-center'), false)
++            ->assertDontSee(route('admin.moderation.index'), false);
+     }
+ 
+     public function test_assigned_volunteer_gets_the_mobile_review_controls(): void
+@@ -71,8 +74,9 @@ public function test_assigned_volunteer_gets_the_mobile_review_controls(): void
+ 
+         $this->actingAs($volunteer)->get('/')->assertOk()
+             ->assertSee('class="rp-mobile-staff"', false)
+-            ->assertSee(route('admin.moderation.index'), false)
+-            ->assertSee(route('verify.queue'), false)
++            ->assertSee(route('admin.work-center'), false)
++            ->assertDontSee(route('admin.moderation.index'), false)
++            ->assertDontSee(route('verify.queue'), false)
+             ->assertDontSee(route('admin.users.index'), false);
+     }
+ 
+@@ -80,6 +84,7 @@ public function test_citizen_sees_apply_link_but_no_admin_links(): void
+     {
+         $this->as('citizen')->get('/')->assertOk()
+             ->assertSee(route('volunteer.apply'), false)
++            ->assertDontSee(route('admin.work-center'), false)
+             ->assertDontSee(route('admin.issues.index'), false);
+     }
+ 
+diff --git a/tests/Feature/SeoExportTest.php b/tests/Feature/SeoExportTest.php
+index 92b7a06..d546e73 100644
+--- a/tests/Feature/SeoExportTest.php
++++ b/tests/Feature/SeoExportTest.php
+@@ -53,8 +53,8 @@ public function test_sitemap_lists_public_pages_and_published_issues_only(): voi
+         $res = $this->get('/sitemap.xml')->assertOk()
+             ->assertHeader('Content-Type', 'application/xml; charset=UTF-8');
+         $c = $res->getContent();
+-        $this->assertStringContainsString('/issues/' . $pub->public_id, $c);
+-        $this->assertStringNotContainsString('/issues/' . $unpub->public_id, $c);
++        $this->assertStringContainsString('/issue/' . $pub->id, $c);
++        $this->assertStringNotContainsString('/issue/' . $unpub->id, $c);
+         $this->assertStringContainsString(route('issues.index'), $c);
+         $this->assertStringContainsString(route('dashboard'), $c);
+     }
+@@ -80,7 +80,7 @@ public function test_pages_carry_full_social_share_tags(): void
+             ->assertSee('icons/icon-512.png', false);
+ 
+         // issue page: its own title/URL in the tags
+-        $this->get('/issues/' . $issue->public_id)->assertOk()
++        $this->get('/issue/' . $issue->id)->assertOk()
+             ->assertSee('property="og:title"', false)
+             ->assertSee($issue->title);
+     }
+diff --git a/tests/Feature/UpdatePhotoTest.php b/tests/Feature/UpdatePhotoTest.php
+index 958cc3f..5dec4b7 100644
+--- a/tests/Feature/UpdatePhotoTest.php
++++ b/tests/Feature/UpdatePhotoTest.php
+@@ -119,11 +119,11 @@ public function test_photo_box_follows_the_switch(): void
+         $issue = $this->makeIssue();
+         $citizen = $this->makeUser('01711000001', 'citizen');
+ 
+-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)
++        $this->actingAs($citizen)->get('/issue/' . $issue->id)
+             ->assertOk()->assertDontSee(__('issues.photo_camera'));
+ 
+         UpdatePhotos::set(true);
+-        $this->actingAs($citizen)->get('/issues/' . $issue->public_id)
++        $this->actingAs($citizen)->get('/issue/' . $issue->id)
+             ->assertOk()->assertSee(__('issues.photo_camera'));
+     }
+ 
+@@ -137,7 +137,7 @@ public function test_citizen_photo_waits_and_is_not_public(): void
+         $this->assertSame(0, UpdatePhotos::publicFor($issue)->count());
+ 
+         auth()->logout();
+-        $this->get('/issues/' . $issue->public_id)->assertOk()
++        $this->get('/issue/' . $issue->id)->assertOk()
+             ->assertDontSee(__('issues.photos_updates_title'));
+     }
+ 
+@@ -153,7 +153,7 @@ public function test_approved_photo_is_shown_on_issue_page(): void
+         $this->assertSame(1, UpdatePhotos::publicFor($issue)->count());
+ 
+         auth()->logout();
+-        $this->get('/issues/' . $issue->public_id)->assertOk()
++        $this->get('/issue/' . $issue->id)->assertOk()
+             ->assertSee(__('issues.photos_updates_title'))
+             ->assertSee(__('issues.photo_cap_citizen'));
+     }
+diff --git a/tests/Feature/WorkCenterTest.php b/tests/Feature/WorkCenterTest.php
+new file mode 100644
+index 0000000..46684c6
+--- /dev/null
++++ b/tests/Feature/WorkCenterTest.php
+@@ -0,0 +1,162 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\AdminArea;
++use App\Models\Category;
++use App\Models\Evidence;
++use App\Models\Issue;
++use App\Models\ModeratorArea;
++use App\Models\Observation;
++use App\Models\Report;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Str;
++use Tests\TestCase;
++
++class WorkCenterTest extends TestCase
++{
++    use RefreshDatabase;
++
++    private function user(string $role, string $phone): User
++    {
++        return User::unguarded(fn () => User::create([
++            'public_id' => (string) Str::ulid(),
++            'display_name' => ucfirst($role),
++            'phone' => $phone,
++            'role' => $role,
++        ]));
++    }
++
++    /** @return array{0:AdminArea,1:AdminArea,2:AdminArea,3:AdminArea} */
++    private function areaTree(string $suffix = ''): array
++    {
++        $division = AdminArea::create(['level' => 'division', 'name_bn' => 'ঢাকা'.$suffix, 'name_en' => 'Dhaka'.$suffix]);
++        $district = AdminArea::create(['parent_id' => $division->id, 'level' => 'district', 'name_bn' => 'গাজীপুর'.$suffix, 'name_en' => 'Gazipur'.$suffix]);
++        $upazila = AdminArea::create(['parent_id' => $district->id, 'level' => 'upazila', 'name_bn' => 'কালীগঞ্জ'.$suffix, 'name_en' => 'Kaliganj'.$suffix]);
++        $union = AdminArea::create(['parent_id' => $upazila->id, 'level' => 'union', 'name_bn' => 'বাহাদুরসাদী'.$suffix, 'name_en' => 'Bahadursadi'.$suffix]);
++
++        return [$division, $district, $upazila, $union];
++    }
++
++    private function issue(AdminArea $area, string $title = 'Bridge needs review'): Issue
++    {
++        $category = Category::firstOrCreate(
++            ['slug' => 'work-center-road'],
++            ['name_bn' => 'রাস্তা', 'name_en' => 'Road', 'sort' => 1, 'is_active' => true]
++        );
++        $issue = Issue::create([
++            'title' => $title,
++            'category_id' => $category->id,
++            'lat' => 23.8,
++            'lng' => 90.4,
++            'admin_area_id' => $area->id,
++            'progress_status' => 'reported',
++            'verification_status' => 'unverified',
++            'disposition' => 'active',
++            'reports_count' => 1,
++            'first_reported_at' => now()->subDays(3),
++            'last_activity_at' => now()->subHour(),
++        ]);
++        $issue->forceFill(['published_at' => now()->subDays(2)])->save();
++
++        return $issue;
++    }
++
++    private function queueData(Issue $issue, AdminArea $area, User $reporter): void
++    {
++        $report = Report::create([
++            'issue_id' => $issue->id,
++            'user_id' => $reporter->id,
++            'suggested_area_id' => $area->id,
++            'description' => 'Water has damaged the bridge approach.',
++            'lat' => 23.8,
++            'lng' => 90.4,
++            'moderation' => 'pending',
++        ]);
++        $observation = Observation::create([
++            'issue_id' => $issue->id,
++            'user_id' => $reporter->id,
++            'type' => 'fixed',
++        ]);
++        Evidence::unguarded(fn () => Evidence::create([
++            'report_id' => null,
++            'status_event_id' => null,
++            'observation_id' => $observation->id,
++            'uploader_id' => $reporter->id,
++            'public_path' => 'work-center-test.jpg',
++            'moderation' => 'pending',
++        ]));
++
++        $this->assertNotNull($report->id);
++    }
++
++    public function test_admin_sees_one_unified_location_filterable_work_center_and_json_updates(): void
++    {
++        $admin = $this->user('admin', '01700002001');
++        $reporter = $this->user('citizen', '01700002002');
++        [$division, $district, $upazila, $union] = $this->areaTree();
++        $issue = $this->issue($union, 'Gazipur bridge repair');
++        $this->queueData($issue, $union, $reporter);
++
++        $this->actingAs($admin)->get(route('admin.work-center'))
++            ->assertOk()
++            ->assertSee(__('workcenter.title'))
++            ->assertSee(__('workcenter.tab_moderation'))
++            ->assertSee(__('workcenter.tab_verify'))
++            ->assertSee(__('workcenter.tab_photos'))
++            ->assertSee(__('workcenter.tab_issues'))
++            ->assertSee('Gazipur bridge repair')
++            ->assertSee('data-work-area="division"', false)
++            ->assertSee('data-work-area="district"', false)
++            ->assertSee('data-work-area="upazila"', false)
++            ->assertSee('data-work-area="union"', false);
++
++        $this->actingAs($admin)->withHeaders(['Accept' => 'application/json', 'X-Work-Center' => '1'])
++            ->get(route('admin.work-center', [
++                'tab' => 'all',
++                'division' => $division->id,
++                'district' => $district->id,
++                'upazila' => $upazila->id,
++                'union' => $union->id,
++            ]))
++            ->assertOk()
++            ->assertJsonPath('counts.moderation', 1)
++            ->assertJsonPath('counts.verify', 1)
++            ->assertJsonPath('counts.photos', 1)
++            ->assertJsonStructure(['html', 'counts']);
++    }
++
++    public function test_volunteer_sees_only_its_branch_and_the_child_selector_does_not_offer_other_branches(): void
++    {
++        $volunteer = $this->user('volunteer', '01700002003');
++        $reporter = $this->user('citizen', '01700002004');
++        [$division, $district, , $ownUnion] = $this->areaTree(' নিজের');
++        $otherDistrict = AdminArea::create(['parent_id' => $division->id, 'level' => 'district', 'name_bn' => 'অন্য জেলা', 'name_en' => 'Other district']);
++        $otherUpazila = AdminArea::create(['parent_id' => $otherDistrict->id, 'level' => 'upazila', 'name_bn' => 'অন্য উপজেলা', 'name_en' => 'Other upazila']);
++        $otherUnion = AdminArea::create(['parent_id' => $otherUpazila->id, 'level' => 'union', 'name_bn' => 'অন্য ইউনিয়ন', 'name_en' => 'Other union']);
++        $ownIssue = $this->issue($ownUnion, 'Only my union bridge');
++        $otherIssue = $this->issue($otherUnion, 'Another district bridge');
++        $this->queueData($ownIssue, $ownUnion, $reporter);
++        $this->queueData($otherIssue, $otherUnion, $reporter);
++        ModeratorArea::create(['user_id' => $volunteer->id, 'admin_area_id' => $ownUnion->id]);
++
++        $this->actingAs($volunteer)->get(route('admin.work-center'))
++            ->assertOk()
++            ->assertSee('Only my union bridge')
++            ->assertDontSee('Another division bridge')
++            ->assertDontSee(__('workcenter.tab_issues'));
++
++        $this->actingAs($volunteer)->getJson(route('admin.areas.children', $division))
++            ->assertOk()
++            ->assertJsonFragment(['id' => $district->id])
++            ->assertJsonMissing(['id' => $otherDistrict->id]);
++    }
++
++    public function test_citizen_cannot_open_work_center(): void
++    {
++        $this->actingAs($this->user('citizen', '01700002005'))
++            ->get(route('admin.work-center'))
++            ->assertForbidden();
++    }
++}
+-- 
+2.47.3
+

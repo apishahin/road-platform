@@ -1,0 +1,651 @@
+From 2552b0a0cc23e816ae3c99ae552a0cd891acd5f0 Mon Sep 17 00:00:00 2001
+From: Arena Patch Builder <patches@arena.local>
+Date: Sun, 22 Nov 2026 14:08:38 +0000
+Subject: [PATCH] Constrain maps to Bangladesh
+
+---
+ app/Http/Controllers/Api/IssueController.php |   8 ++
+ app/Http/Controllers/IssueController.php     |   9 --
+ app/Http/Controllers/ReportController.php    |  12 ++-
+ app/Support/BangladeshMap.php                |  36 +++++++
+ config/roadplatform.php                      |  19 +++-
+ lang/bn/report.php                           |   1 +
+ lang/en/report.php                           |   1 +
+ resources/js/app.js                          |   6 ++
+ resources/js/bangladesh-map.js               | 101 +++++++++++++++++++
+ resources/js/home-map.js                     |  21 +++-
+ resources/views/admin/moderation.blade.php   |   3 +-
+ resources/views/home.blade.php               |   1 +
+ resources/views/issues/show.blade.php        |  26 ++++-
+ resources/views/layouts/app.blade.php        |   6 ++
+ resources/views/reports/create.blade.php     |  23 ++++-
+ tests/Feature/EngagementTest.php             |   4 +-
+ tests/Feature/HomePageTest.php               |   8 ++
+ tests/Feature/PublicApiTest.php              |   7 ++
+ tests/Unit/BangladeshMapTest.php             |  24 +++++
+ 19 files changed, 290 insertions(+), 26 deletions(-)
+ create mode 100644 app/Support/BangladeshMap.php
+ create mode 100644 resources/js/bangladesh-map.js
+ create mode 100644 tests/Unit/BangladeshMapTest.php
+
+diff --git a/app/Http/Controllers/Api/IssueController.php b/app/Http/Controllers/Api/IssueController.php
+index 1a48286..ee42738 100644
+--- a/app/Http/Controllers/Api/IssueController.php
++++ b/app/Http/Controllers/Api/IssueController.php
+@@ -4,8 +4,10 @@
+ 
+ use App\Http\Controllers\Controller;
+ use App\Models\Issue;
++use App\Support\BangladeshMap;
+ use App\Support\IssuePresenter;
+ use Illuminate\Http\Request;
++use Illuminate\Validation\ValidationException;
+ 
+ class IssueController extends Controller
+ {
+@@ -18,6 +20,12 @@ public function nearby(Request $request)
+             'radius' => ['nullable', 'integer', 'min:50', 'max:5000'],
+         ]);
+ 
++        if (! BangladeshMap::contains((float) $v['lat'], (float) $v['lng'])) {
++            throw ValidationException::withMessages([
++                'lat' => __('report.outside_bangladesh'),
++            ]);
++        }
++
+         $issues = Issue::query()
+             ->active()
+             ->with('category')
+diff --git a/app/Http/Controllers/IssueController.php b/app/Http/Controllers/IssueController.php
+index 6510955..174bca9 100644
+--- a/app/Http/Controllers/IssueController.php
++++ b/app/Http/Controllers/IssueController.php
+@@ -67,14 +67,6 @@ public function show(Issue $issue)
+                 'position' => trim((string) ($n->contact->position ?? '')),
+             ]);
+ 
+-        // Small OpenStreetMap embed around the issue point
+-        $lat = (float) $issue->lat;
+-        $lng = (float) $issue->lng;
+-        $pad = 0.004;
+-        $mapEmbed = 'https://www.openstreetmap.org/export/embed.html?bbox='
+-            . implode(',', [$lng - $pad, $lat - $pad, $lng + $pad, $lat + $pad])
+-            . '&layer=mapnik&marker=' . $lat . ',' . $lng;
+-
+         $extra = $this->glance($issue);
+ 
+         $__u = auth()->user();
+@@ -93,7 +85,6 @@ public function show(Issue $issue)
+             'reports'      => $reports,
+             'photos'       => $photos,
+             'authorities'  => $authorities,
+-            'mapEmbed'     => $mapEmbed,
+             'reportsCount' => IssuePresenter::num($issue->reports_count),
+             'firstAt'      => IssuePresenter::num($issue->first_reported_at?->format('d/m/Y') ?? '—'),
+             'lastAt'       => IssuePresenter::num($issue->last_activity_at?->diffForHumans() ?? '—'),
+diff --git a/app/Http/Controllers/ReportController.php b/app/Http/Controllers/ReportController.php
+index 47ed940..e33fc8c 100644
+--- a/app/Http/Controllers/ReportController.php
++++ b/app/Http/Controllers/ReportController.php
+@@ -4,8 +4,10 @@
+ 
+ use App\Models\Category;
+ use App\Services\ReportService;
++use App\Support\BangladeshMap;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\RateLimiter;
++use Illuminate\Validation\ValidationException;
+ use RuntimeException;
+ 
+ class ReportController extends Controller
+@@ -42,8 +44,8 @@ public function store(Request $request)
+         }
+ 
+         $data = $request->validate([
+-            'lat'         => ['required', 'numeric', 'between:20.5,26.7'],
+-            'lng'         => ['required', 'numeric', 'between:88,92.8'],
++            'lat'         => ['required', 'numeric', 'between:20.65,26.47'],
++            'lng'         => ['required', 'numeric', 'between:88.05,92.70'],
+             'issue_id'    => ['nullable', 'string', 'size:26'],
+             'category_id' => ['required_without:issue_id', 'nullable', 'exists:categories,id'],
+             'title'       => ['required_without:issue_id', 'nullable', 'string', 'max:150'],
+@@ -55,6 +57,12 @@ public function store(Request $request)
+             'photos.*'    => ['file', 'mimes:jpeg,png,webp', 'max:20480'],
+         ]);
+ 
++        if (! BangladeshMap::contains((float) $data['lat'], (float) $data['lng'])) {
++            throw ValidationException::withMessages([
++                'lat' => __('report.outside_bangladesh'),
++            ]);
++        }
++
+         try {
+             $report = $this->reports->submit(
+                 user: $user,
+diff --git a/app/Support/BangladeshMap.php b/app/Support/BangladeshMap.php
+new file mode 100644
+index 0000000..e69ebc0
+--- /dev/null
++++ b/app/Support/BangladeshMap.php
+@@ -0,0 +1,36 @@
++<?php
++
++namespace App\Support;
++
++final class BangladeshMap
++{
++    /**
++     * True when a coordinate falls in the application's Bangladesh map outline.
++     * This outline is for product map limits; it is not a legal boundary dataset.
++     */
++    public static function contains(float $latitude, float $longitude): bool
++    {
++        $ring = (array) config('roadplatform.map.country_boundary', []);
++        $count = count($ring);
++
++        if ($count < 4) {
++            return false;
++        }
++
++        $inside = false;
++
++        for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
++            $yi = (float) ($ring[$i][0] ?? 0);
++            $xi = (float) ($ring[$i][1] ?? 0);
++            $yj = (float) ($ring[$j][0] ?? 0);
++            $xj = (float) ($ring[$j][1] ?? 0);
++
++            if ((($yi > $latitude) !== ($yj > $latitude))
++                && ($longitude < (($xj - $xi) * ($latitude - $yi) / ($yj - $yi)) + $xi)) {
++                $inside = ! $inside;
++            }
++        }
++
++        return $inside;
++    }
++}
+diff --git a/config/roadplatform.php b/config/roadplatform.php
+index ab950f6..b08c4f9 100644
+--- a/config/roadplatform.php
++++ b/config/roadplatform.php
+@@ -8,8 +8,23 @@
+         'attribution' => env('MAP_ATTRIBUTION', '&copy; OpenStreetMap contributors'),
+         'center'      => [23.8103, 90.4125],   // Dhaka
+         'zoom'        => 12,
+-        // default homepage view = the whole of Bangladesh in frame
+-        'country_bounds' => [[20.5, 87.9], [26.8, 92.8]],
++        // Every public map is constrained to Bangladesh. The outline is an
++        // on-screen product boundary, rather than a legal boundary dataset.
++        'country_bounds' => [[20.65, 88.05], [26.47, 92.70]],
++        'country_boundary' => [
++            [22.041239, 92.672721], [21.324048, 92.652257], [21.475485, 92.303234],
++            [20.670883, 92.368554], [21.192195, 92.082886], [21.701570, 92.025215],
++            [22.182936, 91.834891], [22.765019, 91.417087], [22.805017, 90.496006],
++            [22.392794, 90.586957], [21.836368, 90.272971], [22.039146, 89.847467],
++            [21.857116, 89.702050], [21.966179, 89.418863], [22.055708, 89.031961],
++            [22.879146, 88.876312], [23.631142, 88.529770], [24.233715, 88.699940],
++            [24.501657, 88.084422], [24.866079, 88.306373], [25.238692, 88.931554],
++            [25.768066, 88.209789], [26.446526, 88.563049], [26.014407, 89.355094],
++            [25.965082, 89.832481], [25.269750, 89.920693], [25.132601, 90.872211],
++            [25.147432, 91.799596], [24.976693, 92.376202], [24.130414, 91.915093],
++            [24.072639, 91.467730], [23.503527, 91.158963], [22.985264, 91.706475],
++            [23.624346, 91.869928], [23.627499, 92.146035], [22.041239, 92.672721],
++        ],
+         'max_markers' => 500,
+     ],
+ ];
+\ No newline at end of file
+diff --git a/lang/bn/report.php b/lang/bn/report.php
+index c5ffc5f..cdd6bb9 100644
+--- a/lang/bn/report.php
++++ b/lang/bn/report.php
+@@ -11,6 +11,7 @@
+     'step1_hint'           => 'সমস্যার ঠিক জায়গায় ক্লিক করুন, তারপর দরকার হলে পিনটি টেনে সরান।',
+     'use_my_location'      => 'আমার বর্তমান অবস্থান',
+     'pick_point'           => 'আগে মানচিত্রে একটি স্থান বেছে নিন।',
++    'outside_bangladesh'   => 'অনুগ্রহ করে বাংলাদেশের ভেতরের একটি স্থান বেছে নিন।',
+     'next'                 => 'পরবর্তী',
+     'back'                 => 'পেছনে',
+     'step2_heading'        => '২. একই সমস্যা আগে রিপোর্ট হয়েছে কিনা দেখুন',
+diff --git a/lang/en/report.php b/lang/en/report.php
+index cb8312c..b951824 100644
+--- a/lang/en/report.php
++++ b/lang/en/report.php
+@@ -11,6 +11,7 @@
+     'step1_hint'           => 'Click the exact spot of the problem, then drag the pin if needed.',
+     'use_my_location'      => 'Use my current location',
+     'pick_point'           => 'Please choose a point on the map first.',
++    'outside_bangladesh'   => 'Please select a location inside Bangladesh.',
+     'next'                 => 'Next',
+     'back'                 => 'Back',
+     'step2_heading'        => '2. Check whether it was already reported',
+diff --git a/resources/js/app.js b/resources/js/app.js
+index 4a8cf67..4a933d1 100644
+--- a/resources/js/app.js
++++ b/resources/js/app.js
+@@ -1,4 +1,10 @@
+ import Alpine from 'alpinejs';
++import { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh } from './bangladesh-map';
++
++// Some focused map dialogs load Leaflet directly from a CDN, so make the shared
++// Bangladesh-only map behaviour available to both Vite and inline page scripts.
++window.RoadPlatformMap = { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh };
++window.dispatchEvent(new Event('road-platform-map-tools-ready'));
+ 
+ window.Alpine = Alpine;
+ Alpine.start();
+diff --git a/resources/js/bangladesh-map.js b/resources/js/bangladesh-map.js
+new file mode 100644
+index 0000000..3c6ae22
+--- /dev/null
++++ b/resources/js/bangladesh-map.js
+@@ -0,0 +1,101 @@
++// Keeps every Leaflet map inside Bangladesh and masks all neighbouring map tiles.
++// Coordinates are [latitude, longitude]; the outline is intentionally used only
++// as an on-screen map boundary, not as a legal or administrative boundary.
++const fallbackBoundary = [
++    [22.041239, 92.672721], [21.324048, 92.652257], [21.475485, 92.303234],
++    [20.670883, 92.368554], [21.192195, 92.082886], [21.701570, 92.025215],
++    [22.182936, 91.834891], [22.765019, 91.417087], [22.805017, 90.496006],
++    [22.392794, 90.586957], [21.836368, 90.272971], [22.039146, 89.847467],
++    [21.857116, 89.702050], [21.966179, 89.418863], [22.055708, 89.031961],
++    [22.879146, 88.876312], [23.631142, 88.529770], [24.233715, 88.699940],
++    [24.501657, 88.084422], [24.866079, 88.306373], [25.238692, 88.931554],
++    [25.768066, 88.209789], [26.446526, 88.563049], [26.014407, 89.355094],
++    [25.965082, 89.832481], [25.269750, 89.920693], [25.132601, 90.872211],
++    [25.147432, 91.799596], [24.976693, 92.376202], [24.130414, 91.915093],
++    [24.072639, 91.467730], [23.503527, 91.158963], [22.985264, 91.706475],
++    [23.624346, 91.869928], [23.627499, 92.146035], [22.041239, 92.672721],
++];
++
++const fallbackBounds = [[20.65, 88.05], [26.47, 92.70]];
++const worldMask = [[-85, -180], [-85, 180], [85, 180], [85, -180], [-85, -180]];
++
++function config() {
++    const supplied = window.roadPlatformMapConfig || {};
++    const boundary = Array.isArray(supplied.boundary) && supplied.boundary.length >= 4
++        ? supplied.boundary
++        : fallbackBoundary;
++    const bounds = Array.isArray(supplied.bounds) && supplied.bounds.length === 2
++        ? supplied.bounds
++        : fallbackBounds;
++
++    return { boundary, bounds };
++}
++
++/** Return true when a latitude/longitude sits in the Bangladesh map outline. */
++export function isInBangladesh(lat, lng) {
++    const y = Number(lat);
++    const x = Number(lng);
++    if (!Number.isFinite(y) || !Number.isFinite(x)) return false;
++
++    const ring = config().boundary;
++    let inside = false;
++
++    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
++        const [yi, xi] = ring[i];
++        const [yj, xj] = ring[j];
++        const intersects = ((yi > y) !== (yj > y))
++            && (x < ((xj - xi) * (y - yi) / (yj - yi)) + xi);
++
++        if (intersects) inside = !inside;
++    }
++
++    return inside;
++}
++
++export function bangladeshBounds(L) {
++    return L.latLngBounds(config().bounds);
++}
++
++/** Options to use while creating an interactive Leaflet map. */
++export function bangladeshMapOptions(L, options = {}) {
++    return {
++        ...options,
++        maxBounds: bangladeshBounds(L),
++        maxBoundsViscosity: 1,
++        worldCopyJump: false,
++    };
++}
++
++/**
++ * Prevents panning beyond the country and covers every tile outside the outline.
++ * The opaque mask means neighbouring country labels, roads and terrain never show.
++ */
++export function restrictMapToBangladesh(map, L) {
++    const { boundary } = config();
++    const bounds = bangladeshBounds(L);
++
++    map.setMaxBounds(bounds);
++    map.options.maxBoundsViscosity = 1;
++
++    L.polygon([worldMask, boundary], {
++        pane: 'overlayPane',
++        stroke: false,
++        fill: true,
++        fillColor: '#f8fafc',
++        fillOpacity: 1,
++        fillRule: 'evenodd',
++        interactive: false,
++        bubblingMouseEvents: false,
++    }).addTo(map);
++
++    L.polyline(boundary, {
++        pane: 'overlayPane',
++        color: '#047857',
++        weight: 1.5,
++        opacity: 0.8,
++        interactive: false,
++        bubblingMouseEvents: false,
++    }).addTo(map);
++
++    return bounds;
++}
+diff --git a/resources/js/home-map.js b/resources/js/home-map.js
+index 19b4e3c..606359b 100644
+--- a/resources/js/home-map.js
++++ b/resources/js/home-map.js
+@@ -1,5 +1,6 @@
+ import L from 'leaflet';
+ import 'leaflet/dist/leaflet.css';
++import { bangladeshMapOptions, isInBangladesh, restrictMapToBangladesh } from './bangladesh-map';
+ 
+ const cfg = window.roadPlatform;
+ const t = cfg.i18n;
+@@ -69,9 +70,9 @@ function card(issue) {
+     return a;
+ }
+ 
+-// Map
+-const map = L.map('home-map', { zoomSnap: 0.25 }).setView(cfg.center, cfg.zoom);
+-const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
++// Map: tiles, labels and roads are visible only inside the Bangladesh outline.
++const map = L.map('home-map', bangladeshMapOptions(L, { zoomSnap: 0.25 })).setView(cfg.center, cfg.zoom);
++const homeView = restrictMapToBangladesh(map, L);
+ // default view: the whole of Bangladesh, zoomed a notch tighter
+ function countryView() {
+     if (! homeView) { return; }
+@@ -91,8 +92,13 @@ function inGroup(i) {
+     return filter === 'all' || i.group === filter;
+ }
+ 
++function visibleIssues() {
++    // Do not let an old/imported coordinate outside the country appear above the map mask.
++    return cfg.issues.filter((issue) => isInBangladesh(issue.lat, issue.lng)).filter(inGroup);
++}
++
+ function drawMarkers() {
+-    const items = cfg.issues.filter(inGroup);
++    const items = visibleIssues();
+     markers.clearLayers();
+     items.forEach((issue) => {
+         L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
+@@ -125,7 +131,7 @@ function render() {
+             listEl.replaceChildren(...recentNodes);
+             return;
+         }
+-        showList(cfg.issues.filter(inGroup).slice(0, 8));
++        showList(visibleIssues().slice(0, 8));
+         return;
+     }
+     showList(nearby.filter(inGroup));
+@@ -161,6 +167,11 @@ btn?.addEventListener('click', () => {
+     navigator.geolocation.getCurrentPosition(
+         async (pos) => {
+             const { latitude: lat, longitude: lng } = pos.coords;
++            if (!isInBangladesh(lat, lng)) {
++                statusEl.textContent = t.outsideBangladesh;
++                btn.disabled = false;
++                return;
++            }
+ 
+             map.setView([lat, lng], 15);
+             if (me) me.remove();
+diff --git a/resources/views/admin/moderation.blade.php b/resources/views/admin/moderation.blade.php
+index 2c3d4ac..aa30341 100644
+--- a/resources/views/admin/moderation.blade.php
++++ b/resources/views/admin/moderation.blade.php
+@@ -467,8 +467,9 @@ function mapOpen(lat, lng, href, label) {
+     ensureLeaflet(function () {
+       var el = mb.querySelector('[data-m]');
+       if (!map) {
+-        map = L.map(el);
++        map = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
+         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
++        window.RoadPlatformMap.restrictMapToBangladesh(map, L);
+         marker = L.marker([lat, lng]).addTo(map);
+       } else {
+         marker.setLatLng([lat, lng]);
+diff --git a/resources/views/home.blade.php b/resources/views/home.blade.php
+index 4f1f10d..7aa31ee 100644
+--- a/resources/views/home.blade.php
++++ b/resources/views/home.blade.php
+@@ -27,6 +27,7 @@
+             'denied'     => __('Location permission was denied. You can still browse the map.'),
+             'noGeo'      => __('Your browser does not support location.'),
+             'locFailed'  => __('Could not get your location.'),
++            'outsideBangladesh' => __('report.outside_bangladesh'),
+             'loadFailed' => __('Could not load nearby issues.'),
+             'notified'   => __('issues.notified_tag'),
+         ],
+diff --git a/resources/views/issues/show.blade.php b/resources/views/issues/show.blade.php
+index 38a4d43..0df0028 100644
+--- a/resources/views/issues/show.blade.php
++++ b/resources/views/issues/show.blade.php
+@@ -281,8 +281,7 @@ class="h-32 w-full rounded-lg object-cover"></a>
+             <section class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                 <h2 class="px-4 pt-4 font-semibold text-slate-900">{{ __('issue.page.map') }}</h2>
+                 <div class="relative mt-3">
+-                <iframe src="{{ $mapEmbed }}" title="{{ $issue->title }}" loading="lazy"
+-                        class="h-56 w-full border-0"></iframe>
++                <div id="issue-map" role="application" aria-label="{{ $issue->title }}" class="h-56 w-full bg-slate-100"></div>
+                 <a data-map data-lat="{{ $issue->lat }}" data-lng="{{ $issue->lng }}"
+                    href="https://www.openstreetmap.org/?mlat={{ $issue->lat }}&mlon={{ $issue->lng }}#map=17/{{ $issue->lat }}/{{ $issue->lng }}"
+                    style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:flex-end;padding:8px;text-decoration:none;">
+@@ -459,6 +458,7 @@ class="mt-3 inline-block w-full rounded-lg bg-brand-600 px-4 py-2 text-center te
+ (function () {
+   var lb = null, items = [], idx = 0;
+   var mb = null, map = null, marker = null;
++  var detailMap = null, detailMarker = null;
+   function btn(attr, css, html) {
+     return '<button type="button" ' + attr + ' style="' + css + '">' + html + '</button>';
+   }
+@@ -508,6 +508,25 @@ function ensureLeaflet(cb) {
+     }
+     s.addEventListener('load', cb);
+   }
++  function initIssueMap() {
++    var el = document.getElementById('issue-map');
++    if (!el || detailMap) { return; }
++    ensureLeaflet(function () {
++      if (!window.RoadPlatformMap) {
++        window.addEventListener('road-platform-map-tools-ready', initIssueMap, { once: true });
++        return;
++      }
++      if (detailMap) { return; }
++      var lat = @json((float) $issue->lat), lng = @json((float) $issue->lng);
++      detailMap = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
++      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(detailMap);
++      window.RoadPlatformMap.restrictMapToBangladesh(detailMap, L);
++      detailMarker = L.marker([lat, lng]).addTo(detailMap);
++      detailMap.setView([lat, lng], 17);
++      setTimeout(function () { detailMap.invalidateSize(); }, 60);
++    });
++  }
++  initIssueMap();
+   function mapClose() { mb.style.display = 'none'; }
+   function mapOpen(lat, lng, href, label) {
+     if (!mb) {
+@@ -529,8 +548,9 @@ function mapOpen(lat, lng, href, label) {
+     ensureLeaflet(function () {
+       var el = mb.querySelector('[data-m]');
+       if (!map) {
+-        map = L.map(el);
++        map = L.map(el, window.RoadPlatformMap.bangladeshMapOptions(L));
+         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
++        window.RoadPlatformMap.restrictMapToBangladesh(map, L);
+         marker = L.marker([lat, lng]).addTo(map);
+       } else {
+         marker.setLatLng([lat, lng]);
+diff --git a/resources/views/layouts/app.blade.php b/resources/views/layouts/app.blade.php
+index ab5db63..3da4c84 100644
+--- a/resources/views/layouts/app.blade.php
++++ b/resources/views/layouts/app.blade.php
+@@ -29,6 +29,12 @@
+     <meta name="twitter:image" content="@yield('og_image', \App\Support\SiteSections::ogImage())">
+ 
+ 
++    <script>
++        window.roadPlatformMapConfig = {{ Js::from([
++            'bounds' => config('roadplatform.map.country_bounds'),
++            'boundary' => config('roadplatform.map.country_boundary'),
++        ]) }};
++    </script>
+     @vite(['resources/css/app.css', 'resources/js/app.js'])
+     @include('partials.appearance-head')
+     @include('partials.rp-chrome')
+diff --git a/resources/views/reports/create.blade.php b/resources/views/reports/create.blade.php
+index ca51e07..2a3c1ed 100644
+--- a/resources/views/reports/create.blade.php
++++ b/resources/views/reports/create.blade.php
+@@ -33,12 +33,15 @@ function reportWizard() {
+         divisions: @json($areaDivs), districts: [], upazilas: [], unions: [],
+         areaUrl: @json(url('/areas')), areaTouched: false, areaAuto: false, areaTimer: null, areaSeq: 0,
+         nearby: [], loading: false, dupError: false, map: null, marker: null,
++        outsideBangladesh: @json(__('report.outside_bangladesh')),
+ 
+         init() {
+         this.watchPoint();
+             this.$nextTick(() => {
+-                this.map = L.map('report-map').setView(@json($center), @json($zoom));
++                const mapTools = window.RoadPlatformMap;
++                this.map = L.map('report-map', mapTools.bangladeshMapOptions(L)).setView(@json($center), @json($zoom));
+                 L.tileLayer(@json($tileUrl), { maxZoom: 19, attribution: @json($attribution) }).addTo(this.map);
++                mapTools.restrictMapToBangladesh(this.map, L);
+                 this.map.on('click', (e) => this.setPoint(e.latlng.lat, e.latlng.lng));
+             });
+             this.$watch('step', (v) => {
+@@ -47,6 +50,10 @@ function reportWizard() {
+         },
+ 
+         setPoint(lat, lng) {
++            if (!window.RoadPlatformMap.isInBangladesh(lat, lng)) {
++                alert(this.outsideBangladesh);
++                return;
++            }
+             this.lat = lat.toFixed(7);
+             this.lng = lng.toFixed(7);
+             if (this.marker) {
+@@ -56,6 +63,11 @@ function reportWizard() {
+             this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
+             this.marker.on('dragend', (e) => {
+                 const p = e.target.getLatLng();
++                if (!window.RoadPlatformMap.isInBangladesh(p.lat, p.lng)) {
++                    e.target.setLatLng([this.lat, this.lng]);
++                    alert(this.outsideBangladesh);
++                    return;
++                }
+                 this.lat = p.lat.toFixed(7);
+                 this.lng = p.lng.toFixed(7);
+             });
+@@ -64,8 +76,13 @@ function reportWizard() {
+         useMyLocation() {
+             if (!navigator.geolocation) return;
+             navigator.geolocation.getCurrentPosition((pos) => {
+-                this.map.setView([pos.coords.latitude, pos.coords.longitude], 17);
+-                this.setPoint(pos.coords.latitude, pos.coords.longitude);
++                const { latitude: lat, longitude: lng } = pos.coords;
++                if (!window.RoadPlatformMap.isInBangladesh(lat, lng)) {
++                    alert(this.outsideBangladesh);
++                    return;
++                }
++                this.map.setView([lat, lng], 17);
++                this.setPoint(lat, lng);
+             });
+         },
+ 
+diff --git a/tests/Feature/EngagementTest.php b/tests/Feature/EngagementTest.php
+index a3bf811..1aae6aa 100644
+--- a/tests/Feature/EngagementTest.php
++++ b/tests/Feature/EngagementTest.php
+@@ -48,7 +48,9 @@ public function test_issue_page_has_direct_share_links(): void
+             ->assertOk()
+             ->assertSee('data-share-links', false)
+             ->assertSee('facebook.com/sharer/sharer.php', false)
+-            ->assertSee('wa.me/?text=', false);
++            ->assertSee('wa.me/?text=', false)
++            ->assertSee('id="issue-map"', false)
++            ->assertDontSee('openstreetmap.org/export/embed.html', false);
+     }
+ 
+     public function test_public_issue_url_uses_only_its_number_and_old_ulid_links_redirect(): void
+diff --git a/tests/Feature/HomePageTest.php b/tests/Feature/HomePageTest.php
+index b9e0847..db8450a 100644
+--- a/tests/Feature/HomePageTest.php
++++ b/tests/Feature/HomePageTest.php
+@@ -20,6 +20,14 @@ public function test_issues_page_loads(): void
+         $this->get('/issues')->assertOk();
+     }
+ 
++    public function test_map_pages_receive_the_bangladesh_boundary_configuration(): void
++    {
++        $this->get('/')
++            ->assertOk()
++            ->assertSee('roadPlatformMapConfig', false)
++            ->assertSee('92.672721', false);
++    }
++
+     public function test_draft_page_is_404_for_guests(): void
+     {
+         Page::create(['slug' => 'draft-one', 'title_bn' => 'Draft', 'body_bn' => 'x', 'is_published' => false]);
+diff --git a/tests/Feature/PublicApiTest.php b/tests/Feature/PublicApiTest.php
+index 9c6f549..9496238 100644
+--- a/tests/Feature/PublicApiTest.php
++++ b/tests/Feature/PublicApiTest.php
+@@ -63,6 +63,13 @@ public function test_issues_filter_by_status(): void
+         $this->getJson('/api/v1/issues?category=nope')->assertJsonPath('meta.total', 0);
+     }
+ 
++    public function test_nearby_lookup_rejects_a_location_outside_bangladesh(): void
++    {
++        $this->getJson('/api/v1/issues/nearby?lat=22.5726&lng=88.3639') // Kolkata
++            ->assertUnprocessable()
++            ->assertJsonValidationErrors('lat');
++    }
++
+     public function test_turning_off_public_read_requires_key(): void
+     {
+         ApiKeySettings::savePublicRead(false);
+diff --git a/tests/Unit/BangladeshMapTest.php b/tests/Unit/BangladeshMapTest.php
+new file mode 100644
+index 0000000..e0d679a
+--- /dev/null
++++ b/tests/Unit/BangladeshMapTest.php
+@@ -0,0 +1,24 @@
++<?php
++
++namespace Tests\Unit;
++
++use App\Support\BangladeshMap;
++use Tests\TestCase;
++
++class BangladeshMapTest extends TestCase
++{
++    public function test_it_accepts_a_coordinate_inside_bangladesh(): void
++    {
++        $this->assertTrue(BangladeshMap::contains(23.8103, 90.4125)); // Dhaka
++    }
++
++    public function test_it_rejects_a_coordinate_in_the_old_rectangular_but_outside_country_area(): void
++    {
++        $this->assertFalse(BangladeshMap::contains(22.5726, 88.3639)); // Kolkata
++    }
++
++    public function test_it_rejects_a_coordinate_outside_the_country_bounds(): void
++    {
++        $this->assertFalse(BangladeshMap::contains(16.8409, 96.1735)); // Yangon
++    }
++}
+-- 
+2.47.3
+
