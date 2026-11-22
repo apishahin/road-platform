@@ -20,6 +20,14 @@ class HomePageTest extends TestCase
         $this->get('/issues')->assertOk();
     }
 
+    public function test_home_page_exposes_its_local_bangladesh_district_map(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('bangladesh-districts.geojson', false)
+            ->assertSee('districtMapUrl', false);
+    }
+
     public function test_draft_page_is_404_for_guests(): void
     {
         Page::create(['slug' => 'draft-one', 'title_bn' => 'Draft', 'body_bn' => 'x', 'is_published' => false]);

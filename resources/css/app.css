@@ -29,4 +29,22 @@
 }
 .rp-popup-title:hover { text-decoration: underline; }
 .rp-popup-meta { margin-top: 2px; font-size: 12px; color: #475569; }
+
+/* Permanent labels on the Bangladesh-only district map. */
+.bd-district-label {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #ffffff;
+    font-family: 'Noto Sans Bengali', 'Nirmala UI', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.1;
+    padding: 0;
+    text-align: center;
+    text-shadow: -1px -1px 0 #006e53, 1px -1px 0 #006e53, -1px 1px 0 #006e53, 1px 1px 0 #006e53;
+    white-space: nowrap;
+}
+.leaflet-tooltip.bd-district-label::before { display: none; }
 [x-cloak] { display: none !important; }
