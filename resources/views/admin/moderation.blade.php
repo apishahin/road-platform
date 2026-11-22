@@ -446,6 +446,10 @@ Alpine.data('areaPicker', (areas, locale, seed = {}) => ({
     }
     s.addEventListener('load', cb);
   }
+  function withMapTools(cb) {
+    if (window.RoadPlatformMap) { cb(window.RoadPlatformMap); return; }
+    window.addEventListener('road-platform-map-tools-ready', function () { cb(window.RoadPlatformMap); }, { once: true });
+  }
   function mapClose() { mb.style.display = 'none'; }
   function mapOpen(lat, lng, href, label) {
     if (!mb) {
@@ -465,16 +469,19 @@ Alpine.data('areaPicker', (areas, locale, seed = {}) => ({
     o.href = href; o.textContent = label;
     mb.style.display = 'flex';
     ensureLeaflet(function () {
-      var el = mb.querySelector('[data-m]');
-      if (!map) {
-        map = L.map(el);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-        marker = L.marker([lat, lng]).addTo(map);
-      } else {
-        marker.setLatLng([lat, lng]);
-      }
-      map.setView([lat, lng], 17);
-      setTimeout(function () { map.invalidateSize(); }, 60);
+      withMapTools(function (tools) {
+        var el = mb.querySelector('[data-m]');
+        if (!map) {
+          map = L.map(el);
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+          tools.applyMapDisplay(map, L);
+          marker = L.marker([lat, lng]).addTo(map);
+        } else {
+          marker.setLatLng([lat, lng]);
+        }
+        map.setView([lat, lng], 17);
+        setTimeout(function () { map.invalidateSize(); }, 60);
+      });
     });
   }
   document.addEventListener('click', function (e) {

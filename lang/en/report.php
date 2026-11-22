@@ -11,6 +11,7 @@ return [
     'step1_hint'           => 'Click the exact spot of the problem, then drag the pin if needed.',
     'use_my_location'      => 'Use my current location',
     'pick_point'           => 'Please choose a point on the map first.',
+    'outside_bangladesh'   => 'Please select a location inside Bangladesh.',
     'next'                 => 'Next',
     'back'                 => 'Back',
     'step2_heading'        => '2. Check whether it was already reported',

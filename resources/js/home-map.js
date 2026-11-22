@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { applyMapDisplay, bangladeshGeometryReady, fitBangladeshMap, isInBangladesh } from './bangladesh-map';
 
 const cfg = window.roadPlatform;
 const t = cfg.i18n;
@@ -71,16 +72,17 @@ function card(issue) {
 
 // Map
 const map = L.map('home-map', { zoomSnap: 0.25 }).setView(cfg.center, cfg.zoom);
-const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
-// default view: the whole of Bangladesh, zoomed a notch tighter
-function countryView() {
-    if (! homeView) { return; }
-    map.fitBounds(cfg.countryBounds, { padding: [2, 2] });
-    map.setZoom(map.getZoom() + 0.25);
-}
-countryView();
 L.tileLayer(cfg.tileUrl, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
+const mapDisplay = window.RoadPlatformMap?.mapDisplay ?? 'bangladesh';
+let boundaryLoaded = false;
+
+applyMapDisplay(map, L, mapDisplay)
+    .then(() => mapDisplay === 'bangladesh' ? fitBangladeshMap(map, L, { padding: [12, 12], maxZoom: 7.5 }) : null)
+    .then(() => {
+        boundaryLoaded = true;
+        render();
+    });
 
 let filter = 'all';
 let nearby = null;   // null = showing the recent list
@@ -91,21 +93,26 @@ function inGroup(i) {
     return filter === 'all' || i.group === filter;
 }
 
+function visibleIssues() {
+    if (!boundaryLoaded) return [];
+    return cfg.issues.filter((issue) => isInBangladesh(issue.lat, issue.lng)).filter(inGroup);
+}
+
 function drawMarkers() {
-    const items = cfg.issues.filter(inGroup);
+    const items = visibleIssues();
     markers.clearLayers();
     items.forEach((issue) => {
         L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
             .bindPopup(popupNode(issue))
             .addTo(markers);
     });
-    if (nearby === null) {
-        // "সব" / All keeps the whole country in frame; a chosen status zooms to its pins.
-        if (homeView && filter === 'all') {
-            countryView();
-        } else if (items.length > 0) {
-            map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
-        }
+    // Bangladesh-only mode deliberately keeps the full detailed silhouette in
+    // frame for the all-issues home view. World mode retains normal
+    // marker-focused browsing.
+    if (mapDisplay === 'world' && nearby === null && items.length > 0) {
+        map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
+    } else if (mapDisplay === 'bangladesh' && nearby === null && filter !== 'all' && items.length > 0) {
+        map.fitBounds(items.map((i) => [i.lat, i.lng]), { padding: [40, 40], maxZoom: 15 });
     }
 }
 
@@ -125,7 +132,7 @@ function render() {
             listEl.replaceChildren(...recentNodes);
             return;
         }
-        showList(cfg.issues.filter(inGroup).slice(0, 8));
+        showList(visibleIssues().slice(0, 8));
         return;
     }
     showList(nearby.filter(inGroup));
@@ -161,6 +168,13 @@ btn?.addEventListener('click', () => {
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
             const { latitude: lat, longitude: lng } = pos.coords;
+            await bangladeshGeometryReady().catch(() => null);
+
+            if (!isInBangladesh(lat, lng)) {
+                statusEl.textContent = t.outsideBangladesh;
+                btn.disabled = false;
+                return;
+            }
 
             map.setView([lat, lng], 15);
             if (me) me.remove();

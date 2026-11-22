@@ -17,6 +17,7 @@ class AppearanceSettings
     public const DIR   = 'uploads/appearance'; // inside public/
     public const FONTS = ['system', 'noto_google', 'hind_google', 'custom'];
     public const SIZES = ['normal' => '100%', 'large' => '112.5%', 'xlarge' => '125%'];
+    public const MAP_DISPLAYS = ['bangladesh', 'world'];
 
     private static ?array $cache = null;
 
@@ -35,6 +36,9 @@ class AppearanceSettings
             'tagline_en'  => '',
             'logo'        => null,
             'issue_view'  => 'simple',
+            // This controls visual browsing only. Report/API locations remain
+            // Bangladesh-only in both display modes.
+            'map_display' => 'bangladesh',
         ];
     }
 
@@ -108,6 +112,9 @@ class AppearanceSettings
         $iv = $in['issue_view'] ?? null;
         $out['issue_view'] = in_array($iv, ['simple', 'detailed'], true) ? $iv : 'simple';
 
+        $mapDisplay = $in['map_display'] ?? null;
+        $out['map_display'] = in_array($mapDisplay, self::MAP_DISPLAYS, true) ? $mapDisplay : 'bangladesh';
+
         // A custom font needs an uploaded file
         if ($out['font'] === 'custom' && $out['font_file'] === null) {
             $out['font'] = 'system';
@@ -167,6 +174,12 @@ class AppearanceSettings
         $logo = self::all()['logo'];
 
         return $logo ? asset(self::DIR . '/' . $logo) : null;
+    }
+
+    /** Visual browsing policy shared by every in-application Leaflet map. */
+    public static function mapDisplay(): string
+    {
+        return self::all()['map_display'];
     }
 
     /** Short line shown under the site name (header + footer). Empty = hidden. */

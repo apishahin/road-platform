@@ -80,6 +80,23 @@
         </label>
     </div>
 </section>
+
+{{-- Global map display --}}
+<section class="rounded-xl border border-slate-200 bg-white p-5">
+    <h2 class="text-lg font-semibold text-slate-900">মানচিত্র প্রদর্শন</h2>
+    <p class="mt-1 text-xs text-slate-500">এই পছন্দটি হোম, রিপোর্ট, ইস্যু, মডারেশন ও কাজের কেন্দ্রের সব মানচিত্রে প্রযোজ্য। রিপোর্টের স্থান সব সময় শুধু বাংলাদেশের ভেতরেই গ্রহণ করা হবে।</p>
+    <div class="mt-3 space-y-2">
+        <label class="flex items-start gap-2 text-sm">
+            <input type="radio" name="map_display" value="bangladesh" class="mt-1" @checked(old('map_display', $ap['map_display'] ?? 'bangladesh') === 'bangladesh')>
+            <span><b>শুধু বাংলাদেশ</b> (ডিফল্ট) — বাংলাদেশের বাইরের OSM অংশ আড়াল থাকবে এবং মানচিত্রটি সম্পূর্ণ দেশের সীমানায় ফিট হবে।</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+            <input type="radio" name="map_display" value="world" class="mt-1" @checked(old('map_display', $ap['map_display'] ?? 'bangladesh') === 'world')>
+            <span><b>বিশ্ব মানচিত্র</b> — আগের মতো পুরো পৃথিবী দেখা ও প্যান করা যাবে; কিন্তু বাংলাদেশের বাইরে রিপোর্ট/GPS/API স্থান গ্রহণ করা হবে না।</span>
+        </label>
+    </div>
+</section>
+
 {{-- Colours --}}
         <section class="rounded-xl border border-slate-200 bg-white p-5">
             <h2 class="text-lg font-semibold text-slate-900">রং</h2>

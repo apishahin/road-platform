@@ -29,6 +29,7 @@
     <meta name="twitter:image" content="@yield('og_image', \App\Support\SiteSections::ogImage())">
 
 
+    <script>window.roadPlatformMapDisplay = @json(\App\Support\AppearanceSettings::mapDisplay());</script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @include('partials.appearance-head')
     @include('partials.rp-chrome')

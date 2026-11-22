@@ -121,6 +121,9 @@
                         <a href="{{ \App\Support\IssuePresenter::url($issue) }}" target="_blank" rel="noopener" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.view') }}</a>
                     @endif
                     @if($issue->published_at && ! $issue->unpublished_at)<a href="{{ route('admin.issues.notify', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;margin-right:10px;">{{ __('notify.button') }}</a> @endif <a href="{{ route('admin.issues.edit', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;">{{ __('issueadmin.edit') }}</a>
+                    @if (auth()->user()?->role === 'admin')
+                        <a href="{{ route('admin.issues.activity', ['issue' => $issue->id]) }}" style="font-size:13px;text-decoration:underline;">{{ __('issueactivity.title') }}</a>
+                    @endif
 
                     @if ($tab === 'published')
                         <form method="POST" action="{{ route('admin.issues.unpublish', ['issue' => $issue->id]) }}" onsubmit="return confirm('{{ __('issueadmin.unpublish_confirm') }}')" style="display:flex;gap:6px;align-items:center;">
