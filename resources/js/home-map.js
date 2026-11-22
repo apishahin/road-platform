@@ -69,72 +69,18 @@ function card(issue) {
     return a;
 }
 
-// Bangladesh district map. It is a local, full-country map rather than a
-// cropped OpenStreetMap tile layer, so no neighbouring country is ever shown.
-let homeView = Array.isArray(cfg.countryBounds) ? L.latLngBounds(cfg.countryBounds) : null;
-const map = L.map('home-map', {
-    zoomSnap: 0.25,
-    maxBounds: homeView || undefined,
-    maxBoundsViscosity: 1,
-    attributionControl: false,
-}).setView(cfg.center, cfg.zoom);
-map.getContainer().style.background = '#f7f4ec';
-
-// Default view: the entire Bangladesh silhouette in frame.
+// Map
+const map = L.map('home-map', { zoomSnap: 0.25 }).setView(cfg.center, cfg.zoom);
+const homeView = Array.isArray(cfg.countryBounds) && L.latLngBounds(cfg.countryBounds);
+// default view: the whole of Bangladesh, zoomed a notch tighter
 function countryView() {
     if (! homeView) { return; }
-    map.fitBounds(homeView, { padding: [16, 16] });
+    map.fitBounds(cfg.countryBounds, { padding: [2, 2] });
+    map.setZoom(map.getZoom() + 0.25);
 }
 countryView();
-
+L.tileLayer(cfg.tileUrl, { attribution: cfg.attribution, maxZoom: 19 }).addTo(map);
 const markers = L.layerGroup().addTo(map);
-
-function districtLabel(feature) {
-    const name = feature.properties?.shapeName || '';
-    return cfg.districtLabels?.[name] || name;
-}
-
-async function loadDistrictMap() {
-    try {
-        const response = await fetch(cfg.districtMapUrl, { headers: { Accept: 'application/geo+json, application/json' } });
-        if (!response.ok) throw new Error('district-map-unavailable');
-
-        const geojson = await response.json();
-        const districts = L.geoJSON(geojson, {
-            style: {
-                color: '#ffffff',
-                weight: 1,
-                opacity: 0.95,
-                fillColor: '#008b68',
-                fillOpacity: 1,
-            },
-            onEachFeature(feature, layer) {
-                const label = districtLabel(feature);
-                if (label) {
-                    layer.bindTooltip(label, {
-                        permanent: true,
-                        direction: 'center',
-                        className: 'bd-district-label',
-                        opacity: 1,
-                        interactive: false,
-                    });
-                }
-            },
-        }).addTo(map);
-
-        homeView = districts.getBounds();
-        map.setMaxBounds(homeView.pad(0.03));
-        countryView();
-        L.control.attribution({ position: 'bottomright', prefix: false })
-            .addAttribution(cfg.districtAttribution)
-            .addTo(map);
-    } catch {
-        // The country outline is a same-origin static asset. Keep the map neutral
-        // instead of falling back to a world map if the asset is temporarily unavailable.
-    }
-}
-
-loadDistrictMap();
 
 let filter = 'all';
 let nearby = null;   // null = showing the recent list
@@ -149,7 +95,7 @@ function drawMarkers() {
     const items = cfg.issues.filter(inGroup);
     markers.clearLayers();
     items.forEach((issue) => {
-        L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title, zIndexOffset: 1000 })
+        L.marker([issue.lat, issue.lng], { icon: pinIcon(issue.color), title: issue.title })
             .bindPopup(popupNode(issue))
             .addTo(markers);
     });
