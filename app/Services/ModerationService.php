@@ -25,13 +25,17 @@ class ModerationService
                 $r->moderation = 'approved';
                 $r->save();
 
+                $issue = $r->issue;
+                // A text-only report is useful to staff, but it must never
+                // acquire a public-map point, authority route, or public photo
+                // merely because its report was approved.
+                $canPublish = $issue?->unpublished_at === null && ! $issue?->needsLocationReview();
                 foreach ($r->evidence as $ev) {
-                    if ($r->issue?->unpublished_at === null && ($new = $this->publishEvidence($ev))) {
+                    if ($canPublish && ($new = $this->publishEvidence($ev))) {
                         $copied[] = $new;
                     }
                 }
 
-                $issue = $r->issue;
                 $issue->increment('reports_count');
 
                 // Set the area only if the issue has none yet; never overwrite an existing one.
@@ -39,7 +43,7 @@ class ModerationService
                     \App\Models\Issue::whereKey($issue->id)->whereNull('admin_area_id')->update(['admin_area_id' => $areaId]);
                 }
                 $issue->forceFill([
-                    'published_at'     => $issue->unpublished_at !== null ? null : ($issue->published_at ?? now()),
+                    'published_at'     => $canPublish ? ($issue->published_at ?? now()) : null,
                     'last_activity_at' => now(),
                 ])->save();
             });

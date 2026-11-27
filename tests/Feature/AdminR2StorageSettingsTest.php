@@ -110,6 +110,15 @@ class AdminR2StorageSettingsTest extends TestCase
 
     public function test_non_admin_cannot_change_r2_settings_and_required_credentials_are_validated(): void
     {
+        // The test verifies a brand-new setup, regardless of any developer
+        // R2 credentials supplied through a local .env file.
+        config([
+            'filesystems.disks.r2_private.key' => null,
+            'filesystems.disks.r2_private.secret' => null,
+            'filesystems.disks.r2_public.key' => null,
+            'filesystems.disks.r2_public.secret' => null,
+        ]);
+
         $citizen = $this->user('citizen');
         $this->actingAs($citizen)->post(route('admin.storage.r2'), $this->payload())
             ->assertForbidden();

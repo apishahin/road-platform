@@ -79,6 +79,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/report', [ReportController::class, 'create'])->middleware('phone.verified')->name('report.create');
     Route::post('/report', [ReportController::class, 'store'])->middleware(['phone.verified', 'throttle:20,1'])->name('report.store');
+    // Optional photo analysis is separately rate-limited and never required to report.
+    Route::post('/report/ai-suggestion', \App\Http\Controllers\ReportAiSuggestionController::class)->middleware(['phone.verified', 'throttle:6,1'])->name('report.ai-suggestion');
     Route::get('/report/success', [ReportController::class, 'success'])->name('report.success');
 
     // Moderation (moderator/admin only; checked inside the controller)
@@ -333,6 +335,14 @@ Route::middleware('guest')->group(function () {
     \Illuminate\Support\Facades\Route::post('/footer-links/add', [\App\Http\Controllers\Admin\FooterLinksController::class, 'add'])->name('footer.add');
     \Illuminate\Support\Facades\Route::post('/footer-links/delete', [\App\Http\Controllers\Admin\FooterLinksController::class, 'delete'])->name('footer.delete');
     \Illuminate\Support\Facades\Route::get('/integrations', [\App\Http\Controllers\Admin\IntegrationController::class, 'index'])->name('integrations.index');
+    \Illuminate\Support\Facades\Route::get('/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'index'])->name('categories.index');
+    \Illuminate\Support\Facades\Route::post('/categories', [\App\Http\Controllers\Admin\CategoryController::class, 'store'])->name('categories.store');
+    \Illuminate\Support\Facades\Route::put('/categories/{category}', [\App\Http\Controllers\Admin\CategoryController::class, 'update'])->name('categories.update');
+    \Illuminate\Support\Facades\Route::get('/ai-reporting', [\App\Http\Controllers\Admin\AiSettingsController::class, 'index'])->name('ai-settings.index');
+    \Illuminate\Support\Facades\Route::post('/ai-reporting', [\App\Http\Controllers\Admin\AiSettingsController::class, 'save'])->name('ai-settings.save');
+    \Illuminate\Support\Facades\Route::post('/ai-reporting/test', [\App\Http\Controllers\Admin\AiSettingsController::class, 'test'])->middleware('throttle:4,1')->name('ai-settings.test');
+    \Illuminate\Support\Facades\Route::post('/ai-reporting/models', [\App\Http\Controllers\Admin\AiSettingsController::class, 'models'])->middleware('throttle:8,1')->name('ai-settings.models');
+    \Illuminate\Support\Facades\Route::post('/ai-reporting/test-chain', [\App\Http\Controllers\Admin\AiSettingsController::class, 'testChain'])->middleware('throttle:2,1')->name('ai-settings.test-chain');
     \Illuminate\Support\Facades\Route::post('/integrations/push', [\App\Http\Controllers\Admin\IntegrationController::class, 'savePush'])->name('integrations.push');
     \Illuminate\Support\Facades\Route::post('/integrations/share', [\App\Http\Controllers\Admin\IntegrationController::class, 'saveShare'])->name('integrations.share');
     \Illuminate\Support\Facades\Route::post('/integrations/digest', [\App\Http\Controllers\Admin\IntegrationController::class, 'saveDigest'])->name('integrations.digest');

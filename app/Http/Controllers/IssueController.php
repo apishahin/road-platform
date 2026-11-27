@@ -11,7 +11,7 @@ class IssueController extends Controller
     /** Redirect pre-Patch66 public ULID links to the compact numeric canonical URL. */
     public function legacy(Issue $issue)
     {
-        if ($issue->published_at === null) {
+        if ($issue->published_at === null || $issue->needsLocationReview()) {
             abort_unless(auth()->user()?->isModerator(), 404);
         }
 
@@ -20,8 +20,8 @@ class IssueController extends Controller
 
     public function show(Issue $issue)
     {
-        // Unpublished issues are visible only to moderators.
-        if ($issue->published_at === null) {
+        // Unpublished and location-review issues are visible only to moderators.
+        if ($issue->published_at === null || $issue->needsLocationReview()) {
             abort_unless(auth()->user()?->isModerator(), 404);
         }
         $issue->load(['category', 'adminArea', 'duplicateOf']);

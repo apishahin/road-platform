@@ -8,6 +8,7 @@ use App\Services\EvidenceService;
 use App\Support\{PhotoEncodeSettings, StorageSettings};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -92,5 +93,65 @@ class PhotoEncodeSettingsTest extends TestCase
         $this->assertStringEndsWith('.jpg', $ev2->public_path);
 
         Storage::disk($disk)->delete(array_filter([$ev->public_path, $ev->private_path, $ev2->public_path, $ev2->private_path]));
+    }
+
+    public function test_photo_write_failure_returns_a_safe_storage_message(): void
+    {
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('gd not available');
+        }
+
+        $disk = 'test_evidence_bad_local';
+        $root = storage_path('framework/testing/evidence-file-' . Str::random(12));
+        $previousPrivate = config('filesystems.evidence.private');
+        $previousDisk = config('filesystems.disks.' . $disk);
+        File::put($root, 'This deliberately is a file, not an evidence directory.');
+        config([
+            'filesystems.evidence.private' => $disk,
+            'filesystems.disks.' . $disk => ['driver' => 'local', 'root' => $root, 'throw' => true],
+        ]);
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage(__('report.photo_storage_unavailable'));
+            app(EvidenceService::class)->store($this->bigPng(), $this->admin()->id);
+        } finally {
+            Storage::forgetDisk($disk);
+            config([
+                'filesystems.evidence.private' => $previousPrivate,
+                'filesystems.disks.' . $disk => $previousDisk,
+            ]);
+            File::delete($root);
+        }
+    }
+
+    public function test_local_evidence_folder_tree_is_created_before_a_photo_write(): void
+    {
+        if (! extension_loaded('gd')) {
+            $this->markTestSkipped('gd not available');
+        }
+
+        $disk = 'test_evidence_local';
+        $root = storage_path('framework/testing/evidence-local-' . Str::random(12));
+        $previousPrivate = config('filesystems.evidence.private');
+        $previousDisk = config('filesystems.disks.' . $disk);
+        File::deleteDirectory($root);
+        config([
+            'filesystems.evidence.private' => $disk,
+            'filesystems.disks.' . $disk => ['driver' => 'local', 'root' => $root, 'throw' => true],
+        ]);
+
+        try {
+            $evidence = app(EvidenceService::class)->store($this->bigPng(), $this->admin()->id);
+            $this->assertFileExists($root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $evidence->public_path));
+            $this->assertFileExists($root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $evidence->private_path));
+        } finally {
+            Storage::forgetDisk($disk);
+            config([
+                'filesystems.evidence.private' => $previousPrivate,
+                'filesystems.disks.' . $disk => $previousDisk,
+            ]);
+            File::deleteDirectory($root);
+        }
     }
 }

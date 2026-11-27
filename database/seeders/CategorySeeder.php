@@ -9,6 +9,22 @@ class CategorySeeder extends Seeder
 {
     public function run(): void
     {
+        $now = now();
+        DB::table('categories')->updateOrInsert(
+            ['slug' => 'road-and-mobility'],
+            [
+                'parent_id' => null,
+                'name_bn' => 'সড়ক ও নিরাপদ চলাচল',
+                'name_en' => 'Roads and safe mobility',
+                'sort' => 0,
+                'is_active' => true,
+                'is_reportable' => false,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+        $parentId = DB::table('categories')->where('slug', 'road-and-mobility')->value('id');
+
         $categories = [
             ['pothole',          'রাস্তায় গর্ত',               'Pothole'],
             ['damaged_road',     'ভাঙা/ক্ষতিগ্রস্ত রাস্তা',      'Broken or damaged road'],
@@ -25,8 +41,16 @@ class CategorySeeder extends Seeder
         foreach ($categories as $i => [$slug, $bn, $en]) {
             DB::table('categories')->updateOrInsert(
                 ['slug' => $slug],
-                ['name_bn' => $bn, 'name_en' => $en, 'sort' => $i + 1,
-                 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]
+                [
+                    'parent_id' => $parentId,
+                    'name_bn' => $bn,
+                    'name_en' => $en,
+                    'sort' => $i + 1,
+                    'is_active' => true,
+                    'is_reportable' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]
             );
         }
     }

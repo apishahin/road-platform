@@ -45,6 +45,8 @@
                 [route('admin.api.index'), __('issues.api_menu'), 0, 'key'],
                 [route('admin.footer.index'), __('issues.nav_footer'), 0, 'flink'],
                 [route('admin.integrations.index'), __('issues.nav_integrations'), 0, 'integ'],
+                [route('admin.categories.index'), __('core.categories_title'), 0, 'layout'],
+                [route('admin.ai-settings.index'), __('core.ai_title'), 0, 'integ'],
             ]];
         }
     }

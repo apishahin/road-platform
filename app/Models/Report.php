@@ -13,8 +13,8 @@ class Report extends Model
     use HasFactory;
 
     protected $fillable = [
-        'suggested_area_id',
-        'issue_id', 'user_id', 'description', 'lat', 'lng', 'moderation',
+        'suggested_area_id', 'issue_id', 'user_id', 'description', 'lat', 'lng',
+        'location_precision', 'place_name', 'location_note', 'moderation',
     ];
 
     protected static function booted(): void

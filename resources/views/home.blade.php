@@ -10,13 +10,24 @@
 @endif
 @endsection
 
+@php
+    $mapDisplay = \App\Support\AppearanceSettings::mapDisplay();
+    $countryBounds = config('roadplatform.map.country_bounds');
+    // The dynamic Leaflet bundle reads this before its detailed outline is
+    // ready. Start it country-wide, not briefly at the default Dhaka zoom.
+    $homeMapCenter = $mapDisplay === 'bangladesh'
+        ? [($countryBounds[0][0] + $countryBounds[1][0]) / 2, ($countryBounds[0][1] + $countryBounds[1][1]) / 2]
+        : config('roadplatform.map.center');
+    $homeMapZoom = $mapDisplay === 'bangladesh' ? 6 : config('roadplatform.map.zoom');
+@endphp
+
 @push('scripts')
 <script>
     window.roadPlatform = {{ Js::from([
         'issues'      => $mapIssues,
-        'center'      => config('roadplatform.map.center'),
-        'zoom'        => config('roadplatform.map.zoom'),
-        'countryBounds' => config('roadplatform.map.country_bounds'),
+        'center'      => $homeMapCenter,
+        'zoom'        => $homeMapZoom,
+        'countryBounds' => $countryBounds,
         'tileUrl'     => config('roadplatform.map.tile_url'),
         'attribution' => config('roadplatform.map.attribution'),
         'nearbyUrl'   => url('/api/v1/issues/nearby'),

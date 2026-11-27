@@ -43,7 +43,9 @@ class AppearanceController extends Controller
             'font_file'   => ['nullable', 'file', 'max:2048'],
             'logo'        => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
             'remove_logo' => ['nullable', 'boolean'],
-            'map_display' => ['required', Rule::in(AppearanceSettings::MAP_DISPLAYS)],
+            // Older appearance forms did not submit this field; retain the
+            // saved/default display policy when they are posted.
+            'map_display' => ['nullable', Rule::in(AppearanceSettings::MAP_DISPLAYS)],
         ]);
 
         $old = AppearanceSettings::all();
@@ -60,7 +62,7 @@ class AppearanceController extends Controller
         $new['tagline_en']  = trim((string) ($data['tagline_en'] ?? ''));
 
         $new['issue_view'] = $request->input('issue_view') === 'detailed' ? 'detailed' : 'simple';
-        $new['map_display'] = $data['map_display'];
+        $new['map_display'] = $data['map_display'] ?? $old['map_display'];
 
         $dir = public_path(AppearanceSettings::DIR);
         $filesToDelete = [];

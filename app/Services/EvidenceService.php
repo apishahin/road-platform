@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Evidence;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
@@ -65,10 +66,18 @@ class EvidenceService
         $pendingPath = 'evidence/pending/' . $base . '.' . \App\Support\PhotoEncodeSettings::ext();
         $keepOrig    = \App\Support\StorageSettings::keepOriginals();
 
-        if ($keepOrig) {
-            Storage::disk($disk)->put($privatePath, file_get_contents($file->getRealPath()));
+        // Explicitly create the local folder tree. Some Windows/XAMPP PHP
+        // installations cannot create Flysystem's nested directory lazily,
+        // which used to surface an internal path as a citizen-facing error.
+        try {
+            if ($keepOrig) {
+                $this->write($disk, $privatePath, (string) file_get_contents($file->getRealPath()));
+            }
+            $this->write($disk, $pendingPath, $encoded);
+        } catch (\Throwable $e) {
+            $this->cleanup($disk, [$keepOrig ? $privatePath : null, $pendingPath]);
+            throw $e;
         }
-        Storage::disk($disk)->put($pendingPath, $encoded);
 
         try {
             return Evidence::create([
@@ -81,8 +90,52 @@ class EvidenceService
                 'moderation'      => 'pending',
             ]);
         } catch (\Throwable $e) {
-            Storage::disk($disk)->delete(array_filter([$keepOrig ? $privatePath : null, $pendingPath]));
+            $this->cleanup($disk, [$keepOrig ? $privatePath : null, $pendingPath]);
             throw $e;
+        }
+    }
+
+    /** Best-effort cleanup must never expose or replace a safe write error. */
+    private function cleanup(string $disk, array $paths): void
+    {
+        try {
+            Storage::disk($disk)->delete(array_filter($paths));
+        } catch (\Throwable) {
+            logger()->warning('Evidence photo cleanup failed', ['disk' => $disk]);
+        }
+    }
+
+    /**
+     * Create nested local folders ourselves before writing. Cloud object stores
+     * do not need directories, so their normal Flysystem write is unchanged.
+     */
+    private function write(string $disk, string $path, string $contents): void
+    {
+        try {
+            $config = (array) config("filesystems.disks.$disk", []);
+            if (($config['driver'] ?? null) === 'local') {
+                $root = (string) ($config['root'] ?? '');
+                if ($root === '') {
+                    throw new RuntimeException('Local evidence storage has no root.');
+                }
+                File::ensureDirectoryExists($root);
+                $directory = dirname($path);
+                if ($directory !== '.' && $directory !== DIRECTORY_SEPARATOR) {
+                    File::ensureDirectoryExists($root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $directory));
+                }
+                if (! is_writable($root)) {
+                    throw new RuntimeException('Local evidence storage is not writable.');
+                }
+            }
+
+            if (Storage::disk($disk)->put($path, $contents) !== true) {
+                throw new RuntimeException('Evidence write was not accepted.');
+            }
+        } catch (\Throwable $e) {
+            // Keep diagnostics server-side and never show storage paths or a
+            // cloud endpoint to a citizen.
+            logger()->warning('Evidence photo write failed', ['disk' => $disk, 'path' => $path]);
+            throw new RuntimeException(__('report.photo_storage_unavailable'));
         }
     }
 

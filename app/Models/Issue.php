@@ -13,15 +13,18 @@ class Issue extends Model
 {
     use HasFactory;
 
+    public const LOCATION_READY = 'ready';
+    public const LOCATION_REVIEW = 'needs_location_review';
+
     protected $fillable = [
-        'public_id',          // ← added
-        'title', 'category_id', 'lat', 'lng', 'road_name', 'landmark',
+        'public_id',
+        'title', 'category_id', 'lat', 'lng', 'location_precision', 'location_review_status',
+        'road_name', 'landmark', 'place_name', 'location_note',
         'admin_area_id', 'progress_status', 'verification_status',
         'disposition', 'duplicate_of_id', 'reports_count',
         'first_reported_at', 'last_activity_at',
     ];
 
-    // Auto-generate a ULID if not provided
     protected static function booted(): void
     {
         static::creating(function (Issue $issue) {
@@ -34,18 +37,15 @@ class Issue extends Model
     protected function casts(): array
     {
         return [
-            'lat'               => 'decimal:7',
-            'lng'               => 'decimal:7',
-            'reports_count'     => 'integer',
+            'lat' => 'decimal:7',
+            'lng' => 'decimal:7',
+            'reports_count' => 'integer',
             'first_reported_at' => 'datetime',
-            'last_activity_at'  => 'datetime',
-            // Work Center and administration display these lifecycle moments.
-            'published_at'      => 'datetime',
-            'unpublished_at'    => 'datetime',
+            'last_activity_at' => 'datetime',
+            'published_at' => 'datetime',
+            'unpublished_at' => 'datetime',
         ];
     }
-
-    // ── Relationships ──────────────────────────────────
 
     public function category(): BelongsTo
     {
@@ -92,8 +92,6 @@ class Issue extends Model
         return $this->hasMany(IssueAuthorityLink::class);
     }
 
-    // ── Scopes ─────────────────────────────────────────
-
     /**
      * How many districts have at least one active issue.
      * Issues can be pinned to any admin level, so each pinned area is
@@ -106,9 +104,8 @@ class Issue extends Model
             return 0;
         }
 
-        $levels  = AdminArea::query()->pluck('level', 'id');
+        $levels = AdminArea::query()->pluck('level', 'id');
         $parents = AdminArea::query()->pluck('parent_id', 'id');
-
         $districts = [];
         foreach ($ids as $id) {
             $cur = (int) $id;
@@ -126,7 +123,10 @@ class Issue extends Model
 
     public function scopeActive($query)
     {
-        return $query->whereIn('disposition', ['active', 'reopened'])->whereNotNull('published_at');
+        return $query
+            ->whereIn('disposition', ['active', 'reopened'])
+            ->where('location_review_status', self::LOCATION_READY)
+            ->whereNotNull('published_at');
     }
 
     public function scopeNearby($query, float $lat, float $lng, int $meters = 100)
@@ -134,27 +134,40 @@ class Issue extends Model
         $degLat = $meters / 111000;
         $degLng = $meters / (111000 * max(cos(deg2rad($lat)), 0.01));
 
-        return $query
-            ->select('issues.*')
-            ->selectRaw(
-                '6371000 * ACOS(LEAST(1,
-                    COS(RADIANS(?)) * COS(RADIANS(lat)) *
-                    COS(RADIANS(lng) - RADIANS(?)) +
-                    SIN(RADIANS(?)) * SIN(RADIANS(lat))
-                )) AS meters',
-                [$lat, $lng, $lat]
-            )
-            ->whereBetween('lat', [$lat - $degLat, $lat + $degLat])
-            ->whereBetween('lng', [$lng - $degLng, $lng + $degLng])
-            ->having('meters', '<=', $meters)
-            ->orderBy('meters');
-    }
+        // SQLite uses scalar MIN rather than LEAST and does not permit a
+        // HAVING clause without GROUP BY. Keeping this portable lets the same
+        // category-aware duplicate logic run in CI and production databases.
+        $sqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
+        $clamp = $sqlite ? 'MIN' : 'LEAST';
+        $distance = "6371000 * ACOS({$clamp}(1,
+            COS(RADIANS(?)) * COS(RADIANS(lat)) *
+            COS(RADIANS(lng) - RADIANS(?)) +
+            SIN(RADIANS(?)) * SIN(RADIANS(lat))
+        ))";
 
-    // ── Helpers ────────────────────────────────────────
+        $nearby = $query
+            ->select('issues.*')
+            ->selectRaw("{$distance} AS meters", [$lat, $lng, $lat])
+            ->whereBetween('lat', [$lat - $degLat, $lat + $degLat])
+            ->whereBetween('lng', [$lng - $degLng, $lng + $degLng]);
+
+        if ($sqlite) {
+            $nearby->whereRaw("{$distance} <= ?", [$lat, $lng, $lat, $meters]);
+        } else {
+            $nearby->having('meters', '<=', $meters);
+        }
+
+        return $nearby->orderBy('meters');
+    }
 
     public function isOpen(): bool
     {
         return in_array($this->disposition, ['active', 'reopened'], true);
+    }
+
+    public function needsLocationReview(): bool
+    {
+        return $this->location_review_status === self::LOCATION_REVIEW;
     }
 
     public function latestEvent(?string $dimension = null): ?StatusEvent
@@ -163,6 +176,7 @@ class Issue extends Model
         if ($dimension) {
             $q->where('dimension', $dimension);
         }
+
         return $q->first();
     }
 }

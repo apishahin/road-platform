@@ -23,9 +23,13 @@
                 <p class="mt-3 whitespace-pre-line text-sm text-slate-800">{{ $r->description }}</p>
 
                 <p class="mt-2 text-xs text-slate-500">
-                    {{ $r->created_at?->diffForHumans() }} ·
-                    <a class="text-brand-700 underline" target="_blank" rel="noopener"
-                       data-map data-lat="{{ $r->lat }}" data-lng="{{ $r->lng }}" href="https://www.openstreetmap.org/?mlat={{ $r->lat }}&mlon={{ $r->lng }}#map=18/{{ $r->lat }}/{{ $r->lng }}">{{ __('report.mod_open_map') }}</a>
+                    {{ $r->created_at?->diffForHumans() }}
+                    @if ($r->lat !== null && $r->lng !== null)
+                        · <a class="text-brand-700 underline" target="_blank" rel="noopener"
+                            data-map data-lat="{{ $r->lat }}" data-lng="{{ $r->lng }}" href="https://www.openstreetmap.org/?mlat={{ $r->lat }}&mlon={{ $r->lng }}#map=18/{{ $r->lat }}/{{ $r->lng }}">{{ __('report.mod_open_map') }}</a>
+                    @else
+                        · <span class="font-semibold text-amber-700">{{ __('report.text_only_review') }}</span>
+                    @endif
                 </p>
 
                 <div class="mt-3 flex flex-wrap gap-2">
@@ -264,14 +268,15 @@
     }
 @endphp
 
-                @if ($r->issue && ($r->issue->road_name || $r->issue->landmark))
+                @if ($r->issue && ($r->issue->road_name || $r->issue->landmark || $r->issue->place_name || $r->issue->location_note))
                     <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
                         <p class="font-semibold">{{ __('areas.claim_title') }}</p>
-                        @if ($r->issue->road_name)
-                            <p>{{ __('areas.claim_road') }}: {{ $r->issue->road_name }}</p>
-                        @endif
-                        @if ($r->issue->landmark)
-                            <p>{{ __('areas.claim_landmark') }}: {{ $r->issue->landmark }}</p>
+                        @if ($r->issue->place_name)<p>{{ __('report.place_name') }}: {{ $r->issue->place_name }}</p>@endif
+                        @if ($r->issue->location_note)<p>{{ __('report.location_note') }}: {{ $r->issue->location_note }}</p>@endif
+                        @if ($r->issue->road_name)<p>{{ __('areas.claim_road') }}: {{ $r->issue->road_name }}</p>@endif
+                        @if ($r->issue->landmark)<p>{{ __('areas.claim_landmark') }}: {{ $r->issue->landmark }}</p>@endif
+                        @if ($r->issue->needsLocationReview())
+                            <a href="{{ route('admin.issues.edit', $r->issue) }}" class="mt-2 inline-block font-bold text-brand-700 underline">{{ __('issueadmin.edit') }} — {{ __('report.location_text_only') }}</a>
                         @endif
                     </div>
                 @endif

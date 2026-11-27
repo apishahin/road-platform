@@ -66,6 +66,33 @@ class MapDisplaySettingsTest extends TestCase
             ->assertSee('world', false);
     }
 
+    public function test_bangladesh_home_map_starts_country_wide_before_the_dynamic_outline_loads(): void
+    {
+        AppearanceSettings::save(['map_display' => 'bangladesh']);
+
+        $this->get('/')->assertOk()
+            ->assertSee('23.65', false)
+            ->assertSee('90.35', false);
+    }
+
+    public function test_report_map_reads_the_same_admin_map_display_setting(): void
+    {
+        $citizen = User::create([
+            'phone' => '+8801900000173',
+            'display_name' => 'Map citizen',
+            'role' => 'citizen',
+        ]);
+        AppearanceSettings::save(['map_display' => 'world']);
+
+        $this->actingAs($citizen)->get('/report')->assertOk()
+            ->assertSee('window.roadPlatformMapDisplay = "world"', false)
+            ->assertSee("const mapDisplay = mapTools.mapDisplay || 'bangladesh';", false);
+
+        AppearanceSettings::save(['map_display' => 'bangladesh']);
+        $this->actingAs($citizen)->get('/report')->assertOk()
+            ->assertSee('window.roadPlatformMapDisplay = "bangladesh"', false);
+    }
+
     public function test_invalid_map_display_is_rejected_and_the_safe_default_is_bangladesh(): void
     {
         $admin = $this->admin();

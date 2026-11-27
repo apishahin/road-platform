@@ -59,7 +59,14 @@ class PublicApiController extends Controller
     /** GET /api/v1/issues/{public_id} */
     public function show(Issue $issue)
     {
-        abort_unless($issue->disposition !== 'removed', 404);
+        // A staff-held text-only location must not be exposed through a
+        // guessable public API URL, even if it had been published previously.
+        abort_unless(
+            $issue->disposition !== 'removed'
+                && $issue->published_at !== null
+                && ! $issue->needsLocationReview(),
+            404
+        );
 
         return response()->json(['data' => $this->issueArray($issue, true)]);
     }
@@ -67,12 +74,17 @@ class PublicApiController extends Controller
     /** GET /api/v1/categories */
     public function categories()
     {
-        $rows = Category::query()->where('is_active', 1)->orderBy('sort')->get()
+        // Public consumers receive selectable leaves; the parent relation makes
+        // their category UI hierarchical without turning a group label into a
+        // report filter value.
+        $rows = Category::query()->where('is_active', 1)->where('is_reportable', true)->orderBy('sort')->get()
             ->map(fn ($c) => [
-                'id'      => $c->id,
-                'slug'    => $c->slug,
+                'id' => $c->id,
+                'parent_id' => $c->parent_id,
+                'slug' => $c->slug,
                 'name_bn' => $c->name_bn,
                 'name_en' => $c->name_en,
+                'reportable' => (bool) $c->is_reportable,
             ])->values();
 
         return response()->json(['data' => $rows]);

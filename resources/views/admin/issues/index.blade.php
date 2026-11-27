@@ -135,7 +135,7 @@
                             </select>
                             <button type="submit" style="background:#dc2626;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('issueadmin.unpublish') }}</button>
                         </form>
-                    @else
+                    @elseif ($tab === 'unpublished')
                         <form method="POST" action="{{ route('admin.issues.republish', ['issue' => $issue->id]) }}" onsubmit="return confirm('{{ __('issueadmin.republish_confirm') }}')">
                             @csrf
                             <button type="submit" style="background:#15803d;color:#fff;border:0;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;">{{ __('issueadmin.republish') }}</button>
