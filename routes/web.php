@@ -116,6 +116,7 @@ Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'index'])->name('admin.storage.index');
     Route::post('/storage', [\App\Http\Controllers\Admin\StorageController::class, 'update'])->name('admin.storage.update');
     Route::post('/storage/check', [\App\Http\Controllers\Admin\StorageController::class, 'check'])->name('admin.storage.check');
+    Route::post('/storage/migrate', [\App\Http\Controllers\Admin\StorageController::class, 'migrate'])->name('admin.storage.migrate');
     Route::post('/storage/r2', [\App\Http\Controllers\Admin\StorageController::class, 'saveR2'])->name('admin.storage.r2');
     Route::post('/storage/keep-originals', [\App\Http\Controllers\Admin\StorageController::class, 'keepOriginals'])->name('admin.storage.keep-originals');
     Route::post('/storage/encode', [\App\Http\Controllers\Admin\StorageController::class, 'saveEncode'])->name('admin.storage.encode');

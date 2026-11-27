@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Evidence;
 use App\Models\User;
 use App\Support\StorageSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class AdminR2StorageSettingsTest extends TestCase
     {
         return User::unguarded(fn () => User::create([
             'public_id' => (string) Str::ulid(),
-            'phone' => '0181' . random_int(1000000, 9999999),
+            'phone' => '0181'.random_int(1000000, 9999999),
             'role' => $role,
         ]));
     }
@@ -106,6 +107,120 @@ class AdminR2StorageSettingsTest extends TestCase
         $this->assertSame('https://cdn.example.test', $r2['public_url']);
         $this->assertSame('access-key-id-for-test', $r2['access_key_id']);
         $this->assertSame('secret-key-for-test', $r2['secret_access_key']);
+    }
+
+    private function configureWorkingR2Fakes(): void
+    {
+        StorageSettings::saveR2([
+            'endpoint' => 'https://abc123.r2.cloudflarestorage.com',
+            'private_bucket' => 'road-private',
+            'public_bucket' => 'road-public',
+            'public_url' => 'https://images.example.test',
+        ], 'access-key-id-for-test', 'secret-key-for-test');
+        StorageSettings::apply();
+
+        foreach (['private', 'public', 'r2_private', 'r2_public'] as $disk) {
+            Storage::fake($disk);
+        }
+    }
+
+    public function test_admin_can_copy_all_evidence_types_then_switch_storage_without_losing_old_files(): void
+    {
+        $admin = $this->user();
+        $this->configureWorkingR2Fakes();
+
+        $pending = Evidence::unguarded(fn () => Evidence::create([
+            'uploader_id' => $admin->id,
+            'private_path' => 'evidence/originals/pending-original.jpg',
+            'public_path' => 'evidence/pending/pending-processed.jpg',
+            'taken_at' => now(),
+            'moderation' => 'pending',
+        ]));
+        $hidden = Evidence::unguarded(fn () => Evidence::create([
+            'uploader_id' => $admin->id,
+            'private_path' => null,
+            'public_path' => 'evidence/pending/hidden-processed.jpg',
+            'taken_at' => now(),
+            'moderation' => 'hidden',
+        ]));
+        $approved = Evidence::unguarded(fn () => Evidence::create([
+            'uploader_id' => $admin->id,
+            'private_path' => 'evidence/originals/approved-original.jpg',
+            'public_path' => 'evidence/public/approved-processed.jpg',
+            'taken_at' => now(),
+            'moderation' => 'approved',
+        ]));
+
+        Storage::disk('private')->put($pending->private_path, 'pending original');
+        Storage::disk('private')->put($pending->public_path, 'pending processed');
+        Storage::disk('private')->put($hidden->public_path, 'hidden processed');
+        Storage::disk('private')->put($approved->private_path, 'approved original');
+        Storage::disk('public')->put($approved->public_path, 'approved processed');
+
+        // The storage choice itself remains protected until the row-level
+        // references have moved. This replaces the old "finish moderation"
+        // dead end with an Admin-run migration path.
+        $this->actingAs($admin)->post(route('admin.storage.update'), ['storage' => 'r2'])
+            ->assertSessionHasErrors('storage');
+        $this->assertSame('local', StorageSettings::choice());
+
+        $this->actingAs($admin)->post(route('admin.storage.migrate'), [
+            'storage' => 'r2',
+            'limit' => 25,
+        ])->assertRedirect(route('admin.storage.index'))
+            ->assertSessionHas('migration', fn (array $result) => $result['migrated'] === 3
+                && $result['failed'] === 0 && $result['remaining'] === 0);
+
+        $pending->refresh();
+        $hidden->refresh();
+        $approved->refresh();
+        $this->assertSame('r2_private', $pending->private_disk);
+        $this->assertNull($pending->public_disk);
+        $this->assertSame('r2_private', $hidden->private_disk);
+        $this->assertNull($hidden->public_disk);
+        $this->assertSame('r2_private', $approved->private_disk);
+        $this->assertSame('r2_public', $approved->public_disk);
+
+        Storage::disk('r2_private')->assertExists([$pending->private_path, $pending->public_path, $hidden->public_path, $approved->private_path]);
+        Storage::disk('r2_public')->assertExists($approved->public_path);
+        // Copy, rather than delete, keeps a verified rollback/fallback copy.
+        Storage::disk('private')->assertExists([$pending->private_path, $pending->public_path, $hidden->public_path, $approved->private_path]);
+        Storage::disk('public')->assertExists($approved->public_path);
+
+        $this->actingAs($admin)->post(route('admin.storage.update'), ['storage' => 'r2'])
+            ->assertRedirect(route('admin.storage.index'))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('r2', StorageSettings::choice());
+    }
+
+    public function test_missing_legacy_file_is_reported_and_its_pointer_is_not_changed(): void
+    {
+        $admin = $this->user();
+        $this->configureWorkingR2Fakes();
+
+        $id = DB::table('evidence')->insertGetId([
+            'uploader_id' => $admin->id,
+            'private_path' => null,
+            'public_path' => 'evidence/pending/missing.jpg',
+            'taken_at' => now(),
+            'moderation' => 'pending',
+            'private_disk' => null,
+            'public_disk' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.storage.migrate'), [
+            'storage' => 'r2',
+            'limit' => 10,
+        ])->assertRedirect(route('admin.storage.index'))
+            ->assertSessionHas('migration', fn (array $result) => $result['failed'] === 1
+                && $result['remaining'] === 1
+                && ($result['issues'][0]['evidence_id'] ?? null) === $id);
+
+        $row = DB::table('evidence')->find($id);
+        $this->assertNull($row->private_disk);
+        Storage::disk('r2_private')->assertMissing('evidence/pending/missing.jpg');
     }
 
     public function test_non_admin_cannot_change_r2_settings_and_required_credentials_are_validated(): void

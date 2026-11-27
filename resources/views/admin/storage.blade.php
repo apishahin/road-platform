@@ -26,10 +26,66 @@
         </div>
     @endif
 
+    @if (session('migration'))
+        @php $migrationResult = session('migration'); @endphp
+        <div class="mt-4 rounded-lg border {{ ($migrationResult['failed'] ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : 'border-green-200 bg-green-50' }} p-4 text-sm">
+            <div class="font-semibold">ছবি স্থানান্তরের ফল</div>
+            <div class="mt-1">চেষ্টা: {{ $migrationResult['attempted'] }} · সম্পূর্ণ: {{ $migrationResult['migrated'] }} · আংশিক: {{ $migrationResult['partial'] }} · ব্যর্থ: {{ $migrationResult['failed'] }} · নতুন কপি: {{ $migrationResult['files_copied'] }}</div>
+            <div class="mt-1">এই গন্তব্যে এখনও বাকি: {{ $migrationResult['remaining'] }} টি evidence</div>
+            @if (! empty($migrationResult['issues']))
+                <div class="mt-3 rounded bg-white/70 p-3 text-xs text-amber-900">
+                    <div class="font-semibold">যেগুলো ঠিক করা দরকার (ডাটাবেস পয়েন্টার বদলানো হয়নি)</div>
+                    @foreach ($migrationResult['issues'] as $issue)
+                        <div class="mt-1">Evidence #{{ $issue['evidence_id'] }} · {{ $issue['kind'] }} · {{ $issue['from'] }} → {{ $issue['to'] }}: {{ $issue['reason'] }} <span class="text-slate-600">({{ $issue['path'] }})</span></div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
         <div class="text-sm text-slate-500">এখন ব্যবহৃত</div>
         <div class="text-lg font-semibold">{{ $choice === 'r2' ? 'Cloudflare R2' : 'লোকাল ফোল্ডার' }}</div>
         <div class="mt-1 text-xs text-slate-500">প্রাইভেট ডিস্ক: {{ $private }} · পাবলিক ডিস্ক: {{ $public }}</div>
+    </div>
+
+    <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <div class="font-semibold text-slate-900">বিদ্যমান ছবি নিরাপদে স্থানান্তর</div>
+        <p class="mt-1 text-sm leading-6 text-slate-700">স্টোরেজ বদলানোর আগে পুরনো evidence এখানে কপি করুন। প্রতিটি ফাইল কপি হওয়ার পর গন্তব্যে আছে এবং একই আকারের কি না যাচাই করা হয়; তারপরই শুধু ওই evidence-এর ডিস্ক পয়েন্টার বদলায়। উৎস ফাইল <strong>মোছা হয় না</strong>, তাই পুরনো স্টোরেজ fallback/rollback হিসেবে থাকে। Pending ও hidden ছবি private-ই থাকে; approved ছবির processed কপি শুধু public disk-এ যায়।</p>
+        <p class="mt-2 text-xs leading-5 text-slate-600">অনেক ছবি থাকলে ছোট batch চালান। কোনো ফাইল না পাওয়া গেলে সেটি ব্যর্থ হিসেবে দেখাবে এবং তার পুরনো disk reference অপরিবর্তিত থাকবে। পুরনো/ফাঁকা disk reference থাকলে বর্তমান চালু storage-কে উৎস ধরে একবার verify করে reference পূরণ করা হয়।</p>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+            @foreach (['local' => 'লোকাল ফোল্ডার', 'r2' => 'Cloudflare R2'] as $key => $label)
+                @php $targetMigration = $migration[$key]; @endphp
+                <div class="rounded-lg border border-amber-200 bg-white p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="font-semibold">{{ $label }}</div>
+                        @if ($targetMigration['remaining'] === 0)
+                            <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">প্রস্তুত</span>
+                        @else
+                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">{{ $targetMigration['remaining'] }} টি বাকি</span>
+                        @endif
+                    </div>
+                    <div class="mt-2 text-xs leading-5 text-slate-600">Private reference: {{ $targetMigration['private_remaining'] }} · Approved public reference: {{ $targetMigration['public_remaining'] }} · পুরনো/ফাঁকা reference: {{ $targetMigration['legacy'] }}</div>
+                    @if ($targetMigration['remaining'] > 0)
+                        <form method="POST" action="{{ route('admin.storage.migrate') }}" class="mt-3 flex flex-wrap items-center gap-2">
+                            @csrf
+                            <input type="hidden" name="storage" value="{{ $key }}">
+                            <label class="text-xs text-slate-600" for="migration-limit-{{ $key }}">একবারে</label>
+                            <select id="migration-limit-{{ $key }}" name="limit" class="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
+                                <option value="10">10 টি</option>
+                                <option value="25" selected>25 টি</option>
+                                <option value="50">50 টি</option>
+                                <option value="100">100 টি</option>
+                            </select>
+                            <button type="submit" class="rounded-lg bg-amber-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-800">কপি ও যাচাই করুন</button>
+                        </form>
+                    @else
+                        <p class="mt-3 text-xs font-medium text-green-700">এই storage-এ বদলানো নিরাপদ। চাইলে নিচের “এটি ব্যবহার করুন” চাপুন।</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
     </div>
 
     @foreach (['local' => 'লোকাল ফোল্ডার', 'r2' => 'Cloudflare R2'] as $key => $label)
@@ -125,11 +181,18 @@
     @endforeach
 
     <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-        <div class="font-semibold">কোন ডিস্কে কয়টি ছবি (প্রাইভেট)</div>
+        <div class="font-semibold">কোন ডিস্কে কয়টি ছবি</div>
+        <div class="mt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Private reference</div>
         @forelse ($counts as $disk => $n)
-            <div class="mt-1 text-sm">{{ $disk ?: '—' }}: {{ $n }} টি</div>
+            <div class="mt-1 text-sm">{{ $disk ?: '— (পুরনো/ফাঁকা)' }}: {{ $n }} টি</div>
         @empty
             <div class="mt-1 text-sm text-slate-500">এখনো কোনো ছবি নেই।</div>
+        @endforelse
+        <div class="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Approved public reference</div>
+        @forelse ($publicCounts as $disk => $n)
+            <div class="mt-1 text-sm">{{ $disk ?: '— (পুরনো/ফাঁকা)' }}: {{ $n }} টি</div>
+        @empty
+            <div class="mt-1 text-sm text-slate-500">এখনো অনুমোদিত ছবি নেই।</div>
         @endforelse
     </div>
 

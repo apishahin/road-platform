@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Evidence;
 use App\Services\AuditService;
+use App\Services\EvidenceStorageMigrationService;
+use App\Support\PhotoEncodeSettings;
 use App\Support\StorageSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -21,17 +23,28 @@ class StorageController extends Controller
         $this->guard();
 
         return view('admin.storage', [
-            'choice'  => StorageSettings::choice(),
+            'choice' => StorageSettings::choice(),
             'keepOrig' => StorageSettings::keepOriginals(),
-            'encode'   => \App\Support\PhotoEncodeSettings::all(),
-            'r2'      => StorageSettings::r2ForForm(),
+            'encode' => PhotoEncodeSettings::all(),
+            'r2' => StorageSettings::r2ForForm(),
             'r2Ready' => StorageSettings::r2Configured(),
             'private' => StorageSettings::privateDisk(),
-            'public'  => StorageSettings::publicDisk(),
-            'counts'  => Evidence::query()
+            'public' => StorageSettings::publicDisk(),
+            'counts' => Evidence::query()
                 ->selectRaw('private_disk, count(*) as c')
                 ->groupBy('private_disk')
                 ->pluck('c', 'private_disk'),
+            'publicCounts' => Evidence::query()
+                ->where('moderation', 'approved')
+                ->selectRaw('public_disk, count(*) as c')
+                ->groupBy('public_disk')
+                ->pluck('c', 'public_disk'),
+            // This is intentionally calculated from row-level disk pointers;
+            // it never assumes that a global default owns older evidence.
+            'migration' => [
+                'local' => app(EvidenceStorageMigrationService::class)->summary('local'),
+                'r2' => app(EvidenceStorageMigrationService::class)->summary('r2'),
+            ],
         ]);
     }
 
@@ -127,18 +140,58 @@ class StorageController extends Controller
         $this->guard();
 
         $data = $request->validate([
-            'max'     => ['required', 'integer', 'in:' . implode(',', \App\Support\PhotoEncodeSettings::SIZES)],
-            'format'  => ['required', 'in:jpeg,webp'],
+            'max' => ['required', 'integer', 'in:'.implode(',', PhotoEncodeSettings::SIZES)],
+            'format' => ['required', 'in:jpeg,webp'],
             'quality' => ['required', 'integer', 'min:50', 'max:92'],
         ]);
 
-        \App\Support\PhotoEncodeSettings::save((int) $data['max'], $data['format'], (int) $data['quality']);
+        PhotoEncodeSettings::save((int) $data['max'], $data['format'], (int) $data['quality']);
         $audit->log($request->user(), 'storage.encode', 'setting', 'photo_encode', $data);
 
         return back()->with('status', 'ফটো সেটিং সংরক্ষণ হয়েছে — এখন থেকে নতুন আপলোডে কার্যকর হবে।');
     }
 
-    public function update(Request $request, AuditService $audit)
+    /**
+     * Copy a bounded batch of existing evidence to a target disk pair.
+     *
+     * Source files are retained after a verified copy. This avoids a storage
+     * change becoming a destructive operation and leaves a rollback fallback.
+     */
+    public function migrate(Request $request, AuditService $audit, EvidenceStorageMigrationService $migration)
+    {
+        $this->guard();
+        $data = $request->validate([
+            'storage' => ['required', 'in:local,r2'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+        $target = $data['storage'];
+
+        if ($target === 'r2' && ! StorageSettings::r2Configured()) {
+            return back()->withErrors(['storage' => 'আগে Cloudflare R2-এর সব তথ্য সংরক্ষণ করুন।']);
+        }
+
+        foreach (StorageSettings::OPTIONS[$target] as $disk) {
+            $check = StorageSettings::check($disk);
+            if (! $check['ok']) {
+                return back()->withErrors(['storage' => "গন্তব্য ডিস্ক '$disk' কাজ করছে না: ".$check['message']]);
+            }
+        }
+
+        $result = $migration->migrate($target, (int) ($data['limit'] ?? 25));
+        $audit->log($request->user(), 'storage.evidence_migrated', 'setting', 'evidence_storage', [
+            'target' => $target,
+            'attempted' => $result['attempted'],
+            'migrated' => $result['migrated'],
+            'partial' => $result['partial'],
+            'failed' => $result['failed'],
+            'files_copied' => $result['files_copied'],
+            'remaining' => $result['remaining'],
+        ]);
+
+        return redirect()->route('admin.storage.index')->with('migration', $result);
+    }
+
+    public function update(Request $request, AuditService $audit, EvidenceStorageMigrationService $migration)
     {
         $this->guard();
         $data = $request->validate(['storage' => ['required', 'in:local,r2']]);
@@ -146,26 +199,20 @@ class StorageController extends Controller
         $disks = StorageSettings::OPTIONS[$target];
 
         if ($target === 'r2' && ! StorageSettings::r2Configured()) {
-            return back()->withErrors(['storage' => 'R2-এর তথ্য .env ফাইলে সম্পূর্ণ সেট করা নেই।']);
+            return back()->withErrors(['storage' => 'R2-এর তথ্য এখনও সম্পূর্ণ সেট করা নেই।']);
         }
 
         foreach ($disks as $disk) {
             $r = StorageSettings::check($disk);
             if (! $r['ok']) {
-                return back()->withErrors(['storage' => "ডিস্ক '$disk' কাজ করছে না: " . $r['message']]);
+                return back()->withErrors(['storage' => "ডিস্ক '$disk' কাজ করছে না: ".$r['message']]);
             }
         }
 
-        $blocked = Evidence::query()
-            ->where('moderation', '!=', 'approved')
-            ->where(function ($q) use ($disks) {
-                $q->whereNull('private_disk')->orWhere('private_disk', '!=', $disks['private']);
-            })
-            ->count();
-
-        if ($blocked > 0) {
+        $pendingMigration = $migration->summary($target);
+        if ($pendingMigration['remaining'] > 0) {
             return back()->withErrors([
-                'storage' => "$blocked টি অনুমোদনহীন ছবি পুরনো ডিস্কে আছে। সেগুলোর কাজ শেষ হওয়ার পর স্টোরেজ বদলান।",
+                'storage' => "{$pendingMigration['remaining']} টি evidence এখনও অন্য বা পুরনো ডিস্কে আছে। নিচের “বিদ্যমান ছবি স্থানান্তর” থেকে নিরাপদে কপি শেষ করে আবার স্টোরেজ বদলান।",
             ]);
         }
 
